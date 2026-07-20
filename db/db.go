@@ -2,11 +2,16 @@ package db
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+)
+
+var (
+	ErrMissingField = errors.New("one or more required fields missing")
 )
 
 type DB struct {
@@ -40,6 +45,22 @@ func Connect(driver, connection string) (*DB, error) {
 	return &DB{db}, err
 }
 
+func (e *Environment) BeforeCreate(tx *gorm.DB) error {
+	if e.Name == "" || e.Path == "" || e.Version == 0 || e.Created == 0 {
+		return ErrMissingField
+	}
+
+	return nil
+}
+
+func (e *Environment) ToIndex() EnvironmentIndex {
+	return EnvironmentIndex{
+		Name:    e.Name,
+		Path:    e.Path,
+		Version: e.Version,
+	}
+}
+
 // func (db *DB) dropTables(tables ...interface{}) error {
 // 	return db.Migrator().DropTable(tables...)
 // }
@@ -58,15 +79,23 @@ func (db *DB) CreateEnvironments(ctx context.Context, envs []Environment) error 
 }
 
 func (db *DB) CreateEnvironment(ctx context.Context, env Environment) error {
-	return db.WithContext(ctx).Create(env).Error
+	return db.WithContext(ctx).Create(&env).Error
 }
 
-func (db *DB) UpdateEnvironment(ctx context.Context, index EnvironmentIndex, updates map[string]interface{}) error {
+// func (db *DB) UpdateEnvironment(ctx context.Context, index EnvironmentIndex, updates map[string]interface{}) error {
+// 	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
+// 		Name:    index.Name,
+// 		Path:    index.Path,
+// 		Version: index.Version,
+// 	}).Updates(updates).Error
+// }
+
+func (db *DB) UpdateEnvironment(ctx context.Context, env Environment) error {
 	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
-		Name:    index.Name,
-		Path:    index.Path,
-		Version: index.Version,
-	}).Updates(updates).Error
+		Name:    env.Name,
+		Path:    env.Path,
+		Version: env.Version,
+	}).Updates(&env).Error
 }
 
 // GetEnvironments retrieves environments from the database.

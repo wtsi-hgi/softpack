@@ -8,7 +8,12 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCreateAndGetEnvironments(t *testing.T) {
+const (
+	UniqueConstraintFailed = "UNIQUE constraint failed"
+	MissingRequiredFields  = "one or more required fields missing"
+)
+
+func TestCreateEnvironments(t *testing.T) {
 	ctx, db := Setup(t)
 
 	env1 := Environment{
@@ -57,11 +62,11 @@ func TestCreateAndGetEnvironments(t *testing.T) {
 	}
 
 	err = db.CreateEnvironments(ctx, []Environment{env1, env2})
-	assert.ErrorContains(t, err, "UNIQUE constraint failed")
+	assert.ErrorContains(t, err, UniqueConstraintFailed)
 
 	envs, err = db.GetEnvironments(ctx)
 	assert.NoError(t, err)
-	assert.Equal(t, envs, []Environment{env1})
+	assert.Equal(t, envs, []Environment{env1}) // TODO: Do i want it to still add env2 given that env1 fails?
 
 	err = db.CreateEnvironments(ctx, []Environment{env2, env3})
 	assert.NoError(t, err)
@@ -86,24 +91,34 @@ func TestCreateAndGetEnvironments(t *testing.T) {
 	envs, err = db.GetEnvironments(ctx, indexes...)
 	assert.NoError(t, err)
 	assert.Equal(t, envs, []Environment{env1, env2})
+
+	env4 := Environment{
+		Path: "path/to/incomplete/env",
+	}
+
+	err = db.CreateEnvironment(ctx, env4)
+	assert.ErrorContains(t, err, MissingRequiredFields)
+
+	envs, err = db.GetEnvironments(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, envs, []Environment{env1, env2, env3})
 }
 
 func TestUpdateEnvironment(t *testing.T) {
 	ctx, db := SetupWithEnv1(t)
 
-	index := EnvironmentIndex{
-		Name:    "name",
-		Path:    "path/to/env",
-		Version: 1,
+	env := Environment{
+		Name:        "name",
+		Path:        "path/to/env",
+		Version:     1,
+		Hidden:      true,
+		Description: "new description",
 	}
 
-	err := db.UpdateEnvironment(ctx, index, map[string]interface{}{
-		"Hidden":      true,
-		"Description": "new description",
-	})
+	err := db.UpdateEnvironment(ctx, env)
 	assert.NoError(t, err)
 
-	envs, err := db.GetEnvironments(ctx, index)
+	envs, err := db.GetEnvironments(ctx, env.ToIndex())
 	assert.NoError(t, err)
 	assert.Equal(t, len(envs), 1)
 	assert.True(t, envs[0].Hidden)

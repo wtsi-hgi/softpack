@@ -22,10 +22,11 @@ func Serve(b *backend.Server) {
 
 	http.HandleFunc("/create-environment", b.CreateEnvironment)
 	http.HandleFunc("/get-environment", b.GetEnvironment)
+	// http.HandleFunc("/update-environment", b.UpdateEnvironment)
 	http.HandleFunc("/delete-environment", b.DeleteEnvironment)
-	http.HandleFunc("/add-tag", b.AddEnvironmentTag)
-	http.HandleFunc("/delete-tag", b.DeleteEnvironmentTag)
-	http.HandleFunc("/set-hidden", b.ToggleEnvironmentHidden)
+	// http.HandleFunc("/add-tag", b.AddEnvironmentTag)
+	// http.HandleFunc("/delete-tag", b.DeleteEnvironmentTag)
+	// http.HandleFunc("/set-hidden", b.ToggleEnvironmentHidden)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
