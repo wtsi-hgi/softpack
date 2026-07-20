@@ -7,8 +7,6 @@ import (
 	"github.com/wtsi-hgi/softpack/db"
 )
 
-// TODO: sort helper funcs for http stuff
-
 func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
 	s.envMu.Lock()
 	defer s.envMu.Unlock()
@@ -49,4 +47,7 @@ func (s *Server) GetEnvironment(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) DeleteEnvironment(w http.ResponseWriter, r *http.Request) {}
+func (s *Server) DeleteEnvironment(w http.ResponseWriter, r *http.Request)       {}
+func (s *Server) AddEnvironmentTag(w http.ResponseWriter, r *http.Request)       {}
+func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request)    {}
+func (s *Server) ToggleEnvironmentHidden(w http.ResponseWriter, r *http.Request) {}

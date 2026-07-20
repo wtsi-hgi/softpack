@@ -16,12 +16,13 @@ type EnvironmentIndex struct {
 	Version    int
 }
 
-// type RecipieRequest struct {
-// 	ID      uint `gorm:"primaryKey;autoIncrement"`
-// 	Name    string
-// 	Version string
-// 	URL     string
-// 	Details string
-// }
+type RecipeRequest struct {
+	ID        uint `gorm:"primaryKey;autoIncrement"`
+	Name      string
+	Version   string
+	URL       string
+	Details   string
+	Requester string
+}
 
 // path/name-version

@@ -2,8 +2,6 @@ package backend
 
 import (
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -14,24 +12,13 @@ import (
 // TODO: Sort helper func for http stuff
 func TestEnvironment(t *testing.T) {
 	s := New()
-
-	w := httptest.NewRecorder()
-	r := httptest.NewRequest(
-		http.MethodGet,
-		"/get-environment",
-		nil,
-	)
-
-	s.GetEnvironment(w, r)
-
-	assert.Equal(t, 200, w.Code)
-
 	var envs []db.Environment
 
-	err := json.NewDecoder(w.Body).Decode(&envs)
+	code, resp := getResponse(t, s.GetEnvironment, "/get-environment")
+	assert.Equal(t, 200, code)
+	err := json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
 	assert.NoError(t, err)
-
-	assert.Equal(t, envs, []db.Environment{})
+	assert.Equal(t, []db.Environment{}, envs)
 
 	//
 
@@ -40,32 +27,32 @@ func TestEnvironment(t *testing.T) {
 		Path:    "path/to/test",
 		Version: 1,
 	}
-	jsonBody, _ := json.Marshal(environment)
-
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest(
-		http.MethodPost,
-		"/create-environment",
-		strings.NewReader(string(jsonBody)),
-	)
-
-	s.CreateEnvironment(w, r)
-	assert.Equal(t, 200, w.Code)
+	code, resp = getResponse(t, s.CreateEnvironment, "/create-environment", environment)
+	assertEmptyResp(t, code, resp)
 
 	//
 
-	w = httptest.NewRecorder()
-	r = httptest.NewRequest(
-		http.MethodGet,
-		"/get-environment",
-		nil,
-	)
-
-	s.GetEnvironment(w, r)
-
-	assert.Equal(t, 200, w.Code)
-
-	err = json.NewDecoder(w.Body).Decode(&envs)
+	code, resp = getResponse(t, s.GetEnvironment, "/get-environment")
+	assert.Equal(t, 200, code)
+	err = json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
 	assert.NoError(t, err)
-	assert.Equal(t, envs, []db.Environment{environment})
+	assert.Equal(t, []db.Environment{environment}, envs)
+
+	//
+
+	code, resp = getResponse(t, s.DeleteEnvironment, "/delete-environment", environment)
+	assertEmptyResp(t, code, resp)
+
+	//
+
+	code, resp = getResponse(t, s.GetEnvironment, "/get-environment")
+	assert.Equal(t, 200, code)
+	err = json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
+	assert.NoError(t, err)
+	assert.Equal(t, []db.Environment{}, envs)
+
+	//
+
+	code, resp = getResponse(t, s.CreateEnvironment, "/create-environment")
+
 }

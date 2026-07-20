@@ -7,10 +7,25 @@ import (
 	"github.com/wtsi-hgi/softpack/backend"
 )
 
+// func Routes(b *backend.Server) map[string]http.HandlerFunc {
+// 	return map[string]http.HandlerFunc{
+// 		"/create-environment": b.CreateEnvironment,
+// 		"/get-environment":    b.GetEnvironment,
+// 		"/delete-environment": b.DeleteEnvironment,
+// 	}
+// }
+
 func Serve(b *backend.Server) {
+	// for endpoint, handler := range Routes(b) {
+	// 	http.HandleFunc(endpoint, handler)
+	// }
+
 	http.HandleFunc("/create-environment", b.CreateEnvironment)
 	http.HandleFunc("/get-environment", b.GetEnvironment)
 	http.HandleFunc("/delete-environment", b.DeleteEnvironment)
+	http.HandleFunc("/add-tag", b.AddEnvironmentTag)
+	http.HandleFunc("/delete-tag", b.DeleteEnvironmentTag)
+	http.HandleFunc("/set-hidden", b.ToggleEnvironmentHidden)
 
 	log.Fatal(http.ListenAndServe(":8080", nil))
 
