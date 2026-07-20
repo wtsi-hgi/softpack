@@ -131,12 +131,8 @@ func Setup(t *testing.T) (context.Context, *DB) {
 	t.Helper()
 
 	ctx := t.Context()
-	// use :memory: as connection string to avoid creating new .db file
 	db, err := Connect("sqlite3", ":memory:")
 	require.NoError(t, err)
-
-	// err = db.dropTables("environments")
-	// require.NoError(t, err)
 
 	return ctx, db
 }

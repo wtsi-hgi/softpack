@@ -32,7 +32,7 @@ func Connect(driver, connection string) (*DB, error) {
 		return nil, err
 	}
 
-	err = db.AutoMigrate(&Environment{})
+	err = db.AutoMigrate(&Environment{}, &RecipeRequest{})
 	if err != nil {
 		return nil, err
 	}
@@ -44,6 +44,7 @@ func Connect(driver, connection string) (*DB, error) {
 // 	return db.Migrator().DropTable(tables...)
 // }
 
+// TODO: Should I keep this?
 func (db *DB) CreateEnvironments(ctx context.Context, envs []Environment) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, env := range envs {
