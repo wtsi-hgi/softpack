@@ -105,34 +105,23 @@ func TestCreateEnvironments(t *testing.T) {
 }
 
 func TestUpdateEnvironment(t *testing.T) {
-	ctx, db := SetupWithEnv1(t)
+	ctx, db, env := SetupWithEnv1(t)
 
-	env := Environment{
-		Name:        "name",
-		Path:        "path/to/env",
-		Version:     1,
-		Hidden:      true,
-		Description: "new description",
-	}
+	env.Hidden = true
+	env.Description = "new description"
 
 	err := db.UpdateEnvironment(ctx, env)
 	assert.NoError(t, err)
 
 	envs, err := db.GetEnvironments(ctx, env.ToIndex())
 	assert.NoError(t, err)
-	assert.Equal(t, len(envs), 1)
-	assert.True(t, envs[0].Hidden)
-	assert.Equal(t, envs[0].Description, "new description")
+	assert.Equal(t, []Environment{env}, envs)
 }
 
 func TestDeleteEnvironment(t *testing.T) {
-	ctx, db := SetupWithEnv1(t)
+	ctx, db, env := SetupWithEnv1(t)
 
-	index := EnvironmentIndex{
-		Name:    "name",
-		Path:    "path/to/env",
-		Version: 1,
-	}
+	index := env.ToIndex()
 
 	err := db.DeleteEnvironment(ctx, index)
 	assert.NoError(t, err)
@@ -152,7 +141,7 @@ func Setup(t *testing.T) (context.Context, *DB) {
 	return ctx, db
 }
 
-func SetupWithEnv1(t *testing.T) (context.Context, *DB) {
+func SetupWithEnv1(t *testing.T) (context.Context, *DB, Environment) {
 	ctx, db := Setup(t)
 
 	env := Environment{
@@ -171,5 +160,5 @@ func SetupWithEnv1(t *testing.T) (context.Context, *DB) {
 	err := db.CreateEnvironment(ctx, env)
 	assert.NoError(t, err)
 
-	return ctx, db
+	return ctx, db, env
 }

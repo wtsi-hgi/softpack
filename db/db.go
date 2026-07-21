@@ -49,6 +49,12 @@ func (e *Environment) BeforeCreate(tx *gorm.DB) error {
 	if e.Name == "" || e.Path == "" || e.Version == 0 || e.Created == 0 {
 		return ErrMissingField
 	}
+	// if e.Tags == nil {
+	// 	e.Tags = []string{}
+	// }
+	// if e.Packages == nil {
+	// 	e.Packages = []string{}
+	// }
 
 	return nil
 }
@@ -58,6 +64,14 @@ func (e *Environment) ToIndex() EnvironmentIndex {
 		Name:    e.Name,
 		Path:    e.Path,
 		Version: e.Version,
+	}
+}
+
+func (u *UpdateByIndex) ToIndex() EnvironmentIndex {
+	return EnvironmentIndex{
+		Name:    u.Name,
+		Path:    u.Path,
+		Version: u.Version,
 	}
 }
 
@@ -82,14 +96,6 @@ func (db *DB) CreateEnvironment(ctx context.Context, env Environment) error {
 	return db.WithContext(ctx).Create(&env).Error
 }
 
-// func (db *DB) UpdateEnvironment(ctx context.Context, index EnvironmentIndex, updates map[string]interface{}) error {
-// 	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
-// 		Name:    index.Name,
-// 		Path:    index.Path,
-// 		Version: index.Version,
-// 	}).Updates(updates).Error
-// }
-
 func (db *DB) UpdateEnvironment(ctx context.Context, env Environment) error {
 	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
 		Name:    env.Name,
@@ -97,6 +103,14 @@ func (db *DB) UpdateEnvironment(ctx context.Context, env Environment) error {
 		Version: env.Version,
 	}).Updates(&env).Error
 }
+
+// func (db *DB) UpdateEnvironmentField(ctx context.Context, env EnvironmentIndex, col string, value any) error {
+// 	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
+// 		Name:    env.Name,
+// 		Path:    env.Path,
+// 		Version: env.Version,
+// 	}).Update(col, value).Error
+// }
 
 // GetEnvironments retrieves environments from the database.
 // Provide no additional arguments to retrieve all environments.
