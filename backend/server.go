@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"encoding/json"
 	"net/http"
 	"sync"
 
@@ -20,6 +21,16 @@ type Error struct {
 
 func HttpError(w http.ResponseWriter, err Error) {
 	http.Error(w, err.err.Error(), err.code)
+}
+
+func GetItemFromRequest[T any](r *http.Request) (*T, error) {
+	var item T
+
+	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
+		return nil, err
+	}
+
+	return &item, nil
 }
 
 func New() *Server {

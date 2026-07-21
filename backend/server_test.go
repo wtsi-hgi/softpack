@@ -57,3 +57,8 @@ func assertEmptyResp(t *testing.T, code int, resp string) {
 	assert.Equal(t, 200, code)
 	assert.Empty(t, resp)
 }
+
+func assertHasError(t *testing.T, code int, resp string, err Error) {
+	assert.Equal(t, err.code, code)
+	assert.Contains(t, resp, err.err.Error())
+}
