@@ -21,7 +21,7 @@ func TestCreateEnvironment(t *testing.T) {
 		Path: "path/to/invalid",
 	}
 	code, resp := getResponse(t, s, "/create-environment", invalid)
-	assertHasError(t, code, resp, ErrMissingRequiredField)
+	assertBadRequest(t, code, resp, db.ErrMissingField)
 
 	checkAllEqual(t, s, []db.Environment{})
 
@@ -78,13 +78,13 @@ func TestAddAndDeleteTags(t *testing.T) {
 	}
 
 	code, resp := getResponse(t, s, "/delete-tag", u)
-	assertHasError(t, code, resp, ErrMissingItem)
+	assertBadRequest(t, code, resp, ErrMissingItem)
 
 	code, resp = getResponse(t, s, "/add-tag", u)
 	assertEmptyResp(t, code, resp)
 
 	code, resp = getResponse(t, s, "/add-tag", u)
-	assertHasError(t, code, resp, ErrDuplicateItem)
+	assertBadRequest(t, code, resp, ErrDuplicateItem)
 
 	env.Tags = []string{"new tag"}
 

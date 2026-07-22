@@ -3,7 +3,6 @@ package backend
 import (
 	"bytes"
 	"encoding/json"
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -13,12 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/wtsi-hgi/softpack/db"
 )
-
-var ErrMissingRequiredField = Error{
-	Err: errors.New("one or more required fields missing"),
-	// Code: http.StatusBadRequest,
-	Code: http.StatusInternalServerError,
-}
 
 func TestServer(t *testing.T) {}
 
@@ -79,9 +72,9 @@ func assertEmptyResp(t *testing.T, code int, resp string) {
 	assert.Empty(t, resp)
 }
 
-func assertHasError(t *testing.T, code int, resp string, err Error) {
-	assert.Equal(t, err.Code, code)
-	assert.Contains(t, resp, err.Err.Error())
+func assertBadRequest(t *testing.T, code int, resp string, err error) {
+	assert.Equal(t, http.StatusBadRequest, code)
+	assert.Contains(t, resp, err.Error())
 }
 
 func checkAllEqual[T db.Environment | db.RecipeRequest](t *testing.T, s *httptest.Server, expected []T) {
