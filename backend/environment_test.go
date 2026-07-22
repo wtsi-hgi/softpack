@@ -2,8 +2,8 @@ package backend
 
 import (
 	"encoding/json"
-	"errors"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -11,24 +11,19 @@ import (
 	"github.com/wtsi-hgi/softpack/db"
 )
 
-var ErrMissingRequiredField = Error{
-	err:  errors.New("one or more required fields missing"),
-	code: http.StatusBadRequest,
-}
-
 func TestCreateEnvironment(t *testing.T) {
-	s := New()
+	s := newTestServer(t)
 
-	checkAllEnvsEqual(t, s, []db.Environment{})
+	checkAllEqual(t, s, []db.Environment{})
 
 	invalid := db.Environment{
 		Name: "invalid",
 		Path: "path/to/invalid",
 	}
-	code, resp := getResponse(t, s.CreateEnvironment, "/create-environment", invalid)
+	code, resp := getResponse(t, s, "/create-environment", invalid)
 	assertHasError(t, code, resp, ErrMissingRequiredField)
 
-	checkAllEnvsEqual(t, s, []db.Environment{})
+	checkAllEqual(t, s, []db.Environment{})
 
 	environment := db.Environment{
 		Name:        "test",
@@ -37,10 +32,10 @@ func TestCreateEnvironment(t *testing.T) {
 		Description: "description",
 		Created:     1,
 	}
-	code, resp = getResponse(t, s.CreateEnvironment, "/create-environment", environment)
+	code, resp = getResponse(t, s, "/create-environment", environment)
 	assertEmptyResp(t, code, resp)
 
-	checkAllEnvsEqual(t, s, []db.Environment{environment})
+	checkAllEqual(t, s, []db.Environment{environment})
 }
 
 func TestDeleteEnvironment(t *testing.T) {
@@ -48,10 +43,10 @@ func TestDeleteEnvironment(t *testing.T) {
 
 	idx := env.ToIndex()
 
-	code, resp := getResponse(t, s.DeleteEnvironment, "/delete-environment", idx)
+	code, resp := getResponse(t, s, "/delete-environment", idx)
 	assertEmptyResp(t, code, resp)
 
-	checkAllEnvsEqual(t, s, []db.Environment{})
+	checkAllEqual(t, s, []db.Environment{})
 }
 
 func TestUpdateEnvironment(t *testing.T) {
@@ -62,14 +57,16 @@ func TestUpdateEnvironment(t *testing.T) {
 	env.Hidden = true
 	idx := env.ToIndex()
 
-	code, resp := getResponse(t, s.UpdateEnvironment, "/update-environment", env)
+	code, resp := getResponse(t, s, "/update-environment", env)
 	assertEmptyResp(t, code, resp)
 
-	code, resp = getResponse(t, s.GetEnvironment, "/get-environments", idx)
+	code, resp = getResponse(t, s, "/get-environments", idx)
 	assert.Equal(t, 200, code)
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
 	assert.NoError(t, err)
 	assert.Equal(t, []db.Environment{env}, envs)
+
+	// TODO: Should probably test tags/hidden status are updated correctly using this method
 }
 
 func TestAddAndDeleteTags(t *testing.T) {
@@ -80,29 +77,29 @@ func TestAddAndDeleteTags(t *testing.T) {
 		Value:            "new tag",
 	}
 
-	code, resp := getResponse(t, s.DeleteEnvironmentTag, "/delete-tag", u)
+	code, resp := getResponse(t, s, "/delete-tag", u)
 	assertHasError(t, code, resp, ErrMissingItem)
 
-	code, resp = getResponse(t, s.AddEnvironmentTag, "/add-tag", u)
+	code, resp = getResponse(t, s, "/add-tag", u)
 	assertEmptyResp(t, code, resp)
 
-	code, resp = getResponse(t, s.AddEnvironmentTag, "/add-tag", u)
+	code, resp = getResponse(t, s, "/add-tag", u)
 	assertHasError(t, code, resp, ErrDuplicateItem)
 
 	env.Tags = []string{"new tag"}
 
-	checkAllEnvsEqual(t, s, []db.Environment{env})
+	checkAllEqual(t, s, []db.Environment{env})
 }
 
 func TestToggleHidden(t *testing.T) {
 	s, env := setupWithEnv(t)
 
-	code, resp := getResponse(t, s.ToggleEnvironmentHidden, "/set-hidden", env)
+	code, resp := getResponse(t, s, "/set-hidden", env)
 	assertEmptyResp(t, code, resp)
 
 	var actual []db.Environment
 
-	code, resp = getResponse(t, s.GetEnvironment, "/get-environments")
+	code, resp = getResponse(t, s, "/get-environments")
 	assert.Equal(t, http.StatusOK, code)
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&actual)
 	assert.NoError(t, err)
@@ -110,10 +107,8 @@ func TestToggleHidden(t *testing.T) {
 	assert.NotEqual(t, actual[0].Hidden, env.Hidden)
 }
 
-func setupWithEnv(t *testing.T) (*Server, db.Environment) {
-	t.Helper()
-
-	s := New()
+func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
+	s := newTestServer(t)
 
 	environment := db.Environment{
 		Name:        "test",
@@ -122,22 +117,10 @@ func setupWithEnv(t *testing.T) (*Server, db.Environment) {
 		Description: "description",
 		Created:     1,
 	}
-	code, resp := getResponse(t, s.CreateEnvironment, "/create-environment", environment)
+	code, resp := getResponse(t, s, "/create-environment", environment)
 	assertEmptyResp(t, code, resp)
 
-	checkAllEnvsEqual(t, s, []db.Environment{environment})
+	checkAllEqual(t, s, []db.Environment{environment})
 
 	return s, environment
-}
-
-func checkAllEnvsEqual(t *testing.T, s *Server, expected []db.Environment) {
-	t.Helper()
-
-	var actual []db.Environment
-
-	code, resp := getResponse(t, s.GetEnvironment, "/get-environments")
-	assert.Equal(t, http.StatusOK, code)
-	err := json.NewDecoder(strings.NewReader(resp)).Decode(&actual)
-	assert.NoError(t, err)
-	assert.Equal(t, expected, actual)
 }

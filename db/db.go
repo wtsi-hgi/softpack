@@ -59,6 +59,14 @@ func (e *Environment) BeforeCreate(tx *gorm.DB) error {
 	return nil
 }
 
+func (r *RecipeRequest) BeforeCreate(tx *gorm.DB) error {
+	if r.Name == "" || r.Version == "" || r.URL == "" || r.Details == "" {
+		return ErrMissingField
+	}
+
+	return nil
+}
+
 func (e *Environment) ToIndex() EnvironmentIndex {
 	return EnvironmentIndex{
 		Name:    e.Name,
@@ -152,4 +160,19 @@ func (db *DB) DeleteEnvironment(ctx context.Context, index EnvironmentIndex) err
 		Path:    index.Path,
 		Version: index.Version,
 	}).Delete(&Environment{}).Error
+}
+
+func (db *DB) RequestRecipe(ctx context.Context, recipe RecipeRequest) error {
+	return db.WithContext(ctx).Create(&recipe).Error
+}
+
+func (db *DB) GetRequestedRecipes(ctx context.Context) ([]RecipeRequest, error) {
+	var reqs []RecipeRequest
+	query := db.WithContext(ctx)
+
+	if err := query.Find(&reqs).Error; err != nil {
+		return nil, err
+	}
+
+	return reqs, nil
 }
