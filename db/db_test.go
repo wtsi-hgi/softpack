@@ -14,7 +14,7 @@ const (
 )
 
 func TestCreateEnvironments(t *testing.T) {
-	ctx, db := Setup(t)
+	ctx, db := setup(t)
 
 	env1 := Environment{
 		Name:        "name",
@@ -105,7 +105,7 @@ func TestCreateEnvironments(t *testing.T) {
 }
 
 func TestUpdateEnvironment(t *testing.T) {
-	ctx, db, env := SetupWithEnv1(t)
+	ctx, db, env := setupWithEnv1(t)
 
 	env.Hidden = true
 	env.Description = "new description"
@@ -119,7 +119,7 @@ func TestUpdateEnvironment(t *testing.T) {
 }
 
 func TestDeleteEnvironment(t *testing.T) {
-	ctx, db, env := SetupWithEnv1(t)
+	ctx, db, env := setupWithEnv1(t)
 
 	index := env.ToIndex()
 
@@ -131,7 +131,31 @@ func TestDeleteEnvironment(t *testing.T) {
 	assert.Equal(t, len(envs), 0)
 }
 
-func Setup(t *testing.T) (context.Context, *DB) {
+func TestRequestRecipe(t *testing.T) {
+	ctx, db := setup(t)
+
+	r := RecipeRequest{
+		Name:    "name",
+		Version: "version",
+		URL:     "url/for/name",
+	}
+
+	err := db.RequestRecipe(ctx, r)
+	assert.ErrorContains(t, err, MissingRequiredFields)
+
+	r.Details = "details"
+
+	err = db.RequestRecipe(ctx, r)
+	assert.NoError(t, err)
+
+	reqs, err := db.GetRequestedRecipes(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, len(reqs), 1)
+	// checkRecipeEqual(t, reqs[0], r)
+	assert.Equal(t, r, reqs[0])
+}
+
+func setup(t *testing.T) (context.Context, *DB) {
 	t.Helper()
 
 	ctx := t.Context()
@@ -141,8 +165,8 @@ func Setup(t *testing.T) (context.Context, *DB) {
 	return ctx, db
 }
 
-func SetupWithEnv1(t *testing.T) (context.Context, *DB, Environment) {
-	ctx, db := Setup(t)
+func setupWithEnv1(t *testing.T) (context.Context, *DB, Environment) {
+	ctx, db := setup(t)
 
 	env := Environment{
 		Name:        "name",
@@ -162,3 +186,10 @@ func SetupWithEnv1(t *testing.T) (context.Context, *DB, Environment) {
 
 	return ctx, db, env
 }
+
+// func checkRecipeEqual(t *testing.T, actual, expected RecipeRequest) {
+// 	t.Helper()
+
+// 	actual.ID = expected.ID
+// 	assert.Equal(t, actual, expected)
+// }

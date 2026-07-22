@@ -11,155 +11,148 @@ import (
 
 var (
 	ErrInvalidJson = Error{
-		err:  errors.New("invalid json"),
-		code: http.StatusBadRequest,
+		Err: errors.New("invalid json"),
+		// Code: http.StatusBadRequest,
+		Code: http.StatusInternalServerError,
 	}
 	ErrDuplicateItem = Error{
-		err:  errors.New("item to add already exists"),
-		code: http.StatusBadRequest,
+		Err: errors.New("item to add already exists"),
+		// Code: http.StatusBadRequest,
+		Code: http.StatusInternalServerError,
 	}
 	ErrMissingItem = Error{
-		err:  errors.New("item to delete does not exist"),
-		code: http.StatusBadRequest,
+		Err: errors.New("item to delete does not exist"),
+		// Code: http.StatusBadRequest,
+		Code: http.StatusInternalServerError,
 	}
 )
 
-// TODO: I dont like this error handling
-
-func ErrDbFail(err error) Error {
-	return Error{
-		err:  errors.New(err.Error()),
-		code: http.StatusBadRequest,
-	}
-}
-
-func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) {
+func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) error {
 	env, err := GetItemFromRequest[db.Environment](r)
 	if err != nil {
-		HttpError(w, ErrInvalidJson) // TODO: make this different, i dont like this httperror then return stuff
-		return
+		return err
 	}
 
 	s.envMu.Lock()
 	defer s.envMu.Unlock()
 
 	if err := s.db.CreateEnvironment(r.Context(), *env); err != nil {
-		HttpError(w, ErrDbFail(err))
-		return
+		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
+	return nil
 }
 
-func (s *Server) GetEnvironment(w http.ResponseWriter, r *http.Request) {
+func (s *Server) GetEnvironment(w http.ResponseWriter, r *http.Request) error {
 	s.envMu.RLock()
 	defer s.envMu.RUnlock()
 
 	envs, err := s.db.GetEnvironments(r.Context())
 	if err != nil {
-		HttpError(w, ErrDbFail(err))
-		return
+		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
 	if err := json.NewEncoder(w).Encode(envs); err != nil {
-		HttpError(w, ErrInvalidJson)
+		return err
 	}
+
+	return nil
 }
 
-func (s *Server) DeleteEnvironment(w http.ResponseWriter, r *http.Request) {
+func (s *Server) DeleteEnvironment(w http.ResponseWriter, r *http.Request) error {
 	idx, err := GetItemFromRequest[db.EnvironmentIndex](r)
 	if err != nil {
-		HttpError(w, ErrInvalidJson)
-		return
+		return err
 	}
 
 	s.envMu.Lock()
 	defer s.envMu.Unlock()
 
 	if err := s.db.DeleteEnvironment(r.Context(), *idx); err != nil {
-		HttpError(w, ErrDbFail(err))
-		return
+		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
+	return nil
 }
 
 // UpdateEnvironment will update an environment's metadata.
 // Given an environment, it will index the database with the environment's path,
 // name and version. All other fields of the matching record will be updated to
 // match. (hidden status, tags, etc)
-func (s *Server) UpdateEnvironment(w http.ResponseWriter, r *http.Request) {
+func (s *Server) UpdateEnvironment(w http.ResponseWriter, r *http.Request) error {
 	env, err := GetItemFromRequest[db.Environment](r)
 	if err != nil {
-		HttpError(w, ErrInvalidJson)
-		return
+		return err
 	}
 
 	s.envMu.Lock()
 	defer s.envMu.Unlock()
 
 	if err := s.db.UpdateEnvironment(r.Context(), *env); err != nil {
-		HttpError(w, ErrDbFail(err))
-		return
+		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
+	return nil
 }
 
 // Implementing these below to match api to old frontend, realistically would want to
 // swap to only using the general case UpdateEnvironment function.
 
-func (s *Server) AddEnvironmentTag(w http.ResponseWriter, r *http.Request) {
+func (s *Server) AddEnvironmentTag(w http.ResponseWriter, r *http.Request) error {
 	s.envMu.Lock()
 	defer s.envMu.Unlock()
 
 	env, value, err := s.getEnvFromUpdateIdx(r) // TODO: remove updateidx, unnecessary, use env
 	if err != nil {
-		HttpError(w, ErrDbFail(err))
-		return
+		return err
 	}
 
 	if slices.Contains(env.Tags, value) {
-		HttpError(w, ErrDuplicateItem)
-		return
+		return ErrDuplicateItem
 	}
 
 	env.Tags = append(env.Tags, value)
 
 	if err := s.db.UpdateEnvironment(r.Context(), *env); err != nil {
-		HttpError(w, ErrDbFail(err))
-		return
+		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
+	return nil
 }
 
-func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) {
+func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) error {
 	s.envMu.Lock()
 	defer s.envMu.Unlock()
 
 	env, value, err := s.getEnvFromUpdateIdx(r)
 	if err != nil {
-		HttpError(w, ErrDbFail(err))
-		return
+		return err
 	}
 
 	i := slices.Index(env.Tags, value)
 	if i < 0 {
-		HttpError(w, ErrMissingItem)
-		return
+		return ErrMissingItem
 	}
 
 	env.Tags = slices.Delete(env.Tags, i, i+1)
 
 	if err := s.db.UpdateEnvironment(r.Context(), *env); err != nil {
-		HttpError(w, ErrDbFail(err))
-		return
+		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
+	return nil
 }
 
 func (s *Server) getEnvFromUpdateIdx(r *http.Request) (*db.Environment, string, error) {
@@ -176,11 +169,10 @@ func (s *Server) getEnvFromUpdateIdx(r *http.Request) (*db.Environment, string, 
 	return &env, idx.Value, nil
 }
 
-func (s *Server) ToggleEnvironmentHidden(w http.ResponseWriter, r *http.Request) {
+func (s *Server) ToggleEnvironmentHidden(w http.ResponseWriter, r *http.Request) error {
 	env, err := GetItemFromRequest[db.Environment](r)
 	if err != nil {
-		HttpError(w, ErrInvalidJson)
-		return
+		return err
 	}
 
 	env.Hidden = !env.Hidden
@@ -189,9 +181,10 @@ func (s *Server) ToggleEnvironmentHidden(w http.ResponseWriter, r *http.Request)
 	defer s.envMu.Unlock()
 
 	if err := s.db.UpdateEnvironment(r.Context(), *env); err != nil {
-		HttpError(w, ErrDbFail(err))
-		return
+		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
+	return nil
 }

@@ -22,11 +22,11 @@ type UpdateByIndex struct {
 }
 
 type RecipeRequest struct {
-	ID        uint `gorm:"primaryKey;autoIncrement"`
-	Name      string
-	Version   string
-	URL       string
-	Details   string
+	// ID        uint   `gorm:"primaryKey;autoIncrement"`
+	Name      string `gorm:"not null"`
+	Version   string `gorm:"not null"`
+	URL       string `gorm:"not null"`
+	Details   string `gorm:"not null"`
 	Requester string
 }
 
