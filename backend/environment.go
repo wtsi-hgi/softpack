@@ -10,21 +10,9 @@ import (
 )
 
 var (
-	ErrInvalidJson = Error{
-		Err: errors.New("invalid json"),
-		// Code: http.StatusBadRequest,
-		Code: http.StatusInternalServerError,
-	}
-	ErrDuplicateItem = Error{
-		Err: errors.New("item to add already exists"),
-		// Code: http.StatusBadRequest,
-		Code: http.StatusInternalServerError,
-	}
-	ErrMissingItem = Error{
-		Err: errors.New("item to delete does not exist"),
-		// Code: http.StatusBadRequest,
-		Code: http.StatusInternalServerError,
-	}
+	ErrInvalidJson   = errors.New("invalid json")
+	ErrDuplicateItem = errors.New("item to add already exists")
+	ErrMissingItem   = errors.New("item to delete does not exist")
 )
 
 func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) error {

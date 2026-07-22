@@ -10,12 +10,26 @@ import (
 	"gorm.io/gorm"
 )
 
-var (
-	ErrMissingField = errors.New("one or more required fields missing")
-)
+// TODO: Should i split this into seperate files for env related stuff and recipe related stuff and db setup stuff?
+
+var ErrMissingField = errors.New("one or more required fields missing")
 
 type DB struct {
 	*gorm.DB
+}
+
+type EnvironmentIndex struct {
+	Name, Path string
+	Version    int
+}
+
+type UpdateByIndex struct {
+	EnvironmentIndex
+	Value string
+}
+
+type PackageIndex struct {
+	Name, Version string
 }
 
 func Connect(driver, connection string) (*DB, error) {
@@ -168,9 +182,8 @@ func (db *DB) RequestRecipe(ctx context.Context, recipe RecipeRequest) error {
 
 func (db *DB) GetRequestedRecipes(ctx context.Context) ([]RecipeRequest, error) {
 	var reqs []RecipeRequest
-	query := db.WithContext(ctx)
 
-	if err := query.Find(&reqs).Error; err != nil {
+	if err := db.WithContext(ctx).Find(&reqs).Error; err != nil {
 		return nil, err
 	}
 

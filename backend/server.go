@@ -3,27 +3,22 @@ package backend
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"net/http"
 	"sync"
 
+	"github.com/wtsi-hgi/softpack/apt"
 	"github.com/wtsi-hgi/softpack/db"
 	"vimagination.zapto.org/httpbuffer"
 )
 
 type Server struct {
 	envMu sync.RWMutex
+	recMu sync.RWMutex
 
-	db *db.DB
-}
-
-type Error struct {
-	Code int
-	Err  error
-}
-
-func (e Error) Error() string {
-	return e.Err.Error()
+	db  *db.DB
+	apt *apt.Server
 }
 
 func (b *Server) Serve() http.Handler {
@@ -38,26 +33,20 @@ func (b *Server) Serve() http.Handler {
 	m.Handle("/set-hidden", handler(b.ToggleEnvironmentHidden))
 	m.Handle("/request-recipe", handler(b.RequestRecipe))
 	m.Handle("/requested-recipes", handler(b.GetRequestedRecipes))
+	m.Handle("/get-recipe-description", handler(b.GetRecipeDescription))
+	m.Handle("/package-collection", handler(b.GetAllPackages))
 
 	return &m
 
+	// todo
+
 	// /upload - upload artefacts (only needed for tooling).
-	// /request-recipe - frontend request for new package.
-	// /requested-recipes - frontend request to list requested recipes.
 	// /fulfil-requested-recipe - frontend fulfilment of requested recipe.
 	// /remove-requested-recipe - frontend request to remove a requested recipe.
-	// /get-recipe-description - frontend request to get package description for a hover popup.
 	// /build-status - frontend request for average build times (may not be required).
-	// /create-environment frontend request to create a new environment.
-	// /get-environments - frontend request to list environments.
-	// /delete-environment - tooling request to delete environment.
-	// /add-tag - frontend request to add a tag to an environment.
-	// /set-hidden - frontend request to toggle hidden status on environment.
-	// /upload-module - tooling request to add non-Softpack module.
 	// /update-module - tooling request to update non-Softpack module.
-	// /package-collection - frontend request to list all available packages and versions.
 	// /groups - frontend request to get all groups for a username.
-
+	// /tags
 }
 
 type handler func(w http.ResponseWriter, r *http.Request) error
@@ -73,13 +62,15 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 var httpErrors = map[error]int{
-	// ErrDuplicateName: http.StatusConflict,
-	// ErrInvalidName:   http.StatusUnprocessableEntity,
-	// ErrNoModule:      http.StatusNotFound,
-	// ErrNoType:        http.StatusNotFound,
-	// ErrNoPatch:       http.StatusUnprocessableEntity,
-	io.EOF: http.StatusBadRequest,
+	io.EOF:                 http.StatusBadRequest,
+	ErrInvalidJson:         http.StatusBadRequest,
+	ErrDuplicateItem:       http.StatusBadRequest,
+	ErrMissingItem:         http.StatusBadRequest,
+	apt.ErrPackageNotFound: http.StatusBadRequest,
+	db.ErrMissingField:     http.StatusBadRequest,
 }
+
+// TODO: I dont like importing these errors like this
 
 func responseCode(err error) int {
 	for e, resp := range httpErrors {
@@ -91,6 +82,8 @@ func responseCode(err error) int {
 	if _, ok := errors.AsType[*json.SyntaxError](err); ok {
 		return http.StatusBadRequest
 	}
+
+	fmt.Println("Given error not found in httpErrors", err)
 
 	return http.StatusInternalServerError
 }
@@ -107,8 +100,10 @@ func GetItemFromRequest[T any](r *http.Request) (*T, error) {
 
 func New() *Server {
 	database, _ := db.Connect("sqlite3", ":memory:")
+	apt := apt.New()
 
 	return &Server{
-		db: database,
+		db:  database,
+		apt: apt,
 	}
 }

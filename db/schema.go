@@ -11,16 +11,7 @@ type Environment struct {
 	Packages    []string `gorm:"not null;serializer:json"`
 }
 
-type EnvironmentIndex struct {
-	Name, Path string
-	Version    int
-}
-
-type UpdateByIndex struct {
-	EnvironmentIndex
-	Value string
-}
-
+// TODO: is requester required?
 type RecipeRequest struct {
 	// ID        uint   `gorm:"primaryKey;autoIncrement"`
 	Name      string `gorm:"not null"`
@@ -31,3 +22,5 @@ type RecipeRequest struct {
 }
 
 // path/name-version
+
+// TODO: Add tags table?
