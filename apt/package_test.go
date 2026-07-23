@@ -1,13 +1,13 @@
 package apt
 
 import (
-	"errors"
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"reflect"
 	"testing"
 	"time"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const firstPackages = `
@@ -45,9 +45,7 @@ func TestNew(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	p, err := New(srv.URL, time.Second)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 
 	expectation := []Package{
 		{
@@ -57,17 +55,13 @@ func TestNew(t *testing.T) {
 		},
 	}
 
-	if pkgs := p.GetAllPackages(); !reflect.DeepEqual(pkgs, expectation) {
-		t.Errorf("expecting to get packages %#v, got %#v", expectation, pkgs)
-	}
+	assert.Equal(t, p.GetAllPackages(), expectation)
 
 	time.Sleep(time.Second * 2)
 
 	expectation[0].Versions = append(expectation[0].Versions, "2.0.1")
 
-	if pkgs := p.GetAllPackages(); !reflect.DeepEqual(pkgs, expectation) {
-		t.Errorf("expecting to get packages %#v, got %#v", expectation, pkgs)
-	}
+	assert.Equal(t, p.GetAllPackages(), expectation)
 }
 
 func TestGetRecipeDescription(t *testing.T) {
@@ -78,25 +72,17 @@ func TestGetRecipeDescription(t *testing.T) {
 	t.Cleanup(srv.Close)
 
 	s, err := New(srv.URL, 0)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 
-	if desc, err := s.GetRecipeDescription("py-torch"); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	} else if desc != "big lib" {
-		t.Errorf("expecting description %q, got %q", "big lib", desc)
-	}
+	desc, err := s.GetRecipeDescription("py-torch")
+	assert.NoError(t, err)
+	assert.Equal(t, desc, "big lib")
 
-	if desc, err := s.GetRecipeDescription("r-ggplot2"); err != nil {
-		t.Errorf("unexpected error: %v", err)
-	} else if desc != "ggplot library" {
-		t.Errorf("expecting description %q, got %q", "ggplot library", desc)
-	}
+	desc, err = s.GetRecipeDescription("r-ggplot2")
+	assert.NoError(t, err)
+	assert.Equal(t, desc, "ggplot library")
 
-	if desc, err := s.GetRecipeDescription("system-lib"); !errors.Is(err, ErrPackageNotFound) {
-		t.Errorf("expecting error %v, got %v", ErrPackageNotFound, err)
-	} else if desc != "" {
-		t.Errorf("expecting blank description, got %q", desc)
-	}
+	desc, err = s.GetRecipeDescription("system-lib")
+	assert.Equal(t, err, ErrPackageNotFound)
+	assert.Equal(t, desc, "")
 }
