@@ -13,9 +13,17 @@ import (
 	"vimagination.zapto.org/httpbuffer"
 )
 
+var (
+	ErrInvalidJson   = errors.New("invalid json")
+	ErrDuplicateItem = errors.New("item to add already exists")
+	// ErrMissingItem   = errors.New("item to delete does not exist")
+)
+
 type Server struct {
 	envMu sync.RWMutex
 	recMu sync.RWMutex
+
+	waitingEnvs map[*db.Environment][]db.RecipeRequest
 
 	db  *db.DB
 	apt *apt.Server
@@ -35,6 +43,9 @@ func (b *Server) Serve() http.Handler {
 	m.Handle("/requested-recipes", handler(b.GetRequestedRecipes))
 	m.Handle("/get-recipe-description", handler(b.GetRecipeDescription))
 	m.Handle("/package-collection", handler(b.GetAllPackages))
+	m.Handle("/remove-requested-recipe", handler(b.RemoveRequestedRecipe))
+	m.Handle("/fulfil-requested-recipe", handler(b.FulfilRequestedRecipe))
+	// m.Handle("/groups", handler(b.GetGroups))
 
 	return &m
 
@@ -65,7 +76,7 @@ var httpErrors = map[error]int{
 	io.EOF:                 http.StatusBadRequest,
 	ErrInvalidJson:         http.StatusBadRequest,
 	ErrDuplicateItem:       http.StatusBadRequest,
-	ErrMissingItem:         http.StatusBadRequest,
+	db.ErrMissingItem:      http.StatusBadRequest,
 	apt.ErrPackageNotFound: http.StatusBadRequest,
 	db.ErrMissingField:     http.StatusBadRequest,
 }

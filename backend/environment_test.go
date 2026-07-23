@@ -47,6 +47,9 @@ func TestDeleteEnvironment(t *testing.T) {
 	assertEmptyResp(t, code, resp)
 
 	checkAllEqual(t, s, []db.Environment{})
+
+	code, resp = getResponse(t, s, "/delete-environment", idx)
+	assertBadRequest(t, code, resp, db.ErrMissingItem)
 }
 
 func TestUpdateEnvironment(t *testing.T) {
@@ -78,7 +81,7 @@ func TestAddAndDeleteTags(t *testing.T) {
 	}
 
 	code, resp := getResponse(t, s, "/delete-tag", u)
-	assertBadRequest(t, code, resp, ErrMissingItem)
+	assertBadRequest(t, code, resp, db.ErrMissingItem)
 
 	code, resp = getResponse(t, s, "/add-tag", u)
 	assertEmptyResp(t, code, resp)

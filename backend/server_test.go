@@ -13,8 +13,6 @@ import (
 	"github.com/wtsi-hgi/softpack/db"
 )
 
-func TestServer(t *testing.T) {}
-
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 

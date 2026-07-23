@@ -1,36 +1,67 @@
 package backend
 
 import (
+	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"slices"
 
 	"github.com/wtsi-hgi/softpack/db"
 )
 
-var (
-	ErrInvalidJson   = errors.New("invalid json")
-	ErrDuplicateItem = errors.New("item to add already exists")
-	ErrMissingItem   = errors.New("item to delete does not exist")
-)
-
+// TODO: Somehow flag when an environment is waiting on a requested recipe
 func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) error {
 	env, err := GetItemFromRequest[db.Environment](r)
 	if err != nil {
 		return err
 	}
 
+	ctx := r.Context()
+
 	s.envMu.Lock()
 	defer s.envMu.Unlock()
 
-	if err := s.db.CreateEnvironment(r.Context(), *env); err != nil {
+	// TODO: This probably wants to be done in a transaction so the map and db cant become out of sync
+
+	reqs, err := s.requiresRequestedRecipe(ctx, *env)
+	if err != nil {
+		return err
+	}
+
+	if len(reqs) != 0 {
+		s.waitingEnvs[env] = reqs
+	}
+
+	if err := s.db.CreateEnvironment(ctx, *env); err != nil {
 		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
 	return nil
+}
+
+func (s *Server) requiresRequestedRecipe(ctx context.Context, env db.Environment) ([]db.RecipeRequest, error) {
+	s.recMu.Lock()
+	defer s.recMu.Unlock()
+
+	reqs, err := s.db.GetRequestedRecipes(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	waitingReqs := make([]db.RecipeRequest, 0, len(env.Packages))
+
+	// TODO: o(n^2) not ideal but should not be enough requested recipes or packages in env to make it unsustainable
+	for _, pkg := range env.Packages {
+		for _, req := range reqs {
+			if pkg == req.Name { // is this adequate ? could pkg name be pkg@version? should split by @ and check fields?
+				waitingReqs = append(waitingReqs, req)
+			}
+		}
+	}
+
+	return waitingReqs, nil
 }
 
 func (s *Server) GetEnvironment(w http.ResponseWriter, r *http.Request) error {
@@ -129,7 +160,7 @@ func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) er
 
 	i := slices.Index(env.Tags, value)
 	if i < 0 {
-		return ErrMissingItem
+		return db.ErrMissingItem
 	}
 
 	env.Tags = slices.Delete(env.Tags, i, i+1)

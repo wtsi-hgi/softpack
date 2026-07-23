@@ -39,11 +39,11 @@ func TestGetRecipeDescription(t *testing.T) {
 	code, resp = getResponse(t, s, "/get-recipe-description", "pkg1")
 	assert.Equal(t, http.StatusOK, code)
 
-	var desc string
+	var desc RecipeDescriptionResponse
 
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&desc)
 	assert.NoError(t, err)
-	assert.Equal(t, "desc1", desc)
+	assert.Equal(t, "desc1", desc.Description)
 }
 
 func TestGetAllPackages(t *testing.T) {
@@ -91,4 +91,28 @@ func TestGetAllPackages(t *testing.T) {
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&pkgs)
 	assert.NoError(t, err)
 	assert.Equal(t, expectedPackages, pkgs)
+}
+
+func TestRemoveRequestedRecipe(t *testing.T) {
+	s := newTestServer(t)
+
+	code, resp := getResponse(t, s, "/remove-requested-recipe", db.RecipeRequest{})
+	assertBadRequest(t, code, resp, db.ErrMissingItem)
+
+	req := db.RecipeRequest{
+		Name:    "name",
+		Version: "version",
+		URL:     "url/for/name",
+		Details: "details",
+	}
+
+	code, resp = getResponse(t, s, "/request-recipe", req)
+	assertEmptyResp(t, code, resp)
+
+	checkAllEqual(t, s, []db.RecipeRequest{req})
+
+	code, resp = getResponse(t, s, "/remove-requested-recipe", req)
+	assertEmptyResp(t, code, resp)
+
+	checkAllEqual(t, s, []db.RecipeRequest{})
 }
