@@ -1,0 +1,128 @@
+package db
+
+import (
+	"testing"
+
+	"github.com/stretchr/testify/assert"
+)
+
+func TestCreateEnvironments(t *testing.T) {
+	ctx, db := setup(t)
+
+	env1 := Environment{
+		Name:        "name",
+		Path:        "path/to/env",
+		Description: "description",
+		Version:     1,
+		Created:     248933,
+		Hidden:      false,
+		Packages: []string{
+			"pkg1",
+			"pkg2",
+		},
+	}
+
+	err := db.CreateEnvironment(ctx, env1)
+	assert.NoError(t, err)
+
+	envs, err := db.GetEnvironments(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, []Environment{env1}, envs)
+
+	env2 := Environment{
+		Name:        "name2",
+		Path:        "path/to/env2",
+		Description: "description",
+		Version:     2,
+		Created:     24854323,
+		Hidden:      false,
+		Packages: []string{
+			"pkg1",
+			"pkg3",
+		},
+	}
+
+	env3 := Environment{
+		Name:        "name3",
+		Path:        "path/to/env3",
+		Description: "description",
+		Version:     3,
+		Created:     24854365423,
+		Hidden:      true,
+		Packages: []string{
+			"pkg1",
+		},
+	}
+
+	err = db.CreateEnvironments(ctx, []Environment{env1, env2})
+	assert.ErrorContains(t, err, UniqueConstraintFailed)
+
+	envs, err = db.GetEnvironments(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, envs, []Environment{env1}) // TODO: Do i want it to still add env2 given that env1 fails?
+
+	err = db.CreateEnvironments(ctx, []Environment{env2, env3})
+	assert.NoError(t, err)
+
+	envs, err = db.GetEnvironments(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, envs, []Environment{env1, env2, env3})
+
+	indexes := []EnvironmentIndex{
+		{
+			Name:    "name",
+			Path:    "path/to/env",
+			Version: 1,
+		},
+		{
+			Name:    "name2",
+			Path:    "path/to/env2",
+			Version: 2,
+		},
+	}
+
+	envs, err = db.GetEnvironments(ctx, indexes...)
+	assert.NoError(t, err)
+	assert.Equal(t, envs, []Environment{env1, env2})
+
+	env4 := Environment{
+		Path: "path/to/incomplete/env",
+	}
+
+	err = db.CreateEnvironment(ctx, env4)
+	assert.ErrorIs(t, err, ErrMissingField)
+
+	envs, err = db.GetEnvironments(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, envs, []Environment{env1, env2, env3})
+}
+
+func TestUpdateEnvironment(t *testing.T) {
+	ctx, db, env := setupWithEnv1(t)
+
+	env.Hidden = true
+	env.Description = "new description"
+
+	err := db.UpdateEnvironment(ctx, env)
+	assert.NoError(t, err)
+
+	envs, err := db.GetEnvironments(ctx, env.ToIndex())
+	assert.NoError(t, err)
+	assert.Equal(t, []Environment{env}, envs)
+}
+
+func TestDeleteEnvironment(t *testing.T) {
+	ctx, db, env := setupWithEnv1(t)
+
+	index := env.ToIndex()
+
+	err := db.DeleteEnvironment(ctx, index)
+	assert.NoError(t, err)
+
+	envs, err := db.GetEnvironments(ctx, index)
+	assert.ErrorContains(t, err, "record not found")
+	assert.Equal(t, len(envs), 0)
+
+	err = db.DeleteEnvironment(ctx, index)
+	assert.ErrorIs(t, err, ErrMissingItem)
+}
