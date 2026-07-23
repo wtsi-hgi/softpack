@@ -1,15 +1,15 @@
 package apt
 
 import (
-	"cmp"
 	"compress/gzip"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
 	"path/filepath"
-	"reflect"
 	"testing"
+
+	"github.com/stretchr/testify/assert"
 )
 
 const testPackages = `
@@ -69,35 +69,23 @@ func TestReadIndex(t *testing.T) {
 	filePath := filepath.Join(t.TempDir(), "Packages.gz")
 
 	f, err := os.Create(filePath)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 
 	g := gzip.NewWriter(f)
 
 	_, err = io.WriteString(g, testPackages)
-
-	if e := cmp.Or(err, g.Close(), f.Close()); e != nil {
-		t.Fatalf("unexpected error: %v", e)
-	}
+	assert.NoError(t, err)
+	assert.NoError(t, g.Close())
+	assert.NoError(t, f.Close())
 
 	httpResult, err := readIndex(srv.URL)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 
 	fileResult, err := readIndex(filePath)
-	if err != nil {
-		t.Fatalf("unexpected error: %v", err)
-	}
+	assert.NoError(t, err)
 
-	if !reflect.DeepEqual(httpResult, expectations) {
-		t.Errorf("http result did not match: expecting %#v, got %#v", expectations, httpResult)
-	}
-
-	if !reflect.DeepEqual(fileResult, expectations) {
-		t.Errorf("file result did not match: expecting %#v, got %#v", expectations, fileResult)
-	}
+	assert.Equal(t, httpResult, expectations)
+	assert.Equal(t, fileResult, expectations)
 }
 
 func TestReadS3(t *testing.T) {
@@ -107,9 +95,6 @@ func TestReadS3(t *testing.T) {
 	}
 
 	pkgs, err := readS3Index(url)
-	if err != nil {
-		t.Errorf("unexpected error: %v", err)
-	} else if len(pkgs) == 0 {
-		t.Error("got not packages")
-	}
+	assert.NoError(t, err)
+	assert.Nil(t, pkgs)
 }
