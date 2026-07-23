@@ -75,6 +75,8 @@ func TestGetRecipeDescription(t *testing.T) {
 		io.WriteString(w, testPackages)
 	}))
 
+	t.Cleanup(srv.Close)
+
 	s, err := New(srv.URL, 0)
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
@@ -97,5 +99,4 @@ func TestGetRecipeDescription(t *testing.T) {
 	} else if desc != "" {
 		t.Errorf("expecting blank description, got %q", desc)
 	}
-
 }

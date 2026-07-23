@@ -72,17 +72,7 @@ func readFile(path string) ([]Package, error) {
 }
 
 func parseIndex(r io.ReadCloser, compressed bool) ([]Package, error) {
-	defer r.Close()
-
-	if compressed {
-		var err error
-
-		if r, err = gzip.NewReader(r); err != nil {
-			return nil, err
-		}
-	}
-
-	index, err := control.ParseBinaryIndex(bufio.NewReader(r))
+	index, err := readPackageIndex(r, compressed)
 	if err != nil {
 		return nil, err
 	}
@@ -108,4 +98,19 @@ func parseIndex(r io.ReadCloser, compressed bool) ([]Package, error) {
 	}
 
 	return packages, nil
+}
+
+func readPackageIndex(r io.ReadCloser, compressed bool) ([]control.BinaryIndex, error) {
+	defer r.Close()
+
+	if compressed {
+		s, err := gzip.NewReader(r)
+		if err != nil {
+			return nil, err
+		}
+
+		r = s
+	}
+
+	return control.ParseBinaryIndex(bufio.NewReader(r))
 }
