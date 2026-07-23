@@ -2,75 +2,79 @@ package apt
 
 import (
 	"errors"
-
-	"github.com/wtsi-hgi/softpack/db"
+	"log/slog"
+	"slices"
+	"strings"
+	"sync"
+	"time"
 )
 
 var ErrPackageNotFound = errors.New("package matching index not found")
 
 type Package struct {
 	Name        string
-	Description string
+	Description string `json:"-"`
 	Versions    []string
 }
 
-// TODO: Mock this to return a []Package to backend
-
 type Server struct {
+	mu       sync.RWMutex
 	packages []Package
 }
 
-func New() *Server {
-	return &Server{
-		packages: []Package{
-			{
-				Name: "pkg1",
-				Versions: []string{
-					"1",
-					"2",
-				},
-				Description: "desc1",
-			},
-			{
-				Name: "pkg2",
-				Versions: []string{
-					"2",
-					"5",
-					"8",
-				},
-				Description: "desc2",
-			},
-			{
-				Name: "pkg3",
-				Versions: []string{
-					"3",
-				},
-				Description: "desc3",
-			},
-			{
-				Name: "pkg4",
-				Versions: []string{
-					"4",
-				},
-				Description: "",
-			},
-		},
+func New(packagesURL string, updateInterval time.Duration) (*Server, error) {
+	pkgs, err := readIndex(packagesURL)
+	if err != nil {
+		return nil, err
+	}
+
+	s := &Server{
+		packages: pkgs,
+	}
+
+	if updateInterval > 0 {
+		go s.update(packagesURL, updateInterval)
+	}
+
+	return s, nil
+}
+
+func (s *Server) update(packagesURL string, updateInterval time.Duration) {
+	for {
+		time.Sleep(updateInterval)
+
+		pkgs, err := readIndex(packagesURL)
+		if err != nil {
+			slog.Error("error updating package list", "err", err)
+
+			continue
+		}
+
+		s.mu.Lock()
+		s.packages = pkgs
+		s.mu.Unlock()
 	}
 }
 
-func (s *Server) GetAllPackages() ([]Package, error) {
-	return s.packages, nil
+func (s *Server) GetAllPackages() []Package {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.packages
 }
 
 // Allow for empty descriptions, although it technically shouldn't occur
-func (s *Server) GetRecipeDescription(idx db.PackageIndex) (string, error) {
-	for _, pkg := range s.packages {
-		if pkg.Name == idx.Name {
-			// if idx.Version != "" && slices.Contains(pkg.Versions, idx.Version) {
-			return pkg.Description, nil
-			// }
-		}
+func (s *Server) GetRecipeDescription(pkg string) (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	pos, ok := slices.BinarySearchFunc(s.packages, Package{Name: pkg}, func(a, b Package) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	if !ok {
+		return "", ErrPackageNotFound
 	}
 
-	return "", ErrPackageNotFound
+	return s.packages[pos].Description, nil
 }

@@ -13,10 +13,54 @@ import (
 	"github.com/wtsi-hgi/softpack/db"
 )
 
+func TestServer(t *testing.T) {}
+
+const testPackages = `
+Package: pkg1
+Version: 1
+XB-Softpack: true
+Description: desc1
+
+Package: pkg1
+Version: 2
+XB-Softpack: true
+Description: desc1
+
+Package: pkg2
+Version: 2
+XB-Softpack: true
+Description: desc2
+
+Package: pkg2
+Version: 5
+XB-Softpack: true
+Description: desc2
+
+Package: pkg2
+Version: 8
+XB-Softpack: true
+Description: desc2
+
+Package: pkg3
+Version: 3
+XB-Softpack: true
+Description: desc3
+
+Package: pkg4
+Version: 4
+XB-Softpack: true
+`
+
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 
-	backend := New()
+	ps := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, testPackages)
+	}))
+
+	t.Cleanup(ps.Close)
+
+	backend := New(ps.URL)
 	s := httptest.NewServer(backend.Serve())
 
 	t.Cleanup(s.Close)
