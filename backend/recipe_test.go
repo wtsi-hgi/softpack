@@ -59,7 +59,6 @@ func TestGetAllPackages(t *testing.T) {
 				"1",
 				"2",
 			},
-			Description: "desc1",
 		},
 		{
 			Name: "pkg2",
@@ -68,21 +67,18 @@ func TestGetAllPackages(t *testing.T) {
 				"5",
 				"8",
 			},
-			Description: "desc2",
 		},
 		{
 			Name: "pkg3",
 			Versions: []string{
 				"3",
 			},
-			Description: "desc3",
 		},
 		{
 			Name: "pkg4",
 			Versions: []string{
 				"4",
 			},
-			Description: "",
 		},
 	}
 

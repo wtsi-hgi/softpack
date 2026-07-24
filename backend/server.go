@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"sync"
+	"time"
 
 	"github.com/wtsi-hgi/softpack/apt"
 	"github.com/wtsi-hgi/softpack/db"
@@ -109,9 +110,9 @@ func GetItemFromRequest[T any](r *http.Request) (*T, error) {
 	return &item, nil
 }
 
-func New() *Server {
+func New(packagesURL string) *Server {
 	database, _ := db.Connect("sqlite3", ":memory:")
-	apt := apt.New()
+	apt, _ := apt.New(packagesURL, time.Minute)
 
 	return &Server{
 		db:  database,

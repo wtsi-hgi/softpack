@@ -59,7 +59,7 @@ func (s *Server) GetRecipeDescription(w http.ResponseWriter, r *http.Request) er
 
 	idx := s.getPackageIndex(*name)
 
-	desc, err := s.apt.GetRecipeDescription(idx)
+	desc, err := s.apt.GetRecipeDescription(idx.Name)
 	if err != nil {
 		return err
 	}
@@ -94,10 +94,7 @@ func (s *Server) getPackageIndex(name string) (idx db.PackageIndex) {
 
 // it expects []item where item = { name: string; versions: string[]; }
 func (s *Server) GetAllPackages(w http.ResponseWriter, r *http.Request) error {
-	pkgs, err := s.apt.GetAllPackages()
-	if err != nil {
-		return err
-	}
+	pkgs := s.apt.GetAllPackages()
 
 	w.Header().Set("Content-Type", "application/json")
 
