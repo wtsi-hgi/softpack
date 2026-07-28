@@ -40,7 +40,7 @@ func TestRemoveRequestedRecipe(t *testing.T) {
 	}
 
 	err := db.RemoveRequestedRecipe(ctx, r)
-	assert.ErrorIs(t, err, ErrMissingItem)
+	assert.ErrorIs(t, err, ErrNoRowsAffected)
 
 	err = db.RequestRecipe(ctx, r)
 	assert.NoError(t, err)

@@ -16,9 +16,13 @@ func TestCreateEnvironments(t *testing.T) {
 		Version:     1,
 		Created:     248933,
 		Hidden:      false,
-		Packages: []string{
-			"pkg1",
-			"pkg2",
+		Packages: []Package{
+			{
+				Name: "pkg1",
+			},
+			{
+				Name: "pkg2",
+			},
 		},
 	}
 
@@ -36,9 +40,13 @@ func TestCreateEnvironments(t *testing.T) {
 		Version:     2,
 		Created:     24854323,
 		Hidden:      false,
-		Packages: []string{
-			"pkg1",
-			"pkg3",
+		Packages: []Package{
+			{
+				Name: "pkg1",
+			},
+			{
+				Name: "pkg3",
+			},
 		},
 	}
 
@@ -49,8 +57,10 @@ func TestCreateEnvironments(t *testing.T) {
 		Version:     3,
 		Created:     24854365423,
 		Hidden:      true,
-		Packages: []string{
-			"pkg1",
+		Packages: []Package{
+			{
+				Name: "pkg1",
+			},
 		},
 	}
 
@@ -124,5 +134,5 @@ func TestDeleteEnvironment(t *testing.T) {
 	assert.Equal(t, len(envs), 0)
 
 	err = db.DeleteEnvironment(ctx, index)
-	assert.ErrorIs(t, err, ErrMissingItem)
+	assert.ErrorIs(t, err, ErrNoRowsAffected)
 }

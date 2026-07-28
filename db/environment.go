@@ -7,8 +7,7 @@ import (
 	"gorm.io/gorm"
 )
 
-// var ErrNoRowsAffected = errors.New("no rows affected by query")
-var ErrMissingItem = errors.New("item to delete does not exist")
+var ErrNoRowsAffected = errors.New("no rows affected by query")
 
 type EnvironmentIndex struct {
 	Name, Path string
@@ -41,6 +40,17 @@ func (e *Environment) ToIndex() EnvironmentIndex {
 		Version: e.Version,
 	}
 }
+
+// func (e *Environment) Equals(env Environment) bool {
+// 	return e.Name == env.Name &&
+// 		e.Path == env.Path &&
+// 		e.Version == env.Version &&
+// 		e.Description == env.Description &&
+// 		e.Created == env.Created &&
+// 		e.Hidden == env.Hidden &&
+// 		slices.Equal(e.Tags, env.Tags) &&
+// 		reflect.DeepEqual(e.Packages, env.Packages)
+// }
 
 func (u *UpdateByIndex) ToIndex() EnvironmentIndex {
 	return EnvironmentIndex{
@@ -131,7 +141,7 @@ func (db *DB) DeleteEnvironment(ctx context.Context, index EnvironmentIndex) err
 	}
 
 	if result.RowsAffected == 0 {
-		return ErrMissingItem
+		return ErrNoRowsAffected
 	}
 
 	return nil

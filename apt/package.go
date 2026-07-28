@@ -7,19 +7,21 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/wtsi-hgi/softpack/db"
 )
 
-var ErrPackageNotFound = errors.New("package matching index not found")
+var ErrInvalidPackage = errors.New("package matching index not found")
 
-type Package struct {
-	Name        string
-	Description string `json:"-"`
-	Versions    []string
-}
+// type Package struct {
+// 	Name        string
+// 	Description string `json:"-"`
+// 	Versions    []string
+// }
 
 type Server struct {
 	mu       sync.RWMutex
-	packages []Package
+	packages []db.Package
 }
 
 func New(packagesURL string, updateInterval time.Duration) (*Server, error) {
@@ -56,7 +58,7 @@ func (s *Server) update(packagesURL string, updateInterval time.Duration) {
 	}
 }
 
-func (s *Server) GetAllPackages() []Package {
+func (s *Server) GetAllPackages() []db.Package {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -68,13 +70,40 @@ func (s *Server) GetRecipeDescription(pkg string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	pos, ok := slices.BinarySearchFunc(s.packages, Package{Name: pkg}, func(a, b Package) int {
+	pos, ok := slices.BinarySearchFunc(s.packages, db.Package{Name: pkg}, func(a, b db.Package) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
 	if !ok {
-		return "", ErrPackageNotFound
+		return "", ErrInvalidPackage
 	}
 
 	return s.packages[pos].Description, nil
+}
+
+func (s *Server) CheckPackagesExist(pkgs []db.Package) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, pkg := range pkgs {
+		if exists := s.CheckPackageExists(pkg); !exists {
+			return exists
+		}
+	}
+
+	return true
+}
+
+func (s *Server) CheckPackageExists(pkg db.Package) bool {
+	for _, aptpkg := range s.packages {
+		if CheckPkgEqual(pkg, aptpkg) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func CheckPkgEqual(pkg1, pkg2 db.Package) bool {
+	return pkg1.Name == pkg2.Name && slices.Equal(pkg1.Versions, pkg2.Versions) && pkg1.Description == pkg2.Description
 }

@@ -6,68 +6,69 @@ import (
 	"net/http"
 	"slices"
 
+	"github.com/wtsi-hgi/softpack/apt"
 	"github.com/wtsi-hgi/softpack/db"
 )
 
-// TODO: Somehow flag when an environment is waiting on a requested recipe
 func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) error {
 	env, err := GetItemFromRequest[db.Environment](r)
 	if err != nil {
 		return err
 	}
 
+	if len(env.Packages) == 0 {
+		return db.ErrMissingField
+	}
+
 	ctx := r.Context()
 
-	s.envMu.Lock()
-	defer s.envMu.Unlock()
+	if exists := s.apt.CheckPackagesExist(env.Packages); exists {
+		return apt.ErrInvalidPackage
+	}
 
 	// TODO: This probably wants to be done in a transaction so the map and db cant become out of sync
-
-	reqs, err := s.requiresRequestedRecipe(ctx, *env)
+	waiting, err := s.checkRequiredRecipes(ctx, *env)
 	if err != nil {
 		return err
 	}
 
-	if len(reqs) != 0 {
-		s.waitingEnvs[env] = reqs
-	}
+	if !waiting {
+		if err := s.db.CreateEnvironment(ctx, *env); err != nil {
+			return err
+		}
 
-	if err := s.db.CreateEnvironment(ctx, *env); err != nil {
-		return err
+		// build env
 	}
+	// TODO: Do i need to let the frontend its pending?
 
 	w.Header().Set("Content-Type", "application/json")
 
 	return nil
 }
 
-func (s *Server) requiresRequestedRecipe(ctx context.Context, env db.Environment) ([]db.RecipeRequest, error) {
-	s.recMu.Lock()
-	defer s.recMu.Unlock()
-
+func (s *Server) checkRequiredRecipes(ctx context.Context, env db.Environment) (bool, error) {
 	reqs, err := s.db.GetRequestedRecipes(ctx)
 	if err != nil {
-		return nil, err
+		return false, err
 	}
 
-	waitingReqs := make([]db.RecipeRequest, 0, len(env.Packages))
+	shouldWait := false
 
-	// TODO: o(n^2) not ideal but should not be enough requested recipes or packages in env to make it unsustainable
 	for _, pkg := range env.Packages {
 		for _, req := range reqs {
-			if pkg == req.Name { // is this adequate ? could pkg name be pkg@version? should split by @ and check fields?
-				waitingReqs = append(waitingReqs, req)
+			if db.CheckPkgEqual(pkg, req) {
+				shouldWait = true
+
+				// s.waitingEnvs[req] = append(s.waitingEnvs[req], &env)
+				s.waitingEnvs.Append(req, env)
 			}
 		}
 	}
 
-	return waitingReqs, nil
+	return shouldWait, nil
 }
 
 func (s *Server) GetEnvironment(w http.ResponseWriter, r *http.Request) error {
-	s.envMu.RLock()
-	defer s.envMu.RUnlock()
-
 	envs, err := s.db.GetEnvironments(r.Context())
 	if err != nil {
 		return err
@@ -88,9 +89,6 @@ func (s *Server) DeleteEnvironment(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
-	s.envMu.Lock()
-	defer s.envMu.Unlock()
-
 	if err := s.db.DeleteEnvironment(r.Context(), *idx); err != nil {
 		return err
 	}
@@ -110,9 +108,6 @@ func (s *Server) UpdateEnvironment(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
-	s.envMu.Lock()
-	defer s.envMu.Unlock()
-
 	if err := s.db.UpdateEnvironment(r.Context(), *env); err != nil {
 		return err
 	}
@@ -126,9 +121,6 @@ func (s *Server) UpdateEnvironment(w http.ResponseWriter, r *http.Request) error
 // swap to only using the general case UpdateEnvironment function.
 
 func (s *Server) AddEnvironmentTag(w http.ResponseWriter, r *http.Request) error {
-	s.envMu.Lock()
-	defer s.envMu.Unlock()
-
 	env, value, err := s.getEnvFromUpdateIdx(r) // TODO: remove updateidx, unnecessary, use env
 	if err != nil {
 		return err
@@ -150,9 +142,6 @@ func (s *Server) AddEnvironmentTag(w http.ResponseWriter, r *http.Request) error
 }
 
 func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) error {
-	s.envMu.Lock()
-	defer s.envMu.Unlock()
-
 	env, value, err := s.getEnvFromUpdateIdx(r)
 	if err != nil {
 		return err
@@ -160,7 +149,7 @@ func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) er
 
 	i := slices.Index(env.Tags, value)
 	if i < 0 {
-		return db.ErrMissingItem
+		return db.ErrNoRowsAffected
 	}
 
 	env.Tags = slices.Delete(env.Tags, i, i+1)
@@ -195,9 +184,6 @@ func (s *Server) ToggleEnvironmentHidden(w http.ResponseWriter, r *http.Request)
 	}
 
 	env.Hidden = !env.Hidden
-
-	s.envMu.Lock()
-	defer s.envMu.Unlock()
 
 	if err := s.db.UpdateEnvironment(r.Context(), *env); err != nil {
 		return err

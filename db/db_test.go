@@ -30,9 +30,13 @@ func setupWithEnv1(t *testing.T) (context.Context, *DB, Environment) {
 		Description: "description",
 		Created:     248933,
 		Hidden:      false,
-		Packages: []string{
-			"pkg1",
-			"pkg2",
+		Packages: []Package{
+			{
+				Name: "pkg1",
+			},
+			{
+				Name: "pkg2",
+			},
 		},
 	}
 

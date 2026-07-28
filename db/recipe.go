@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"slices"
 
 	"gorm.io/gorm"
 )
@@ -33,6 +34,10 @@ func (db *DB) GetRequestedRecipes(ctx context.Context) ([]RecipeRequest, error) 
 }
 
 func (db *DB) RemoveRequestedRecipe(ctx context.Context, recipe RecipeRequest) error {
+	if recipe.Name == "" || recipe.Version == "" {
+		return ErrMissingField
+	}
+
 	result := db.WithContext(ctx).Where(&RecipeRequest{
 		Name:    recipe.Name,
 		Version: recipe.Version,
@@ -45,12 +50,21 @@ func (db *DB) RemoveRequestedRecipe(ctx context.Context, recipe RecipeRequest) e
 	}
 
 	if result.RowsAffected == 0 {
-		return ErrMissingItem
+		return ErrNoRowsAffected
 	}
 
 	return nil
 }
 
-func (db *DB) FulfilRequestedRecipe(ctx context.Context, recipe RecipeRequest) error {
-	return nil
+// func (db *DB) FulfilRequestedRecipe(ctx context.Context, recipe RecipeRequest) error {
+// 	return nil
+// }
+
+// TODO: Should these be exported or just defined in backend?
+func CheckPkgEqual(pkg Package, req RecipeRequest) bool {
+	return pkg.Name == req.Name && slices.Contains(pkg.Versions, req.Version)
+}
+
+func CheckRecipeEqual(a, b RecipeRequest) bool {
+	return a.Name == b.Name && a.Version == b.Version
 }
