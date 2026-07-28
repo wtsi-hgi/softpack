@@ -1,6 +1,7 @@
 package apt
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -8,6 +9,7 @@ import (
 	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/wtsi-hgi/softpack/db"
 )
 
 const firstPackages = `
@@ -47,7 +49,7 @@ func TestNew(t *testing.T) {
 	p, err := New(srv.URL, time.Second)
 	assert.NoError(t, err)
 
-	expectation := []Package{
+	expectation := []db.Package{
 		{
 			Name:        "py-torch",
 			Description: "big lib",
@@ -83,6 +85,30 @@ func TestGetRecipeDescription(t *testing.T) {
 	assert.Equal(t, desc, "ggplot library")
 
 	desc, err = s.GetRecipeDescription("system-lib")
-	assert.Equal(t, err, ErrPackageNotFound)
+	assert.Equal(t, err, ErrInvalidPackage)
 	assert.Equal(t, desc, "")
+}
+
+func TestCheckPkgsExist(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		io.WriteString(w, testPackages)
+	}))
+
+	t.Cleanup(srv.Close)
+
+	s, err := New(srv.URL, time.Second)
+	assert.NoError(t, err)
+
+	fmt.Println(s.GetAllPackages())
+
+	expected := db.Package{
+		Name:        "py-torch",
+		Description: "big lib",
+		Versions:    []string{"2.0.0", "2.0.1"},
+	}
+
+	// TODO: This will fail if the expected pkg only has one of the versions, should it?
+
+	assert.True(t, s.CheckPackageExists(expected))
+	assert.True(t, s.CheckPackagesExist([]db.Package{expected}))
 }

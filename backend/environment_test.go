@@ -25,17 +25,25 @@ func TestCreateEnvironment(t *testing.T) {
 
 	checkAllEqual(t, s, []db.Environment{})
 
-	environment := db.Environment{
+	env := db.Environment{
 		Name:        "test",
 		Path:        "path/to/test",
 		Version:     1,
 		Description: "description",
 		Created:     1,
+		Packages: []db.Package{
+			{
+				Name: "pkg1",
+			},
+			{
+				Name: "pkg2",
+			},
+		},
 	}
-	code, resp = getResponse(t, s, "/create-environment", environment)
+	code, resp = getResponse(t, s, "/create-environment", env)
 	assertEmptyResp(t, code, resp)
 
-	checkAllEqual(t, s, []db.Environment{environment})
+	checkAllEqual(t, s, []db.Environment{env})
 }
 
 func TestDeleteEnvironment(t *testing.T) {
@@ -49,7 +57,7 @@ func TestDeleteEnvironment(t *testing.T) {
 	checkAllEqual(t, s, []db.Environment{})
 
 	code, resp = getResponse(t, s, "/delete-environment", idx)
-	assertBadRequest(t, code, resp, db.ErrMissingItem)
+	assertBadRequest(t, code, resp, db.ErrNoRowsAffected)
 }
 
 func TestUpdateEnvironment(t *testing.T) {
@@ -81,7 +89,7 @@ func TestAddAndDeleteTags(t *testing.T) {
 	}
 
 	code, resp := getResponse(t, s, "/delete-tag", u)
-	assertBadRequest(t, code, resp, db.ErrMissingItem)
+	assertBadRequest(t, code, resp, db.ErrNoRowsAffected)
 
 	code, resp = getResponse(t, s, "/add-tag", u)
 	assertEmptyResp(t, code, resp)
@@ -119,6 +127,14 @@ func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
 		Version:     1,
 		Description: "description",
 		Created:     1,
+		Packages: []db.Package{
+			{
+				Name: "pkg1",
+			},
+			{
+				Name: "pkg2",
+			},
+		},
 	}
 	code, resp := getResponse(t, s, "/create-environment", environment)
 	assertEmptyResp(t, code, resp)
@@ -127,3 +143,9 @@ func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
 
 	return s, environment
 }
+
+// TODO: Add a test where an environment is created, requiring a requested recipie
+// verify that it is not queued for build.
+// then add the recipie, verify that the environment dependent on it is built
+//
+// potentially add multiple envs with multiple recipie dependencies to be more thorough
