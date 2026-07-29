@@ -1,22 +1,65 @@
 package build
 
 import (
+	"bufio"
 	"cmp"
 	"errors"
 	"fmt"
 	"io/fs"
 	"log/slog"
+	"maps"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"slices"
 	"strings"
+
+	"pault.ag/go/debian/control"
 )
 
+const (
+	singularitySQFS = "singularity.sqfs"
+	singularitySIF  = "singularity.sif"
+)
+
+// Package represents a desired, top-level package to be installed in a
+// container.
+//
+// The Version is optional, and Interpreter should only be set by this package
+// to indicate an installed intepreter that wasn't explicitly chosen.
 type Package struct {
-	Name    string
-	Version string
+	Name        string
+	Version     string
+	Interpreter bool
 }
 
+// Build constructs a singularity container, installing it into the desired
+// location and creating wrapper symlinks to make running of executables inside
+// the container simple.
+//
+// The returned artefacts contains the list of packages, and their installed
+// versions, a list of exposed executables, and the build log.
+//
+// The supplied baseImage should be a docker://image, /path/to/image/dir/,
+// /path/to/image.sif, or any other singularity source except a definition file.
+//
+// The tempDir will be the directory used to build the container; it will
+// default to the install directory if not specified.
+//
+// The installDir will be where the final singularity.sif file is placed and
+// where the wrapper symlinks will be created.
+//
+// The wrapperScript will be the target of the created utility symlinks; one
+// made for each export executable.
+//
+// The aptSrc param can be an S3 location, an HTTP location, or an on-disk
+// location.
+//
+// Pkgs is the list of desired packages to be installed inside the container.
+//
+// The returned artefacts will contain the list of packages with the
+// as-installed versions specified, the list of exported executables, and the
+// build log.
 func Build(baseImage, tempDir, installDir, wrapperScript, aptSrc string, pkgs []Package) (*Artefacts, error) {
 	if len(pkgs) == 0 {
 		return nil, ErrNoPackages
@@ -31,7 +74,7 @@ func Build(baseImage, tempDir, installDir, wrapperScript, aptSrc string, pkgs []
 		return nil, err
 	}
 
-	sqfs := filepath.Join(tempDir, "singularity.sqfs")
+	sqfs := filepath.Join(tempDir, singularitySQFS)
 
 	defer cleanup(root, sqfs)
 
@@ -42,7 +85,7 @@ func Build(baseImage, tempDir, installDir, wrapperScript, aptSrc string, pkgs []
 
 	defer l.Close()
 
-	return runCommands(root, baseImage, installDir, sqfs, l.Addr().String(), wrapperScript, pkgs)
+	return runCommands(filepath.Join(root, "root"), baseImage, installDir, sqfs, l.Addr().String(), wrapperScript, pkgs)
 }
 
 func cleanup(root, sqfs string) {
@@ -64,11 +107,7 @@ func runCommands(root, baseImage, installDir, sqfs, httpURL, wrapperScript strin
 		return nil, err
 	}
 
-	if err := installPackages(root, pkgs); err != nil {
-		return nil, err
-	}
-
-	a, err := getArtefacts(root)
+	a, err := installPackages(root, pkgs)
 	if err != nil {
 		return nil, err
 	}
@@ -89,116 +128,149 @@ func runCommands(root, baseImage, installDir, sqfs, httpURL, wrapperScript strin
 }
 
 func extractImage(root, baseImage string) error {
-	return exec.Command(
+	if err := exec.Command(
 		"singularity",
 		"build",
 		"--sandbox", root,
 		baseImage,
-	).Run()
+	).Run(); err != nil {
+		return fmt.Errorf("error extracting base image: %w", err)
+	}
+
+	return nil
 }
 
 func setAptRepo(root, httpURL string) error {
-	return os.WriteFile(
-		filepath.Join(root, "etc", "apt", "sources.list.d", "ubuntu.sources"),
-		fmt.Appendf(nil, "deb [trusted=yes] http://%s/ main", httpURL),
-		0644,
+	return cmp.Or(
+		os.Remove(filepath.Join(root, "etc", "apt", "sources.list.d", "ubuntu.sources")),
+		os.WriteFile(
+			filepath.Join(root, "etc", "apt", "sources.list.d", "ubuntu.list"),
+			fmt.Appendf(nil, "deb [trusted=yes] http://%s resolute main", httpURL),
+			0644,
+		),
 	)
 }
 
-const buildInstructions = "apt update && " +
-	"apt -y -o DPkg::Options::=--force-not-root %[1]s && " +
-	"for pkg in %[2]s; do " +
-	`dpkg-query -W -f="$pkg@"'${Version}\n' "${pkg#'!'}";` +
-	"done | sort > /pkgs && " +
-	"for pkg in %[2]s; do " +
-	`dpkg-query -W -f='${XB-Executables}\n' "${pkg#'!'}";` +
-	"done | tr -d ' ' | tr ',' '\n' | sort | uniq > /exes &&" +
-	"apt-get clean && rm -rf /var/lib/apt/lists && mkdir /var/lib/apt/lists;"
-
-func installPackages(root string, pkgs []Package) error {
-	return exec.Command(
-		"singularity",
-		"exec",
-		"--writable",
-		"--no-home", root,
-		"bash", "-c", fmt.Sprintf(
-			buildInstructions,
-			packageListWithVersions(pkgs),
-			packageListWithInterpreters(pkgs),
-		),
-	).Run()
-}
-
-func packageListWithVersions(pkgs []Package) string {
-	list := make([]string, len(pkgs))
+func installPackages(root string, pkgs []Package) (*Artefacts, error) {
+	packages := make([]string, len(pkgs))
 
 	for n, pkg := range pkgs {
 		if pkg.Version != "" {
-			list[n] = pkg.Name + "==" + pkg.Version
+			packages[n] = pkg.Name + "=" + pkg.Version
 		} else {
-			list[n] = pkg.Name
+			packages[n] = pkg.Name
 		}
 	}
 
-	return strings.Join(list, " ")
+	var log strings.Builder
+
+	if err := cmp.Or(
+		aptWithLog(&log, root, "update"),
+		aptWithLog(&log, root, append(
+			[]string{"-y", "-o", "DPkg::Options::=--force-not-root", "install"},
+			packages...,
+		)...),
+		os.RemoveAll(filepath.Join(root, "var", "cache", "apt")),
+		os.RemoveAll(filepath.Join(root, "var", "lib", "apt")),
+	); err != nil {
+		return &Artefacts{Log: log.String()}, err
+	}
+
+	return getArtefacts(root, pkgs, log.String())
 }
 
-func packageListWithInterpreters(pkgs []Package) string {
-	list := make([]string, len(pkgs))
-	extra := make(map[string]bool)
+func aptWithLog(log *strings.Builder, root string, args ...string) error {
+	cmd := exec.Command(
+		"singularity",
+		append([]string{
+			"exec", "--writable", "--no-home", root, "apt",
+		}, args...)...,
+	)
+	cmd.Stdout = log
+	cmd.Stderr = log
+	cmd.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
 
-	for n, pkg := range pkgs {
-		list[n] = pkg.Name
-
-		switch pkg.Name {
-		case "r":
-			extra["r"] = true
-		case "python":
-			extra["python"] = true
-		}
-
-		if strings.HasPrefix(pkg.Name, "r-") && !extra["r"] {
-			extra["r"] = false
-		} else if strings.HasPrefix(pkg.Name, "py-") && !extra["python"] {
-			extra["python"] = false
-		}
-	}
-
-	for pkg, exists := range extra {
-		if !exists {
-			list = append(list, "!"+pkg)
-		}
-	}
-
-	return strings.Join(list, " ")
+	return cmd.Run()
 }
 
+// Artefacts contains the contains the list of executables exposed by the built
+// container; the list of Packages, including installed versions; and the build
+// log.
 type Artefacts struct {
-	Exes, Packages []string
+	Exes     []string
+	Packages []Package
+	Log      string
 }
 
-func getArtefacts(root string) (*Artefacts, error) {
-	exesPath := filepath.Join(root, "exes")
-	pkgsPath := filepath.Join(root, "pkgs")
-
-	exes, err := os.ReadFile(exesPath)
+func getArtefacts(root string, pkgs []Package, log string) (*Artefacts, error) {
+	f, err := os.Open(filepath.Join(root, "var", "lib", "dpkg", "status"))
 	if err != nil {
 		return nil, err
 	}
 
-	pkgs, err := os.ReadFile(pkgsPath)
+	installed, err := control.ParseBinaryIndex(bufio.NewReader(f))
 	if err != nil {
 		return nil, err
 	}
 
-	if err := cmp.Or(os.Remove(exesPath), os.Remove(pkgsPath)); err != nil {
-		return nil, err
+	pkgs = addInterpreters(pkgs)
+	exes := map[string]struct{}{}
+
+	for _, deb := range installed {
+		idx := slices.IndexFunc(pkgs, func(v Package) bool { return v.Name == deb.Package })
+		if idx < 0 {
+			continue
+		}
+
+		pkgs[idx].Version = deb.Version.Version
+
+		if pkgExes, ok := deb.Values["XB-Executables"]; ok {
+			for exe := range strings.SplitSeq(pkgExes, ", ") {
+				exes[exe] = struct{}{}
+			}
+		}
 	}
+
+	executables := slices.Collect(maps.Keys(exes))
+	slices.Sort(executables)
 
 	return &Artefacts{
-		Exes:     strings.Split(string(exes), "\n"),
-		Packages: strings.Split(string(pkgs), "\n"),
+		Exes:     executables,
+		Packages: pkgs,
+		Log:      log,
 	}, nil
+}
+
+func addInterpreters(pkgs []Package) []Package {
+	var hasPy, hasPython, hasRLib, hasR bool
+
+	for _, pkg := range pkgs {
+		if pkg.Name == "r" {
+			hasR = true
+		} else if pkg.Name == "python" {
+			hasPython = true
+		} else if strings.HasPrefix(pkg.Name, "r-") {
+			hasRLib = true
+		} else if strings.HasPrefix(pkg.Name, "py-") {
+			hasPy = true
+		} else {
+			continue
+		}
+
+		if hasPy && hasPython && hasR && hasRLib {
+			break
+		}
+	}
+
+	if hasPy && !hasPython {
+		pkgs = append(pkgs, Package{Name: "python", Interpreter: true})
+	}
+
+	if hasRLib && !hasR {
+		pkgs = append(pkgs, Package{Name: "r", Interpreter: true})
+	}
+
+	return pkgs
 }
 
 func makeSquashFS(root, sqfs string) error {
@@ -214,7 +286,7 @@ func buildContainer(sqfs, installDir string) error {
 	return exec.Command(
 		"singularity",
 		"build",
-		filepath.Join(installDir, "singularity.sif"), sqfs,
+		filepath.Join(installDir, singularitySIF), sqfs,
 	).Run()
 }
 

@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"io"
-	"io/fs"
 	"net"
 	"net/http"
 	"net/http/httputil"
@@ -15,6 +14,8 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
+	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/aws/smithy-go/logging"
 )
 
 func startServer(aptSrc string) (net.Listener, error) {
@@ -52,6 +53,8 @@ type s3Proxy struct {
 	client *s3.Client
 }
 
+var s3options []func(*s3.Options)
+
 func newS3Proxy(u *url.URL) (http.Handler, error) {
 	u.Path = strings.TrimPrefix(u.Path, "/")
 
@@ -60,10 +63,12 @@ func newS3Proxy(u *url.URL) (http.Handler, error) {
 		return nil, fmt.Errorf("failed to load S3 configuration, %w", err)
 	}
 
+	cfg.Logger = &logging.Nop{}
+
 	return &s3Proxy{
 		host:   u.Host,
 		path:   u.Path,
-		client: s3.NewFromConfig(cfg),
+		client: s3.NewFromConfig(cfg, s3options...),
 	}, nil
 }
 
@@ -75,13 +80,15 @@ func (s *s3Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		Key:    &p,
 	})
 	if err != nil {
-		if errors.Is(err, fs.ErrNotExist) {
+		if _, ok := errors.AsType[*types.NoSuchKey](err); ok {
 			http.NotFound(w, r)
 
 			return
 		}
 
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+
+		return
 	}
 
 	defer obj.Body.Close()

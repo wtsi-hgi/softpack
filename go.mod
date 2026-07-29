@@ -5,12 +5,16 @@ go 1.26.0
 require (
 	github.com/aws/aws-sdk-go-v2/config v1.32.31
 	github.com/aws/aws-sdk-go-v2/service/s3 v1.106.0
+	github.com/aws/smithy-go v1.27.3
+	github.com/erikgeiser/ar v0.0.0-20260718075415-067aafdb81fc
+	github.com/johannesboyne/gofakes3 v1.2.0
 	github.com/stretchr/testify v1.11.1
 	gorm.io/driver/mysql v1.6.0
 	gorm.io/driver/sqlite v1.6.0
 	gorm.io/gorm v1.31.2
 	pault.ag/go/debian v0.21.0
 	vimagination.zapto.org/httpbuffer v1.1.4
+	vimagination.zapto.org/rwcount v1.1.2
 )
 
 require (
@@ -31,7 +35,6 @@ require (
 	github.com/aws/aws-sdk-go-v2/service/sso v1.33.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/ssooidc v1.38.0 // indirect
 	github.com/aws/aws-sdk-go-v2/service/sts v1.45.0 // indirect
-	github.com/aws/smithy-go v1.27.3 // indirect
 	github.com/cloudflare/circl v1.6.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/go-sql-driver/mysql v1.10.0 // indirect
@@ -39,9 +42,13 @@ require (
 	github.com/jinzhu/now v1.1.5 // indirect
 	github.com/mattn/go-sqlite3 v1.14.48 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
+	github.com/ryszard/goskiplist v0.0.0-20150312221310-2dfbae5fcf46 // indirect
+	github.com/spf13/afero v1.2.1 // indirect
+	go.shabbyrobe.org/gocovmerge v0.0.0-20230507111327-fa4f82cfbf4d // indirect
 	golang.org/x/crypto v0.41.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
 	golang.org/x/text v0.40.0 // indirect
+	golang.org/x/tools v0.47.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	pault.ag/go/topsort v0.1.1 // indirect
 	vimagination.zapto.org/httpencoding v1.1.1 // indirect
