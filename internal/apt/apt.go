@@ -30,7 +30,7 @@ import (
 const BuildBase = "docker://ubuntu:resolute-20260413"
 
 // SkipIfBadEnvironment will skip remaining tests if the environment does not
-// container singularity and mksquashfs.
+// contain singularity and mksquashfs.
 func SkipIfBadEnvironment(t *testing.T) {
 	if _, err := exec.LookPath("singularity"); errors.Is(err, exec.ErrNotFound) {
 		t.Skip("skipping due to no singularity executable")
