@@ -53,8 +53,6 @@ type s3Proxy struct {
 	client *s3.Client
 }
 
-var s3options []func(*s3.Options)
-
 func newS3Proxy(u *url.URL) (http.Handler, error) {
 	u.Path = strings.TrimPrefix(u.Path, "/")
 
@@ -68,7 +66,7 @@ func newS3Proxy(u *url.URL) (http.Handler, error) {
 	return &s3Proxy{
 		host:   u.Host,
 		path:   u.Path,
-		client: s3.NewFromConfig(cfg, s3options...),
+		client: s3.NewFromConfig(cfg),
 	}, nil
 }
 

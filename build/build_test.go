@@ -70,8 +70,6 @@ func TestBuild(t *testing.T) {
 	t.Setenv("AWS_ACCESS_KEY_ID", "ACCESS_KEY")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "SECRET")
 
-	t.Cleanup(func() { clear(s3options) })
-
 	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", "s3://apt", []Package{
 		{Name: "py-xyz"},
 	})
