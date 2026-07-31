@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/wtsi-hgi/softpack/config"
 	"github.com/wtsi-hgi/softpack/db"
 )
 
@@ -60,7 +61,10 @@ func newTestServer(t *testing.T) *httptest.Server {
 
 	t.Cleanup(ps.Close)
 
-	backend := New(ps.URL)
+	config := config.DefaultConf()
+	config.AptSrc = ps.URL
+
+	backend := New(config)
 	s := httptest.NewServer(backend.Serve())
 
 	t.Cleanup(s.Close)

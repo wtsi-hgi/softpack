@@ -48,7 +48,7 @@ func TestNew(t *testing.T) {
 	p, err := New(srv.URL, time.Second)
 	assert.NoError(t, err)
 
-	expectation := []db.Package{
+	expectation := []Package{
 		{
 			Name:        "py-torch",
 			Description: "big lib",
@@ -101,7 +101,7 @@ func TestCheckPkgsExist(t *testing.T) {
 	expected := db.Package{
 		Name:        "py-torch",
 		Description: "big lib",
-		Versions:    []string{"2.0.0", "2.0.1"},
+		Version:     "2.0.0",
 	}
 
 	// TODO: This will fail if the expected pkg only has one of the versions, should it?

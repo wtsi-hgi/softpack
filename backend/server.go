@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/wtsi-hgi/softpack/apt"
+	"github.com/wtsi-hgi/softpack/config"
 	"github.com/wtsi-hgi/softpack/db"
 	"github.com/wtsi-hgi/softpack/utils"
 	"vimagination.zapto.org/httpbuffer"
@@ -24,8 +25,9 @@ var (
 type Server struct {
 	waitingEnvs utils.WaitingEnvs
 
-	db  *db.DB
-	apt *apt.Server
+	db     *db.DB
+	apt    *apt.Server
+	config *config.Config
 }
 
 func (b *Server) Serve() http.Handler {
@@ -93,13 +95,15 @@ func GetItemFromRequest[T any](r *http.Request) (*T, error) {
 	return &item, nil
 }
 
-func New(packagesURL string) *Server {
-	database, _ := db.Connect("sqlite3", ":memory:")
-	apt, _ := apt.New(packagesURL, time.Minute)
+func New(config *config.Config) *Server {
+	apt, _ := apt.New(config.AptSrc, time.Minute)
+	// database, _ := db.Connect("sqlite3", ":memory:")
+	database, _ := db.Connect("sqlite3", config.DBConn)
 
 	s := &Server{
-		db:  database,
-		apt: apt,
+		db:     database,
+		apt:    apt,
+		config: config,
 
 		waitingEnvs: utils.New(),
 	}
@@ -107,6 +111,10 @@ func New(packagesURL string) *Server {
 	s.buildWaitingEnvs()
 
 	return s
+}
+
+func (s *Server) Run() error {
+	return http.ListenAndServe(s.config.ListenAddr, s.Serve())
 }
 
 func (s *Server) buildWaitingEnvs() {

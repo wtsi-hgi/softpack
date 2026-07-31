@@ -14,11 +14,10 @@ import (
 
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
-	"github.com/wtsi-hgi/softpack/db"
 	"pault.ag/go/debian/control"
 )
 
-func readIndex(url string) ([]db.Package, error) {
+func readIndex(url string) ([]Package, error) {
 	if strings.HasPrefix(url, "s3://") {
 		return readS3Index(url)
 	} else if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
@@ -28,7 +27,7 @@ func readIndex(url string) ([]db.Package, error) {
 	return readFile(url)
 }
 
-func readS3Index(s3URL string) ([]db.Package, error) {
+func readS3Index(s3URL string) ([]Package, error) {
 	u, err := url.Parse(s3URL)
 	if err != nil {
 		return nil, err
@@ -54,7 +53,7 @@ func readS3Index(s3URL string) ([]db.Package, error) {
 	return parseIndex(obj.Body, strings.HasSuffix(u.Path, ".gz"))
 }
 
-func readHTTPIndex(url string) ([]db.Package, error) {
+func readHTTPIndex(url string) ([]Package, error) {
 	resp, err := http.Get(url)
 	if err != nil {
 		return nil, err
@@ -63,7 +62,7 @@ func readHTTPIndex(url string) ([]db.Package, error) {
 	return parseIndex(resp.Body, strings.HasSuffix(url, ".gz"))
 }
 
-func readFile(path string) ([]db.Package, error) {
+func readFile(path string) ([]Package, error) {
 	f, err := os.Open(path)
 	if err != nil {
 		return nil, err
@@ -72,24 +71,24 @@ func readFile(path string) ([]db.Package, error) {
 	return parseIndex(f, strings.HasSuffix(path, ".gz"))
 }
 
-func parseIndex(r io.ReadCloser, compressed bool) ([]db.Package, error) {
+func parseIndex(r io.ReadCloser, compressed bool) ([]Package, error) {
 	index, err := readPackageIndex(r, compressed)
 	if err != nil {
 		return nil, err
 	}
 
-	var packages []db.Package
+	var packages []Package
 
 	for _, entry := range index {
 		if _, ok := entry.Values["XB-Softpack"]; !ok {
 			continue
 		}
 
-		pos, exists := slices.BinarySearchFunc(packages, db.Package{Name: entry.Package}, func(a, b db.Package) int {
+		pos, exists := slices.BinarySearchFunc(packages, Package{Name: entry.Package}, func(a, b Package) int {
 			return strings.Compare(a.Name, b.Name)
 		})
 		if !exists {
-			packages = slices.Insert(packages, pos, db.Package{
+			packages = slices.Insert(packages, pos, Package{
 				Name:        entry.Package,
 				Description: entry.Description,
 			})
