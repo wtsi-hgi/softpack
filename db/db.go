@@ -9,12 +9,16 @@ import (
 	"gorm.io/gorm"
 )
 
-var ErrMissingField = errors.New("one or more required fields missing")
+var (
+	ErrMissingField = errors.New("one or more required fields missing")
+	// ErrUnsupportedDriver = errors.New()
+)
 
 type DB struct {
 	*gorm.DB
 }
 
+// Connect connects to a database given a driver and connection string.
 func Connect(driver, connection string) (*DB, error) {
 	var (
 		db  *gorm.DB
@@ -41,7 +45,3 @@ func Connect(driver, connection string) (*DB, error) {
 
 	return &DB{db}, err
 }
-
-// func (db *DB) dropTables(tables ...interface{}) error {
-// 	return db.Migrator().DropTable(tables...)
-// }

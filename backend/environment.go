@@ -40,7 +40,10 @@ func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) error
 			s.waitingEnvs.Append(r, *env) // TODO: Do i need to let the frontend know its waiting?
 		}
 	} else {
-		// build env
+		err := s.Build(*env)
+		if err != nil {
+			return err
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")
@@ -156,7 +159,7 @@ func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) er
 
 	env.Tags = slices.Delete(env.Tags, i, i+1)
 
-	if err := s.db.UpdateEnvironment(r.Context(), *&db.UpdateEnv{
+	if err := s.db.UpdateEnvironment(r.Context(), db.UpdateEnv{
 		EnvironmentIndex: u.EnvironmentIndex,
 		Tags:             &env.Tags,
 	}); err != nil {
@@ -196,3 +199,22 @@ func (s *Server) GetTags(w http.ResponseWriter, r *http.Request) error {
 
 	return nil
 }
+
+// type readmeInput struct {
+// 	module_path string
+// 	singularity_path string
+// }
+
+// func (s *Server) getEnvReadme() error {
+// 	tmpl, err := template.New("readme.tmpl").ParseFiles("readme.tmpl")
+// 	if err != nil {
+// 		return err
+// 	}
+
+// 	readme := ""
+
+// 	tmpl.Execute(readme, readmeInput{
+// 		module_path: "",
+// 		singularity_path: s.config.InstallDir +
+// 	})
+// }
