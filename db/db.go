@@ -9,8 +9,6 @@ import (
 	"gorm.io/gorm"
 )
 
-// TODO: Should i split this into seperate files for env related stuff and recipe related stuff and db setup stuff?
-
 var ErrMissingField = errors.New("one or more required fields missing")
 
 type DB struct {
@@ -36,7 +34,7 @@ func Connect(driver, connection string) (*DB, error) {
 		return nil, err
 	}
 
-	err = db.AutoMigrate(&Environment{}, &RecipeRequest{})
+	err = db.AutoMigrate(&Environment{}, &RecipeRequest{}, &Tag{})
 	if err != nil {
 		return nil, err
 	}

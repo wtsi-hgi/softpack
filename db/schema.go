@@ -1,14 +1,17 @@
 package db
 
 type Environment struct {
-	Name        string    `json:"name" gorm:"not null;uniqueIndex:capybara"`
-	Path        string    `json:"path" gorm:"not null;uniqueIndex:capybara"`
-	Version     int       `json:"version" gorm:"not null;uniqueIndex:capybara"`
-	Description string    `json:"description" gorm:"not null"`
-	Created     int       `json:"created" gorm:"not null"`
-	Hidden      bool      `json:"hidden" gorm:"not null"`
-	Tags        []string  `json:"tags" gorm:"not null;serializer:json"`
-	Packages    []Package `json:"packages" gorm:"not null;serializer:json"`
+	ID          uint   `json:"-" gorm:"primaryKey"`
+	Name        string `json:"name" gorm:"not null;uniqueIndex:capybara"`
+	Path        string `json:"path" gorm:"not null;uniqueIndex:capybara"`
+	Version     int    `json:"version" gorm:"not null;uniqueIndex:capybara"`
+	Description string `json:"description" gorm:"not null"`
+	Created     int    `json:"created" gorm:"not null"`
+	Hidden      bool   `json:"hidden" gorm:"not null"`
+	Tags        []Tag  `gorm:"many2many:environment_tags"`
+	// Tags     []string  `json:"tags" gorm:"not null;serializer:json"`
+	Packages []Package `json:"packages" gorm:"not null;serializer:json"`
+	// status
 	// readme string
 	// envtype type EnvironmentType = "softpack" | "module";
 	// username? string
@@ -16,14 +19,12 @@ type Environment struct {
 	// interpreters type Interpreters = { r?: string | undefined; python?: string | undefined; }
 }
 
-// TODO: Should I use this Package definition or the one from apt?
 type Package struct {
 	Name        string   `json:"name"`
 	Description string   `json:"-"`
-	Versions    []string `json:"version"`
+	Versions    []string `json:"version;serializer:json"`
 }
 
-// TODO: is requester required?
 type RecipeRequest struct {
 	// ID        uint   `gorm:"primaryKey;autoIncrement"`
 	Name      string `json:"name" gorm:"not null"`
@@ -35,4 +36,7 @@ type RecipeRequest struct {
 
 // path/name-version
 
-// TODO: Add tags table?
+type Tag struct {
+	ID   uint   `gorm:"primaryKey"`
+	Name string `json:"tag" gorm:"uniqueIndex;not null"`
+}

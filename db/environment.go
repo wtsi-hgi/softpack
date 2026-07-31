@@ -14,9 +14,16 @@ type EnvironmentIndex struct {
 	Version    int
 }
 
-type UpdateByIndex struct {
+type UpdateValue struct { // TODO: I dont like this, unnecessary duplication with updateenv
 	EnvironmentIndex
 	Value string
+}
+
+type UpdateEnv struct {
+	EnvironmentIndex
+	Description *string
+	Hidden      *bool
+	Tags        *[]Tag
 }
 
 func (e *Environment) BeforeCreate(tx *gorm.DB) error {
@@ -41,18 +48,7 @@ func (e *Environment) ToIndex() EnvironmentIndex {
 	}
 }
 
-// func (e *Environment) Equals(env Environment) bool {
-// 	return e.Name == env.Name &&
-// 		e.Path == env.Path &&
-// 		e.Version == env.Version &&
-// 		e.Description == env.Description &&
-// 		e.Created == env.Created &&
-// 		e.Hidden == env.Hidden &&
-// 		slices.Equal(e.Tags, env.Tags) &&
-// 		reflect.DeepEqual(e.Packages, env.Packages)
-// }
-
-func (u *UpdateByIndex) ToIndex() EnvironmentIndex {
+func (u *UpdateValue) ToIndex() EnvironmentIndex {
 	return EnvironmentIndex{
 		Name:    u.Name,
 		Path:    u.Path,
@@ -60,7 +56,6 @@ func (u *UpdateByIndex) ToIndex() EnvironmentIndex {
 	}
 }
 
-// TODO: Should I keep this?
 func (db *DB) CreateEnvironments(ctx context.Context, envs []Environment) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, env := range envs {
@@ -77,31 +72,65 @@ func (db *DB) CreateEnvironment(ctx context.Context, env Environment) error {
 	return db.WithContext(ctx).Create(&env).Error
 }
 
-func (db *DB) UpdateEnvironment(ctx context.Context, env Environment) error {
-	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
-		Name:    env.Name,
-		Path:    env.Path,
-		Version: env.Version,
-	}).Updates(&env).Error
-}
+func (db *DB) UpdateEnvironment(ctx context.Context, u UpdateEnv) error {
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		updates := map[string]interface{}{}
 
-// func (db *DB) UpdateEnvironmentField(ctx context.Context, env EnvironmentIndex, col string, value any) error {
-// 	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
-// 		Name:    env.Name,
-// 		Path:    env.Path,
-// 		Version: env.Version,
-// 	}).Update(col, value).Error
-// }
+		if u.Description != nil {
+			updates["Description"] = *u.Description
+		}
+		if u.Hidden != nil {
+			updates["Hidden"] = *u.Hidden
+		}
+
+		var e Environment
+
+		if err := tx.Where(&Environment{
+			Name:    u.Name,
+			Path:    u.Path,
+			Version: u.Version,
+		}).First(&e).Error; err != nil {
+			return err
+		}
+
+		if len(updates) > 0 {
+			if err := tx.Model(&e).Where(&Environment{
+				Name:    u.Name,
+				Path:    u.Path,
+				Version: u.Version,
+			}).Updates(updates).Error; err != nil {
+				return err
+			}
+		}
+
+		if u.Tags != nil {
+			tags := *u.Tags
+
+			for i := range tags {
+				if err := tx.FirstOrCreate(&tags[i], Tag{
+					Name: tags[i].Name,
+				}).Error; err != nil {
+					return err
+				}
+			}
+
+			if err := tx.Model(&e).Association("Tags").Replace(tags); err != nil {
+				return err
+			}
+		}
+
+		return nil
+	})
+}
 
 // GetEnvironments retrieves environments from the database.
 // Provide no additional arguments to retrieve all environments.
 // Provide one or more EnvironmentIndex items to retrieve specific environments.
 func (db *DB) GetEnvironments(ctx context.Context, indexes ...EnvironmentIndex) ([]Environment, error) {
 	var envs []Environment
-	query := db.WithContext(ctx)
 
 	if len(indexes) == 0 {
-		if err := query.Find(&envs).Error; err != nil {
+		if err := db.WithContext(ctx).Preload("Tags").Find(&envs).Error; err != nil {
 			return nil, err
 		}
 
@@ -111,7 +140,7 @@ func (db *DB) GetEnvironments(ctx context.Context, indexes ...EnvironmentIndex) 
 	for _, index := range indexes {
 		var env Environment
 
-		r := query.Where(&Environment{
+		r := db.WithContext(ctx).Preload("Tags").Where(&Environment{
 			Name:    index.Name,
 			Path:    index.Path,
 			Version: index.Version,
@@ -128,7 +157,7 @@ func (db *DB) GetEnvironments(ctx context.Context, indexes ...EnvironmentIndex) 
 }
 
 func (db *DB) DeleteEnvironment(ctx context.Context, index EnvironmentIndex) error {
-	result := db.WithContext(ctx).Where(&Environment{
+	result := db.WithContext(ctx).Session(&gorm.Session{FullSaveAssociations: true}).Where(&Environment{
 		Name:    index.Name,
 		Path:    index.Path,
 		Version: index.Version,
@@ -145,4 +174,32 @@ func (db *DB) DeleteEnvironment(ctx context.Context, index EnvironmentIndex) err
 	}
 
 	return nil
+}
+
+func (db *DB) AddEnvironmentTag(ctx context.Context, idx UpdateValue) error {
+	var env Environment
+
+	if err := db.WithContext(ctx).Where(&Environment{
+		Name:    idx.Name,
+		Path:    idx.Path,
+		Version: idx.Version,
+	}).First(&env).Error; err != nil {
+		return err
+	}
+
+	return db.WithContext(ctx).Model(&env).Association("Tags").Append(&Tag{Name: idx.Value})
+}
+
+func (db *DB) DeleteEnvironmentTag(ctx context.Context, idx UpdateValue) error {
+	return db.WithContext(ctx).Model(&Environment{}).Association("Tags").Delete(Tag{Name: idx.Value})
+}
+
+func (db *DB) GetTags(ctx context.Context) ([]Tag, error) {
+	var tags []Tag
+
+	if err := db.WithContext(ctx).Find(&tags).Error; err != nil {
+		return nil, err
+	}
+
+	return tags, nil
 }

@@ -31,6 +31,7 @@ func TestCreateEnvironment(t *testing.T) {
 		Version:     1,
 		Description: "description",
 		Created:     1,
+		Tags:        []db.Tag{},
 		Packages: []db.Package{
 			{
 				Name: "pkg1",
@@ -43,7 +44,7 @@ func TestCreateEnvironment(t *testing.T) {
 	code, resp = getResponse(t, s, "/create-environment", env)
 	assertEmptyResp(t, code, resp)
 
-	checkAllEqual(t, s, []db.Environment{env})
+	checkAllEqual(t, s, zeroEnvKey([]db.Environment{env}))
 }
 
 func TestDeleteEnvironment(t *testing.T) {
@@ -64,28 +65,36 @@ func TestUpdateEnvironment(t *testing.T) {
 	s, env := setupWithEnv(t)
 	var envs []db.Environment
 
-	env.Description = "new description"
-	env.Hidden = true
-	idx := env.ToIndex()
+	tags := []db.Tag{{Name: "tag1"}, {Name: "tag2"}}
 
-	code, resp := getResponse(t, s, "/update-environment", env)
+	u := db.UpdateEnv{
+		EnvironmentIndex: env.ToIndex(),
+		Description:      ptrTo("new description"),
+		Hidden:           ptrTo(true),
+		Tags:             ptrTo(tags),
+	}
+
+	code, resp := getResponse(t, s, "/update-environment", u)
 	assertEmptyResp(t, code, resp)
 
-	code, resp = getResponse(t, s, "/get-environments", idx)
+	code, resp = getResponse(t, s, "/get-environments", env.ToIndex())
 	assert.Equal(t, 200, code)
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
 	assert.NoError(t, err)
-	assert.Equal(t, []db.Environment{env}, envs)
-
-	// TODO: Should probably test tags/hidden status are updated correctly using this method
+	assert.Equal(t, 1, len(envs))
+	assert.Equal(t, "new description", envs[0].Description)
+	assert.True(t, envs[0].Hidden)
+	assert.Equal(t, tags, zeroTagKey(envs[0].Tags))
 }
 
 func TestAddAndDeleteTags(t *testing.T) {
 	s, env := setupWithEnv(t)
 
-	u := db.UpdateByIndex{
+	tag := db.Tag{Name: "new tag"}
+
+	u := db.UpdateValue{
 		EnvironmentIndex: env.ToIndex(),
-		Value:            "new tag",
+		Value:            tag.Name,
 	}
 
 	code, resp := getResponse(t, s, "/delete-tag", u)
@@ -97,25 +106,16 @@ func TestAddAndDeleteTags(t *testing.T) {
 	code, resp = getResponse(t, s, "/add-tag", u)
 	assertBadRequest(t, code, resp, ErrDuplicateItem)
 
-	env.Tags = []string{"new tag"}
+	env.Tags = []db.Tag{tag}
 
-	checkAllEqual(t, s, []db.Environment{env})
-}
+	checkAllEqual(t, s, zeroEnvKey([]db.Environment{env}))
 
-func TestToggleHidden(t *testing.T) {
-	s, env := setupWithEnv(t)
-
-	code, resp := getResponse(t, s, "/set-hidden", env)
-	assertEmptyResp(t, code, resp)
-
-	var actual []db.Environment
-
-	code, resp = getResponse(t, s, "/get-environments")
+	code, resp = getResponse(t, s, "/tags")
 	assert.Equal(t, http.StatusOK, code)
-	err := json.NewDecoder(strings.NewReader(resp)).Decode(&actual)
+	var tags []db.Tag
+	err := json.NewDecoder(strings.NewReader(resp)).Decode(&tags)
 	assert.NoError(t, err)
-
-	assert.NotEqual(t, actual[0].Hidden, env.Hidden)
+	assert.Equal(t, []db.Tag{tag}, zeroTagKey(tags))
 }
 
 func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
@@ -127,6 +127,7 @@ func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
 		Version:     1,
 		Description: "description",
 		Created:     1,
+		Tags:        []db.Tag{},
 		Packages: []db.Package{
 			{
 				Name: "pkg1",
@@ -149,3 +150,23 @@ func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
 // then add the recipie, verify that the environment dependent on it is built
 //
 // potentially add multiple envs with multiple recipie dependencies to be more thorough
+
+func zeroTagKey(tags []db.Tag) []db.Tag { // TODO: I dont like this duplication
+	for n := range tags {
+		tags[n].ID = 0
+	}
+
+	return tags
+}
+
+func zeroEnvKey(envs []db.Environment) []db.Environment {
+	for n, env := range envs {
+		envs[n].ID = 0
+
+		for t := range env.Tags {
+			env.Tags[t].ID = 0
+		}
+	}
+
+	return envs
+}

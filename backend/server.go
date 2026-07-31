@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"slices"
 	"time"
 
 	"github.com/wtsi-hgi/softpack/apt"
@@ -36,7 +37,6 @@ func (b *Server) Serve() http.Handler {
 	m.Handle("/delete-environment", handler(b.DeleteEnvironment))
 	m.Handle("/add-tag", handler(b.AddEnvironmentTag))
 	m.Handle("/delete-tag", handler(b.DeleteEnvironmentTag))
-	m.Handle("/set-hidden", handler(b.ToggleEnvironmentHidden))
 	m.Handle("/request-recipe", handler(b.RequestRecipe))
 	m.Handle("/requested-recipes", handler(b.GetRequestedRecipes))
 	m.Handle("/get-recipe-description", handler(b.GetRecipeDescription))
@@ -44,18 +44,15 @@ func (b *Server) Serve() http.Handler {
 	m.Handle("/remove-requested-recipe", handler(b.RemoveRequestedRecipe))
 	// m.Handle("/fulfil-requested-recipe", handler(b.FulfilRequestedRecipe))
 	m.Handle("/groups", handler(b.GetGroups))
+	m.Handle("/tags", handler(b.GetTags))
 
 	return &m
 
 	// todo
 
 	// /upload - upload artefacts (only needed for tooling).
-	// /fulfil-requested-recipe - frontend fulfilment of requested recipe.
-	// /remove-requested-recipe - frontend request to remove a requested recipe.
 	// /build-status - frontend request for average build times (may not be required).
 	// /update-module - tooling request to update non-Softpack module.
-	// /groups - frontend request to get all groups for a username.
-	// /tags
 }
 
 type handler func(w http.ResponseWriter, r *http.Request) error
@@ -70,20 +67,11 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}.ServeHTTP(w, r)
 }
 
-var httpErrors = map[error]int{ // TODO: I dont like this
-	io.EOF:                http.StatusBadRequest,
-	ErrInvalidJson:        http.StatusBadRequest,
-	ErrDuplicateItem:      http.StatusBadRequest,
-	db.ErrNoRowsAffected:  http.StatusBadRequest,
-	apt.ErrInvalidPackage: http.StatusBadRequest,
-	db.ErrMissingField:    http.StatusBadRequest,
-}
+var httpErrors = []error{io.EOF, ErrInvalidJson, ErrDuplicateItem, db.ErrNoRowsAffected, apt.ErrInvalidPackage, db.ErrMissingField}
 
 func responseCode(err error) int {
-	for e, resp := range httpErrors {
-		if errors.Is(err, e) {
-			return resp
-		}
+	if slices.Contains(httpErrors, err) {
+		return http.StatusBadRequest
 	}
 
 	if _, ok := errors.AsType[*json.SyntaxError](err); ok {
@@ -130,10 +118,14 @@ func (s *Server) buildWaitingEnvs() {
 	for _, req := range reqs {
 		for _, env := range envs {
 			for _, pkg := range env.Packages {
-				if db.CheckPkgEqual(pkg, req) { // is this adequate ? could pkg name be pkg@version? should split by @ and check fields?
+				if db.CheckPkgEqual(pkg, req) {
 					s.waitingEnvs.Append(req, env)
 				}
 			}
 		}
 	}
+}
+
+func ptrTo[T any](v T) *T {
+	return &v
 }

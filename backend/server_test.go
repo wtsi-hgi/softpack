@@ -107,8 +107,6 @@ func getResponse(t *testing.T, s *httptest.Server, endpoint string, body ...any)
 	return resp.StatusCode, string(respBody)
 }
 
-// TODO: it would probably be nice to use these helpers in the db pkg but without duplication,
-// is it too far to abstract these and definitions into their own errors pkg?
 func assertEmptyResp(t *testing.T, code int, resp string) {
 	assert.Equal(t, http.StatusNoContent, code)
 	assert.Empty(t, resp)
@@ -138,5 +136,14 @@ func checkAllEqual[T db.Environment | db.RecipeRequest](t *testing.T, s *httptes
 	var actual []T
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&actual)
 	assert.NoError(t, err)
-	assert.Equal(t, expected, actual)
+
+	switch any(v).(type) {
+	case db.Environment:
+		assert.Equal(t,
+			expected,
+			zeroEnvKey(any(actual).([]db.Environment)),
+		)
+	default:
+		assert.Equal(t, expected, actual)
+	}
 }

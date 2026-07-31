@@ -1,7 +1,6 @@
 package apt
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -98,8 +97,6 @@ func TestCheckPkgsExist(t *testing.T) {
 
 	s, err := New(srv.URL, time.Second)
 	assert.NoError(t, err)
-
-	fmt.Println(s.GetAllPackages())
 
 	expected := db.Package{
 		Name:        "py-torch",

@@ -26,46 +26,45 @@ func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) error
 		return apt.ErrInvalidPackage
 	}
 
-	// TODO: This probably wants to be done in a transaction so the map and db cant become out of sync
-	waiting, err := s.checkRequiredRecipes(ctx, *env)
+	reqs, err := s.checkRequiredRecipes(ctx, *env)
 	if err != nil {
 		return err
 	}
 
-	if !waiting {
-		if err := s.db.CreateEnvironment(ctx, *env); err != nil {
-			return err
-		}
+	if err := s.db.CreateEnvironment(ctx, *env); err != nil {
+		return err
+	}
 
+	if len(reqs) > 0 {
+		for _, r := range reqs {
+			s.waitingEnvs.Append(r, *env) // TODO: Do i need to let the frontend know its waiting?
+		}
+	} else {
 		// build env
 	}
-	// TODO: Do i need to let the frontend its pending?
 
 	w.Header().Set("Content-Type", "application/json")
 
 	return nil
 }
 
-func (s *Server) checkRequiredRecipes(ctx context.Context, env db.Environment) (bool, error) {
+func (s *Server) checkRequiredRecipes(ctx context.Context, env db.Environment) ([]db.RecipeRequest, error) {
 	reqs, err := s.db.GetRequestedRecipes(ctx)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
-	shouldWait := false
+	var waitingFor []db.RecipeRequest
 
 	for _, pkg := range env.Packages {
 		for _, req := range reqs {
 			if db.CheckPkgEqual(pkg, req) {
-				shouldWait = true
-
-				// s.waitingEnvs[req] = append(s.waitingEnvs[req], &env)
-				s.waitingEnvs.Append(req, env)
+				waitingFor = append(waitingFor, req)
 			}
 		}
 	}
 
-	return shouldWait, nil
+	return waitingFor, nil
 }
 
 func (s *Server) GetEnvironment(w http.ResponseWriter, r *http.Request) error {
@@ -98,17 +97,13 @@ func (s *Server) DeleteEnvironment(w http.ResponseWriter, r *http.Request) error
 	return nil
 }
 
-// UpdateEnvironment will update an environment's metadata.
-// Given an environment, it will index the database with the environment's path,
-// name and version. All other fields of the matching record will be updated to
-// match. (hidden status, tags, etc)
 func (s *Server) UpdateEnvironment(w http.ResponseWriter, r *http.Request) error {
-	env, err := GetItemFromRequest[db.Environment](r)
+	u, err := GetItemFromRequest[db.UpdateEnv](r)
 	if err != nil {
 		return err
 	}
 
-	if err := s.db.UpdateEnvironment(r.Context(), *env); err != nil {
+	if err := s.db.UpdateEnvironment(r.Context(), *u); err != nil {
 		return err
 	}
 
@@ -121,18 +116,23 @@ func (s *Server) UpdateEnvironment(w http.ResponseWriter, r *http.Request) error
 // swap to only using the general case UpdateEnvironment function.
 
 func (s *Server) AddEnvironmentTag(w http.ResponseWriter, r *http.Request) error {
-	env, value, err := s.getEnvFromUpdateIdx(r) // TODO: remove updateidx, unnecessary, use env
+	env, u, err := s.getEnvFromUpdateIdx(r)
 	if err != nil {
 		return err
 	}
 
-	if slices.Contains(env.Tags, value) {
-		return ErrDuplicateItem
+	for _, tag := range env.Tags {
+		if tag.Name == u.Value {
+			return ErrDuplicateItem
+		}
 	}
 
-	env.Tags = append(env.Tags, value)
+	env.Tags = append(env.Tags, db.Tag{Name: u.Value})
 
-	if err := s.db.UpdateEnvironment(r.Context(), *env); err != nil {
+	if err := s.db.UpdateEnvironment(r.Context(), db.UpdateEnv{
+		EnvironmentIndex: u.EnvironmentIndex,
+		Tags:             &env.Tags,
+	}); err != nil {
 		return err
 	}
 
@@ -142,19 +142,24 @@ func (s *Server) AddEnvironmentTag(w http.ResponseWriter, r *http.Request) error
 }
 
 func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) error {
-	env, value, err := s.getEnvFromUpdateIdx(r)
+	env, u, err := s.getEnvFromUpdateIdx(r)
 	if err != nil {
 		return err
 	}
 
-	i := slices.Index(env.Tags, value)
+	i := slices.IndexFunc(env.Tags, func(t db.Tag) bool {
+		return t.Name == u.Name
+	})
 	if i < 0 {
 		return db.ErrNoRowsAffected
 	}
 
 	env.Tags = slices.Delete(env.Tags, i, i+1)
 
-	if err := s.db.UpdateEnvironment(r.Context(), *env); err != nil {
+	if err := s.db.UpdateEnvironment(r.Context(), *&db.UpdateEnv{
+		EnvironmentIndex: u.EnvironmentIndex,
+		Tags:             &env.Tags,
+	}); err != nil {
 		return err
 	}
 
@@ -163,33 +168,31 @@ func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) er
 	return nil
 }
 
-func (s *Server) getEnvFromUpdateIdx(r *http.Request) (*db.Environment, string, error) {
-	idx, err := GetItemFromRequest[db.UpdateByIndex](r)
+func (s *Server) getEnvFromUpdateIdx(r *http.Request) (*db.Environment, *db.UpdateValue, error) {
+	u, err := GetItemFromRequest[db.UpdateValue](r)
 	if err != nil {
-		return nil, "", err
+		return nil, nil, err
 	}
 
 	var env db.Environment
-	if err := s.db.WithContext(r.Context()).First(&env, idx.ToIndex()).Error; err != nil {
-		return nil, "", err
+	if err := s.db.WithContext(r.Context()).Preload("Tags").First(&env, u.EnvironmentIndex).Error; err != nil {
+		return nil, nil, err
 	}
 
-	return &env, idx.Value, nil
+	return &env, u, nil
 }
 
-func (s *Server) ToggleEnvironmentHidden(w http.ResponseWriter, r *http.Request) error {
-	env, err := GetItemFromRequest[db.Environment](r)
+func (s *Server) GetTags(w http.ResponseWriter, r *http.Request) error {
+	tags, err := s.db.GetTags(r.Context())
 	if err != nil {
-		return err
-	}
-
-	env.Hidden = !env.Hidden
-
-	if err := s.db.UpdateEnvironment(r.Context(), *env); err != nil {
 		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
+
+	if err := json.NewEncoder(w).Encode(tags); err != nil {
+		return err
+	}
 
 	return nil
 }
