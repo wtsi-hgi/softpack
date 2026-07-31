@@ -10,7 +10,6 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/wtsi-hgi/softpack/db"
 )
 
 const testPackages = `
@@ -50,7 +49,7 @@ Description: big lib
 `
 
 func TestReadIndex(t *testing.T) {
-	expectations := []db.Package{
+	expectations := []Package{
 		{
 			Name:        "py-torch",
 			Description: "big lib",

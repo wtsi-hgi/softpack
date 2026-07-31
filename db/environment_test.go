@@ -121,7 +121,7 @@ func TestUpdateEnvironment(t *testing.T) {
 	u := UpdateEnv{
 		EnvironmentIndex: env.ToIndex(),
 		Hidden:           ptrTo(false),
-		Description:      ptrTo("new new description"),
+		Description:      ptrTo("second new description"),
 	}
 
 	err := db.UpdateEnvironment(ctx, u)
@@ -131,7 +131,7 @@ func TestUpdateEnvironment(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, len(envs), 1)
 	assert.False(t, envs[0].Hidden)
-	assert.Equal(t, envs[0].Description, "new new description")
+	assert.Equal(t, envs[0].Description, "second new description")
 
 	tags := []Tag{{Name: "new tag"}}
 
@@ -199,12 +199,8 @@ func zeroTagKey(tags []Tag) []Tag {
 }
 
 func zeroEnvKey(envs []Environment) []Environment {
-	for n, _ := range envs {
+	for n := range envs {
 		envs[n].ID = 0
-
-		// for t := range env.Tags {
-		// 	env.Tags[t].ID = 0
-		// }
 	}
 
 	return envs
