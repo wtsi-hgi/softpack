@@ -52,37 +52,26 @@ func TestGetAllPackages(t *testing.T) {
 	code, resp := getResponse(t, s, "/package-collection")
 	assert.Equal(t, http.StatusOK, code)
 
-	expectedPackages := []db.Package{
+	expectedPackages := []apt.Package{
 		{
-			Name: "pkg1",
-			Versions: []string{
-				"1",
-				"2",
-			},
+			Name:     "pkg1",
+			Versions: []string{"1", "2"},
 		},
 		{
-			Name: "pkg2",
-			Versions: []string{
-				"2",
-				"5",
-				"8",
-			},
+			Name:     "pkg2",
+			Versions: []string{"2", "5", "8"},
 		},
 		{
-			Name: "pkg3",
-			Versions: []string{
-				"3",
-			},
+			Name:     "pkg3",
+			Versions: []string{"3"},
 		},
 		{
-			Name: "pkg4",
-			Versions: []string{
-				"4",
-			},
+			Name:     "pkg4",
+			Versions: []string{"4"},
 		},
 	}
 
-	var pkgs []db.Package
+	var pkgs []apt.Package
 
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&pkgs)
 	assert.NoError(t, err)

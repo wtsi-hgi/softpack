@@ -13,15 +13,15 @@ import (
 
 var ErrInvalidPackage = errors.New("package matching index not found")
 
-// type Package struct {
-// 	Name        string
-// 	Description string `json:"-"`
-// 	Versions    []string
-// }
+type Package struct {
+	Name        string
+	Description string `json:"-"`
+	Versions    []string
+}
 
 type Server struct {
 	mu       sync.RWMutex
-	packages []db.Package
+	packages []Package
 }
 
 func New(packagesURL string, updateInterval time.Duration) (*Server, error) {
@@ -58,7 +58,7 @@ func (s *Server) update(packagesURL string, updateInterval time.Duration) {
 	}
 }
 
-func (s *Server) GetAllPackages() []db.Package {
+func (s *Server) GetAllPackages() []Package {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
@@ -70,7 +70,7 @@ func (s *Server) GetRecipeDescription(pkg string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	pos, ok := slices.BinarySearchFunc(s.packages, db.Package{Name: pkg}, func(a, b db.Package) int {
+	pos, ok := slices.BinarySearchFunc(s.packages, Package{Name: pkg}, func(a, b Package) int {
 		return strings.Compare(a.Name, b.Name)
 	})
 
@@ -104,6 +104,6 @@ func (s *Server) CheckPackageExists(pkg db.Package) bool {
 	return false
 }
 
-func CheckPkgEqual(pkg1, pkg2 db.Package) bool {
-	return pkg1.Name == pkg2.Name && slices.Equal(pkg1.Versions, pkg2.Versions) && pkg1.Description == pkg2.Description
+func CheckPkgEqual(dbpkg db.Package, aptpkg Package) bool {
+	return dbpkg.Name == aptpkg.Name && slices.Contains(aptpkg.Versions, dbpkg.Version) && dbpkg.Description == aptpkg.Description
 }

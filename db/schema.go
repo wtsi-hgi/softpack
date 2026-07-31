@@ -20,9 +20,9 @@ type Environment struct {
 }
 
 type Package struct {
-	Name        string   `json:"name"`
-	Description string   `json:"-"`
-	Versions    []string `json:"version;serializer:json"`
+	Name        string `json:"name"`
+	Description string `json:"-"`
+	Version     string `json:"version"`
 }
 
 type RecipeRequest struct {
