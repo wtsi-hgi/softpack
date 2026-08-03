@@ -65,7 +65,6 @@ func (s *Server) GetAllPackages() []Package {
 	return s.packages
 }
 
-// Allow for empty descriptions, although it technically shouldn't occur.
 func (s *Server) GetRecipeDescription(pkg string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

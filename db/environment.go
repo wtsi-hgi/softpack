@@ -18,7 +18,7 @@ type EnvironmentIndex struct {
 
 // UpdateValue allows one specific field of an environment record, identified by
 // EnvironmentIndex, to be updated.
-type UpdateValue struct { // TODO: I dont like this, unnecessary duplication with updateenv
+type UpdateValue struct { // TODO: I dont like this, unnecessary duplication with updateenv //nolint:godox
 	EnvironmentIndex
 	Value string
 }
@@ -32,7 +32,7 @@ type UpdateEnv struct {
 	Tags        *[]Tag
 }
 
-func (e *Environment) BeforeCreate(tx *gorm.DB) error {
+func (e *Environment) BeforeCreate(_ *gorm.DB) error {
 	if e.Name == "" || e.Path == "" || e.Version == 0 || e.Created == 0 {
 		return ErrMissingField
 	}
@@ -80,29 +80,25 @@ func (db *DB) CreateEnvironment(ctx context.Context, env Environment) error {
 // to match the non-nil UpdateEnv fields.
 // Providing 'Tags' here will result in all previous tags being removed and subsequently
 // replaced with the provided ones, to add/delete tags, consider using <Add/Delete>EnvironmentTag.
-func (db *DB) UpdateEnvironment(ctx context.Context, u UpdateEnv) error {
+func (db *DB) UpdateEnvironment(ctx context.Context, u UpdateEnv) error { //nolint:gocognit
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		updates := map[string]interface{}{}
 
 		if u.Description != nil {
 			updates["Description"] = *u.Description
 		}
+
 		if u.Hidden != nil {
 			updates["Hidden"] = *u.Hidden
 		}
 
-		var e Environment
-
-		if err := tx.Where(&Environment{
-			Name:    u.Name,
-			Path:    u.Path,
-			Version: u.Version,
-		}).First(&e).Error; err != nil {
+		e, err := preLoadEnv(tx, u)
+		if err != nil {
 			return err
 		}
 
 		if len(updates) > 0 {
-			if err := tx.Model(&e).Where(&Environment{
+			if err := tx.Model(e).Where(&Environment{
 				Name:    u.Name,
 				Path:    u.Path,
 				Version: u.Version,
@@ -112,23 +108,45 @@ func (db *DB) UpdateEnvironment(ctx context.Context, u UpdateEnv) error {
 		}
 
 		if u.Tags != nil {
-			tags := *u.Tags
-
-			for i := range tags {
-				if err := tx.FirstOrCreate(&tags[i], Tag{
-					Name: tags[i].Name,
-				}).Error; err != nil {
-					return err
-				}
-			}
-
-			if err := tx.Model(&e).Association("Tags").Replace(tags); err != nil {
+			if err := replaceTags(tx, u, *e); err != nil {
 				return err
 			}
 		}
 
 		return nil
 	})
+}
+
+func preLoadEnv(tx *gorm.DB, u UpdateEnv) (*Environment, error) {
+	var e Environment
+
+	if err := tx.Where(&Environment{
+		Name:    u.Name,
+		Path:    u.Path,
+		Version: u.Version,
+	}).First(&e).Error; err != nil {
+		return nil, err
+	}
+
+	return &e, nil
+}
+
+func replaceTags(tx *gorm.DB, u UpdateEnv, e Environment) error {
+	tags := *u.Tags
+
+	for i := range tags {
+		if err := tx.FirstOrCreate(&tags[i], Tag{
+			Name: tags[i].Name,
+		}).Error; err != nil {
+			return err
+		}
+	}
+
+	if err := tx.Model(&e).Association("Tags").Replace(tags); err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // GetEnvironments retrieves environments from the database.
@@ -172,7 +190,6 @@ func (db *DB) DeleteEnvironment(ctx context.Context, index EnvironmentIndex) err
 	}).Delete(&Environment{})
 
 	err := result.Error
-
 	if err != nil {
 		return err
 	}

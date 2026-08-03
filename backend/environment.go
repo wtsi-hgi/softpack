@@ -35,15 +35,14 @@ func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
-	if len(reqs) > 0 {
-		for _, r := range reqs {
-			s.waitingEnvs.Append(r, *env) // TODO: Do i need to let the frontend know its waiting?
-		}
-	} else {
-		err := s.Build(*env)
-		if err != nil {
+	if len(reqs) == 0 {
+		if err := s.Build(*env); err != nil { //nolint:contextcheck
 			return err
 		}
+	}
+
+	for _, r := range reqs {
+		s.waitingEnvs.Append(r, *env) // TODO: Do i need to let the frontend know its waiting?
 	}
 
 	w.Header().Set("Content-Type", "application/json")

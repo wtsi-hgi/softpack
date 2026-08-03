@@ -23,7 +23,7 @@ func TestBuild(t *testing.T) {
 	t.Log("Build using FS source")
 
 	arts, err := Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", root, []Package{
-		{Name: "abc"},
+		{Name: "abc"}, //nolint:goconst
 	})
 	assert.NoError(t, err)
 
@@ -39,7 +39,7 @@ func TestBuild(t *testing.T) {
 	install = t.TempDir()
 
 	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", srv.URL, []Package{
-		{Name: "r-lib"},
+		{Name: "r-lib"}, //nolint:goconst
 		{Name: "abc", Version: "1"},
 	})
 	assert.NoError(t, err)
@@ -73,7 +73,7 @@ func TestBuild(t *testing.T) {
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "SECRET")
 
 	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", "s3://apt", []Package{
-		{Name: "py-xyz"},
+		{Name: "py-xyz"}, //nolint:goconst
 	})
 	assert.NoError(t, err)
 

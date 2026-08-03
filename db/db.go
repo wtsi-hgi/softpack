@@ -2,7 +2,6 @@ package db
 
 import (
 	"errors"
-	"fmt"
 
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
@@ -10,8 +9,8 @@ import (
 )
 
 var (
-	ErrMissingField = errors.New("one or more required fields missing")
-	// ErrUnsupportedDriver = errors.New()
+	ErrMissingField      = errors.New("one or more required fields missing")
+	ErrUnsupportedDriver = errors.New("unsupported driver")
 )
 
 type DB struct {
@@ -31,7 +30,7 @@ func Connect(driver, connection string) (*DB, error) {
 	case "mysql":
 		db, err = gorm.Open(mysql.Open(connection), &gorm.Config{})
 	default:
-		return nil, fmt.Errorf("unsupported driver: %s", driver)
+		return nil, ErrUnsupportedDriver
 	}
 
 	if err != nil {

@@ -46,9 +46,9 @@ func TestStoreHTTP(t *testing.T) {
 	mux := http.NewServeMux()
 
 	mux.Handle("PUT /files/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p := filepath.Join(tmp, strings.TrimPrefix(r.URL.Path, "/files/")) //nolint:gosec
+		p := filepath.Join(tmp, strings.TrimPrefix(r.URL.Path, "/files/"))
 
-		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil { //nolint:gosec
 			w.WriteHeader(http.StatusInternalServerError)
 
 			fmt.Fprintln(w, err)
@@ -56,7 +56,7 @@ func TestStoreHTTP(t *testing.T) {
 			return
 		}
 
-		f, err := os.Create(p)
+		f, err := os.Create(p) //nolint:gosec
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 

@@ -23,7 +23,7 @@ linters:
     - forcetypeassert
     - funlen
     - gocheckcompilerdirectives
-    - gochecknoglobals
+    # - gochecknoglobals
     - gochecknoinits
     - gochecksumtype
     - gocognit
@@ -31,7 +31,7 @@ linters:
     - gocritic
     - gocyclo
     - godot
-    - godox
+    # - godox
     - gosec
     - gosmopolitan
     - govet
@@ -52,7 +52,6 @@ linters:
     - nilerr
     - nilnil
     - nlreturn
-    - noctx
     - nolintlint
     - nosprintfhostport
     - perfsprint
@@ -137,6 +136,7 @@ linters:
           - forbidigo
           - gochecknoglobals
           - gochecknoinits
+          - goconst
         path: cmd
       - linters:
           - forbidigo

@@ -21,9 +21,7 @@ type BuildingEnv struct {
 }
 
 func (s *Server) Build(env db.Environment) error {
-
 	// ch := make(chan BuildResponse)
-
 	go func() {
 		s.buildingEnvs[env.ID] = BuildingEnv{
 			env,
@@ -32,7 +30,14 @@ func (s *Server) Build(env db.Environment) error {
 
 		// TODO: Surely I should be submitting the environment name to the builder?
 
-		_, err := build.Build(s.config.BaseImgPath, s.config.TempDir, s.config.InstallDir, s.config.WrapperScript, s.config.AptSrc, toBuildPkg(env.Packages))
+		_, err := build.Build(
+			s.config.BaseImgPath,
+			s.config.TempDir,
+			s.config.InstallDir,
+			s.config.WrapperScript,
+			s.config.AptSrc,
+			toBuildPkg(env.Packages),
+		)
 		if err != nil {
 			return
 		}
@@ -49,8 +54,8 @@ func (s *Server) Build(env db.Environment) error {
 	return nil
 }
 
-func (s *Server) GetAverageBuildTime(w http.ResponseWriter, r *http.Request) error {
-	avrg := time.Duration(1 * time.Hour) // TODO: Calculate based on past build responses
+func (s *Server) GetAverageBuildTime(w http.ResponseWriter, _ *http.Request) error {
+	avrg := 1 * time.Hour // TODO: Calculate based on past build responses
 
 	w.Header().Set("Content-Type", "application/json")
 

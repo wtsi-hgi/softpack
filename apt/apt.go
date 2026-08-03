@@ -54,7 +54,7 @@ func readS3Index(s3URL string) ([]Package, error) {
 }
 
 func readHTTPIndex(url string) ([]Package, error) {
-	resp, err := http.Get(url) //nolint:gosec
+	resp, err := http.Get(url) //nolint:gosec,noctx
 	if err != nil {
 		return nil, err
 	}

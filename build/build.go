@@ -126,7 +126,7 @@ func runCommands(root, baseImage, installDir, sqfs, httpURL, wrapperScript strin
 }
 
 func extractImage(root, baseImage string) error {
-	if err := exec.Command(
+	if err := exec.Command( //nolint:noctx,gosec
 		"singularity",
 		"build",
 		"--sandbox", root,
@@ -178,7 +178,7 @@ func installPackages(root string, pkgs []Package) (*Artefacts, error) {
 }
 
 func aptWithLog(log *strings.Builder, root string, args ...string) error {
-	cmd := exec.Command(
+	cmd := exec.Command( //nolint:noctx,gosec
 		"singularity",
 		append([]string{
 			"exec", "--writable", "--no-home", root, "apt",
@@ -246,11 +246,11 @@ func getExecutablesAndConcretise(pkgs []Package, installed []control.BinaryIndex
 	return executables
 }
 
-func addInterpreters(pkgs []Package) []Package { //nolint:gocognit,gocyclo
+func addInterpreters(pkgs []Package) []Package { //nolint:gocognit,gocyclo,cyclop
 	var hasPy, hasPython, hasRLib, hasR bool
 
 	for _, pkg := range pkgs {
-		if pkg.Name == "r" { //nolint:gocritic
+		if pkg.Name == "r" { //nolint:gocritic,nestif
 			hasR = true
 		} else if pkg.Name == "python" { //nolint:goconst
 			hasPython = true

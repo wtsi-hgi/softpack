@@ -20,7 +20,7 @@ type Opener interface {
 }
 
 func Store(url, envPath string, artefacts map[string]Opener) error {
-	if strings.HasPrefix(url, "s3://") { //nolint:gocritic
+	if strings.HasPrefix(url, "s3://") {
 		return storeInS3(url, envPath, artefacts)
 	} else if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
 		return storeInHTTP(url, envPath, artefacts)
