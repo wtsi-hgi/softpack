@@ -10,7 +10,7 @@ func TestRequestRecipe(t *testing.T) {
 	ctx, db := setup(t)
 
 	r := RecipeRequest{
-		Name:    "name",
+		Name:    "name", //nolint:goconst
 		Version: "version",
 		URL:     "url/for/name",
 	}

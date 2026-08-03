@@ -21,7 +21,7 @@ func TestBuild(t *testing.T) {
 	t.Log("Build using FS source")
 
 	arts, err := Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", root, []Package{
-		{Name: "abc"},
+		{Name: "abc"}, //nolint:goconst
 	})
 	assert.ErrorIs(t, err, nil)
 
@@ -37,7 +37,7 @@ func TestBuild(t *testing.T) {
 	install = t.TempDir()
 
 	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", srv.URL, []Package{
-		{Name: "r-lib"},
+		{Name: "r-lib"}, //nolint:goconst
 		{Name: "abc", Version: "1"},
 	})
 	assert.ErrorIs(t, err, nil)
@@ -71,11 +71,11 @@ func TestBuild(t *testing.T) {
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "SECRET")
 
 	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", "s3://apt", []Package{
-		{Name: "py-xyz"},
+		{Name: "py-xyz"}, //nolint:goconst
 	})
 	assert.ErrorIs(t, err, nil)
 
-	assert.Equal(t, arts.Exes, []string{"python", "python3.13"})
+	assert.Equal(t, arts.Exes, []string{"python", "python3.13"}) //nolint:goconst
 	assert.Equal(t, arts.Packages, []Package{
 		{Name: "py-xyz", Version: "2.1"},
 		{Name: "python", Version: "3.13", Interpreter: true},
@@ -102,7 +102,7 @@ func initRepo(t *testing.T) string {
 			Name:    "abc",
 			Version: "1",
 			Metadata: map[string]string{
-				"XB-Executables": "abc",
+				"XB-Executables": "abc", //nolint:goconst
 			},
 		},
 		{

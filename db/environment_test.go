@@ -10,16 +10,16 @@ func TestCreateEnvironments(t *testing.T) {
 	ctx, db := setup(t)
 
 	env1 := Environment{
-		Name:        "name",
-		Path:        "path/to/env",
-		Description: "description",
+		Name:        "name",        //nolint:goconst
+		Path:        "path/to/env", //nolint:goconst
+		Description: "description", //nolint:goconst
 		Version:     1,
 		Created:     248933,
 		Hidden:      false,
 		Tags:        []Tag{},
 		Packages: []Package{
 			{
-				Name: "pkg1",
+				Name: "pkg1", //nolint:goconst
 			},
 			{
 				Name: "pkg2",

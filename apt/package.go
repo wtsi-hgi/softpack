@@ -65,7 +65,6 @@ func (s *Server) GetAllPackages() []Package {
 	return s.packages
 }
 
-// Allow for empty descriptions, although it technically shouldn't occur
 func (s *Server) GetRecipeDescription(pkg string) (string, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -105,5 +104,7 @@ func (s *Server) CheckPackageExists(pkg db.Package) bool {
 }
 
 func CheckPkgEqual(dbpkg db.Package, aptpkg Package) bool {
-	return dbpkg.Name == aptpkg.Name && slices.Contains(aptpkg.Versions, dbpkg.Version) && dbpkg.Description == aptpkg.Description
+	return dbpkg.Name == aptpkg.Name &&
+		slices.Contains(aptpkg.Versions, dbpkg.Version) &&
+		dbpkg.Description == aptpkg.Description
 }

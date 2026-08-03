@@ -54,11 +54,11 @@ func TestGetAllPackages(t *testing.T) {
 
 	expectedPackages := []apt.Package{
 		{
-			Name:     "pkg1",
+			Name:     "pkg1", //nolint:goconst
 			Versions: []string{"1", "2"},
 		},
 		{
-			Name:     "pkg2",
+			Name:     "pkg2", //nolint:goconst
 			Versions: []string{"2", "5", "8"},
 		},
 		{

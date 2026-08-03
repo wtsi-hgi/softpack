@@ -25,6 +25,7 @@ func (m *WaitingEnvs) Get(key db.RecipeRequest) ([]db.Environment, bool) {
 	defer m.mu.RUnlock()
 
 	value, ok := m.m[key]
+
 	return slices.Clone(value), ok
 }
 

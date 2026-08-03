@@ -10,7 +10,7 @@ type PackageIndex struct {
 	Name, Version string
 }
 
-func (r *RecipeRequest) BeforeCreate(tx *gorm.DB) error {
+func (r *RecipeRequest) BeforeCreate(_ *gorm.DB) error {
 	if r.Name == "" || r.Version == "" || r.URL == "" || r.Details == "" {
 		return ErrMissingField
 	}

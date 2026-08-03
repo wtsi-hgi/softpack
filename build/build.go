@@ -146,7 +146,7 @@ func setAptRepo(root, httpURL string) error {
 		os.WriteFile(
 			filepath.Join(root, "etc", "apt", "sources.list.d", "ubuntu.list"),
 			fmt.Appendf(nil, "deb [trusted=yes] http://%s resolute main", httpURL),
-			0644,
+			0644, //nolint:mnd
 		),
 	)
 }
@@ -188,6 +188,7 @@ func aptWithLog(log *strings.Builder, root string, args ...string) error {
 	)
 	cmd.Stdout = log
 	cmd.Stderr = log
+
 	cmd.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
 
 	return cmd.Run()
@@ -245,9 +246,9 @@ func addInterpreters(pkgs []Package) []Package {
 	var hasPy, hasPython, hasRLib, hasR bool
 
 	for _, pkg := range pkgs {
-		if pkg.Name == "r" {
+		if pkg.Name == "r" { //nolint:goconst
 			hasR = true
-		} else if pkg.Name == "python" {
+		} else if pkg.Name == "python" { //nolint:goconst
 			hasPython = true
 		} else if strings.HasPrefix(pkg.Name, "r-") {
 			hasRLib = true
@@ -274,7 +275,7 @@ func addInterpreters(pkgs []Package) []Package {
 }
 
 func makeSquashFS(root, sqfs string) error {
-	return exec.Command(
+	return exec.Command( //nolint:noctx
 		"mksquashfs",
 		root,
 		sqfs,

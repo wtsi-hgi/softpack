@@ -34,10 +34,10 @@ func TestCreateEnvironment(t *testing.T) {
 		Tags:        []db.Tag{},
 		Packages: []db.Package{
 			{
-				Name: "pkg1",
+				Name: "pkg1", //nolint:goconst
 			},
 			{
-				Name: "pkg2",
+				Name: "pkg2", //nolint:goconst
 			},
 		},
 	}
@@ -63,6 +63,7 @@ func TestDeleteEnvironment(t *testing.T) {
 
 func TestUpdateEnvironment(t *testing.T) {
 	s, env := setupWithEnv(t)
+
 	var envs []db.Environment
 
 	tags := []db.Tag{{Name: "tag1"}, {Name: "tag2"}}
@@ -79,6 +80,7 @@ func TestUpdateEnvironment(t *testing.T) {
 
 	code, resp = getResponse(t, s, "/get-environments", env.ToIndex())
 	assert.Equal(t, 200, code)
+
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(envs))
@@ -112,13 +114,17 @@ func TestAddAndDeleteTags(t *testing.T) {
 
 	code, resp = getResponse(t, s, "/tags")
 	assert.Equal(t, http.StatusOK, code)
+
 	var tags []db.Tag
+
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&tags)
 	assert.NoError(t, err)
 	assert.Equal(t, []db.Tag{tag}, zeroTagKey(tags))
 }
 
 func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
+	t.Helper()
+
 	s := newTestServer(t)
 
 	environment := db.Environment{
@@ -145,7 +151,7 @@ func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
 	return s, environment
 }
 
-// TODO: Add a test where an environment is created, requiring a requested recipie
+// TODO: Add a test where an environment is created, requiring a requested recipie //nolint:godox
 // verify that it is not queued for build.
 // then add the recipie, verify that the environment dependent on it is built
 //

@@ -35,11 +35,11 @@ func TestNew(t *testing.T) {
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if doneFirst {
-			io.WriteString(w, secondPackages)
+			io.WriteString(w, secondPackages) //nolint:errcheck
 		} else {
 			doneFirst = true
 
-			io.WriteString(w, firstPackages)
+			io.WriteString(w, firstPackages) //nolint:errcheck
 		}
 	}))
 
@@ -50,9 +50,9 @@ func TestNew(t *testing.T) {
 
 	expectation := []Package{
 		{
-			Name:        "py-torch",
-			Description: "big lib",
-			Versions:    []string{"2.0.0"},
+			Name:        "py-torch",        //nolint:goconst
+			Description: "big lib",         //nolint:goconst
+			Versions:    []string{"2.0.0"}, //nolint:goconst
 		},
 	}
 
@@ -67,7 +67,7 @@ func TestNew(t *testing.T) {
 
 func TestGetRecipeDescription(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, testPackages)
+		io.WriteString(w, testPackages) //nolint:errcheck
 	}))
 
 	t.Cleanup(srv.Close)
@@ -90,7 +90,7 @@ func TestGetRecipeDescription(t *testing.T) {
 
 func TestCheckPkgsExist(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, testPackages)
+		io.WriteString(w, testPackages) //nolint:errcheck
 	}))
 
 	t.Cleanup(srv.Close)

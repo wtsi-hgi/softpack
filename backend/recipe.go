@@ -15,7 +15,7 @@ type RecipeDescriptionResponse struct {
 	Description string `json:"description"`
 }
 
-func (s *Server) RequestRecipe(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) RequestRecipe(_ http.ResponseWriter, r *http.Request) error {
 	req, err := GetItemFromRequest[db.RecipeRequest](r)
 	if err != nil {
 		return err
@@ -43,7 +43,6 @@ func (s *Server) GetRequestedRecipes(w http.ResponseWriter, r *http.Request) err
 	return nil
 }
 
-// Frontend expects { "description": "Unknown Module Package" } || {"description": <>}
 func (s *Server) GetRecipeDescription(w http.ResponseWriter, r *http.Request) error {
 	name, err := GetItemFromRequest[string](r)
 	if err != nil {
@@ -70,10 +69,9 @@ func (s *Server) GetRecipeDescription(w http.ResponseWriter, r *http.Request) er
 	return nil
 }
 
-// name is pkg@version
 func (s *Server) getPackageIndex(name string) (idx db.PackageIndex) {
 	parts := strings.Split(name, "@")
-	if len(parts) == 2 {
+	if len(parts) == 2 { //nolint:mnd
 		idx.Name = parts[0]
 		idx.Version = parts[1]
 
@@ -85,7 +83,7 @@ func (s *Server) getPackageIndex(name string) (idx db.PackageIndex) {
 	return idx
 }
 
-func (s *Server) GetAllPackages(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) GetAllPackages(w http.ResponseWriter, _ *http.Request) error {
 	pkgs := s.apt.GetAllPackages()
 
 	w.Header().Set("Content-Type", "application/json")
@@ -97,7 +95,7 @@ func (s *Server) GetAllPackages(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) RemoveRequestedRecipe(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) RemoveRequestedRecipe(_ http.ResponseWriter, r *http.Request) error {
 	toDelete, err := GetItemFromRequest[db.RecipeRequest](r)
 	if err != nil {
 		return err
@@ -123,7 +121,7 @@ func (s *Server) RemoveRequestedRecipe(w http.ResponseWriter, r *http.Request) e
 //	  requestedName: name,
 //	  requestedVersion: version
 //	})
-func (s *Server) FulfilRequestedRecipe(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) FulfilRequestedRecipe(_ http.ResponseWriter, r *http.Request) error {
 	recipe, err := GetItemFromRequest[db.RecipeRequest](r)
 	if err != nil {
 		return err
@@ -132,13 +130,21 @@ func (s *Server) FulfilRequestedRecipe(w http.ResponseWriter, r *http.Request) e
 	if envs, exists := s.waitingEnvs.Get(*recipe); exists {
 		s.waitingEnvs.Delete(*recipe)
 
-		for _, env := range envs {
-			if waiting := s.waitingEnvs.ContainsEnv(env); !waiting {
-				// TODO: build environment + add to envs db? is it alr there?
-				err := s.Build(env)
-				if err != nil {
-					return err
-				}
+		if err := s.buildWaitingEnvs(envs); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (s *Server) buildWaitingEnvs(envs []db.Environment) error {
+	for _, env := range envs {
+		if waiting := s.waitingEnvs.ContainsEnv(env); !waiting {
+			// TODO: build environment + add to envs db? is it alr there?
+			err := s.Build(env)
+			if err != nil {
+				return err
 			}
 		}
 	}

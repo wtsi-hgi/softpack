@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"slices"
 	"time"
@@ -18,7 +18,7 @@ import (
 )
 
 var (
-	ErrInvalidJson   = errors.New("invalid json")
+	ErrInvalidJSON   = errors.New("invalid json")
 	ErrDuplicateItem = errors.New("item to add already exists")
 )
 
@@ -52,7 +52,7 @@ func (b *Server) Serve() http.Handler {
 
 	return &m
 
-	// todo
+	// todo //nolint:godox
 
 	// /upload - upload artefacts (only needed for tooling).
 	// /build-status - frontend request for average build times (may not be required).
@@ -71,18 +71,25 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}.ServeHTTP(w, r)
 }
 
-var httpErrors = []error{io.EOF, ErrInvalidJson, ErrDuplicateItem, db.ErrNoRowsAffected, apt.ErrInvalidPackage, db.ErrMissingField}
+var httpErrors = []error{
+	io.EOF,
+	ErrInvalidJSON,
+	ErrDuplicateItem,
+	db.ErrNoRowsAffected,
+	apt.ErrInvalidPackage,
+	db.ErrMissingField,
+}
 
 func responseCode(err error) int {
 	if slices.Contains(httpErrors, err) {
 		return http.StatusBadRequest
 	}
 
-	if _, ok := errors.AsType[*json.SyntaxError](err); ok {
+	if _, ok := errors.AsType[*json.SyntaxError](err); ok { //nolint:errcheck
 		return http.StatusBadRequest
 	}
 
-	fmt.Println("Given error not found in httpErrors", err)
+	log.Printf("Given error not found in httpErrors %s", err)
 
 	return http.StatusInternalServerError
 }
@@ -98,9 +105,8 @@ func GetItemFromRequest[T any](r *http.Request) (*T, error) {
 }
 
 func New(config *config.Config) *Server {
-	apt, _ := apt.New(config.AptSrc, time.Minute)
-	// database, _ := db.Connect("sqlite3", ":memory:")
-	database, _ := db.Connect("sqlite3", config.DBConn)
+	apt, _ := apt.New(config.AptSrc, time.Minute)       //nolint:errcheck
+	database, _ := db.Connect("sqlite3", config.DBConn) //nolint:errcheck
 
 	s := &Server{
 		db:     database,
@@ -110,20 +116,20 @@ func New(config *config.Config) *Server {
 		waitingEnvs: utils.New(),
 	}
 
-	s.buildWaitingEnvs()
+	s.generateWaitingEnvs()
 
 	return s
 }
 
-func (s *Server) Run() error {
-	return http.ListenAndServe(s.config.ListenAddr, s.Serve())
+func (b *Server) Run() error {
+	return http.ListenAndServe(b.config.ListenAddr, b.Serve())
 }
 
-func (s *Server) buildWaitingEnvs() {
+func (s *Server) generateWaitingEnvs() {
 	ctx := context.Background()
 
-	reqs, _ := s.db.GetRequestedRecipes(ctx)
-	envs, _ := s.db.GetEnvironments(ctx)
+	reqs, _ := s.db.GetRequestedRecipes(ctx) //nolint:errcheck
+	envs, _ := s.db.GetEnvironments(ctx)     //nolint:errcheck
 
 	for _, req := range reqs {
 		for _, env := range envs {

@@ -76,6 +76,7 @@ func getResponse(t *testing.T, s *httptest.Server, endpoint string, body ...any)
 	t.Helper()
 
 	var reader io.Reader
+
 	var method string
 
 	if len(body) == 0 {
@@ -89,6 +90,7 @@ func getResponse(t *testing.T, s *httptest.Server, endpoint string, body ...any)
 		default:
 			jsonBody, err := json.Marshal(body[0])
 			assert.NoError(t, err)
+
 			reader = bytes.NewReader(jsonBody)
 		}
 	}
@@ -112,11 +114,15 @@ func getResponse(t *testing.T, s *httptest.Server, endpoint string, body ...any)
 }
 
 func assertEmptyResp(t *testing.T, code int, resp string) {
+	t.Helper()
+
 	assert.Equal(t, http.StatusNoContent, code)
 	assert.Empty(t, resp)
 }
 
 func assertBadRequest(t *testing.T, code int, resp string, err error) {
+	t.Helper()
+
 	assert.Equal(t, http.StatusBadRequest, code)
 	assert.Contains(t, resp, err.Error())
 }
@@ -125,6 +131,7 @@ func checkAllEqual[T db.Environment | db.RecipeRequest](t *testing.T, s *httptes
 	t.Helper()
 
 	var endpoint string
+
 	var v T
 
 	switch any(v).(type) {
@@ -138,6 +145,7 @@ func checkAllEqual[T db.Environment | db.RecipeRequest](t *testing.T, s *httptes
 	assert.Equal(t, http.StatusOK, code)
 
 	var actual []T
+
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&actual)
 	assert.NoError(t, err)
 
@@ -145,7 +153,7 @@ func checkAllEqual[T db.Environment | db.RecipeRequest](t *testing.T, s *httptes
 	case db.Environment:
 		assert.Equal(t,
 			expected,
-			zeroEnvKey(any(actual).([]db.Environment)),
+			zeroEnvKey(any(actual).([]db.Environment)), //nolint:errcheck,forcetypeassert
 		)
 	default:
 		assert.Equal(t, expected, actual)

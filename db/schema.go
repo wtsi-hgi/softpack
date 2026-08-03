@@ -1,15 +1,15 @@
 package db
 
 type Environment struct {
-	ID          uint      `json:"-" gorm:"primaryKey"`
-	Name        string    `json:"name" gorm:"not null;uniqueIndex:capybara"`
-	Path        string    `json:"path" gorm:"not null;uniqueIndex:capybara"`
-	Version     int       `json:"version" gorm:"not null;uniqueIndex:capybara"`
-	Description string    `json:"description" gorm:"not null"`
-	Created     int       `json:"created" gorm:"not null"`
-	Hidden      bool      `json:"hidden" gorm:"not null"`
+	ID          uint      `gorm:"primaryKey"                    json:"-"`
+	Name        string    `gorm:"not null;uniqueIndex:capybara" json:"name"`
+	Path        string    `gorm:"not null;uniqueIndex:capybara" json:"path"`
+	Version     int       `gorm:"not null;uniqueIndex:capybara" json:"version"`
+	Description string    `gorm:"not null"                      json:"description"`
+	Created     int       `gorm:"not null"                      json:"created"`
+	Hidden      bool      `gorm:"not null"                      json:"hidden"`
 	Tags        []Tag     `gorm:"many2many:environment_tags"`
-	Packages    []Package `json:"packages" gorm:"not null;serializer:json"`
+	Packages    []Package `gorm:"not null;serializer:json"      json:"packages"`
 	// Tags     []string  `json:"tags" gorm:"not null;serializer:json"`
 	// status
 	// readme string
@@ -26,10 +26,10 @@ type Package struct {
 }
 
 type RecipeRequest struct {
-	Name      string `json:"name"    gorm:"not null"`
-	Version   string `json:"version" gorm:"not null"`
-	URL       string `json:"url"     gorm:"not null"`
-	Details   string `json:"details" gorm:"not null"`
+	Name      string `gorm:"not null"  json:"name"`
+	Version   string `gorm:"not null"  json:"version"`
+	URL       string `gorm:"not null"  json:"url"`
+	Details   string `gorm:"not null"  json:"details"`
 	Requester string `json:"requester"`
 }
 
@@ -37,5 +37,5 @@ type RecipeRequest struct {
 
 type Tag struct {
 	ID   uint   `gorm:"primaryKey"`
-	Name string `json:"tag" gorm:"uniqueIndex;not null"`
+	Name string `gorm:"uniqueIndex;not null" json:"tag"`
 }

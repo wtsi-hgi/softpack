@@ -26,12 +26,14 @@ import (
 	"vimagination.zapto.org/rwcount"
 )
 
-// BuildBase is the ubuntu docker container used for testing
+// BuildBase is the ubuntu docker container used for testing.
 const BuildBase = "docker://ubuntu:resolute-20260413"
 
 // SkipIfBadEnvironment will skip remaining tests if the environment does not
 // contain singularity and mksquashfs.
 func SkipIfBadEnvironment(t *testing.T) {
+	t.Helper()
+
 	if _, err := exec.LookPath("singularity"); errors.Is(err, exec.ErrNotFound) {
 		t.Skip("skipping due to no singularity executable")
 	} else if _, err = exec.LookPath("mksquashfs"); errors.Is(err, exec.ErrNotFound) {
@@ -63,8 +65,8 @@ func CreateTestAptRepo(t *testing.T, debs []Deb) string {
 	dists := filepath.Join(root, "dists", "resolute", "main", "binary-"+runtime.GOARCH)
 
 	assert.ErrorIs(t, cmp.Or(
-		os.MkdirAll(dists, 0700),
-		os.MkdirAll(filepath.Join(root, bins), 0700),
+		os.MkdirAll(dists, 0700),                     //nolint:mnd
+		os.MkdirAll(filepath.Join(root, bins), 0700), //nolint:mnd
 	), nil)
 
 	distFile, err := os.Create(filepath.Join(dists, "Packages"))
@@ -131,14 +133,14 @@ func createDebFile(t *testing.T, w io.Writer, control string) {
 	assert.ErrorIs(t, arw.WriteHeader(&ar.Header{
 		Name:    "debian-binary",
 		ModTime: time.Now(),
-		Mode:    0644,
-		Size:    4,
+		Mode:    0644, //nolint:mnd
+		Size:    4,    //nolint:mnd
 	}), nil)
 	assert.ErrorIs(t, writeString(arw, "2.0\n"), nil)
 	assert.ErrorIs(t, arw.WriteHeader(&ar.Header{
 		Name:    "control.tar.gz",
 		ModTime: time.Now(),
-		Mode:    0644,
+		Mode:    0644, //nolint:mnd
 		Size:    ar.UnknownSize,
 	}), nil)
 
@@ -147,7 +149,7 @@ func createDebFile(t *testing.T, w io.Writer, control string) {
 
 	assert.ErrorIs(t, tr.WriteHeader(&tar.Header{
 		Name:    "control",
-		Mode:    0644,
+		Mode:    0644, //nolint:mnd
 		Size:    int64(len(control)),
 		ModTime: time.Now(),
 	}), nil)
@@ -158,7 +160,7 @@ func createDebFile(t *testing.T, w io.Writer, control string) {
 	assert.ErrorIs(t, arw.WriteHeader(&ar.Header{
 		Name:    "data.tar.gz",
 		ModTime: time.Now(),
-		Mode:    0644,
+		Mode:    0644, //nolint:mnd
 		Size:    int64(len(emptyTarGz)),
 	}), nil)
 	assert.ErrorIs(t, writeString(arw, emptyTarGz), nil)
