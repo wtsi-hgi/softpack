@@ -83,7 +83,7 @@ func Build(baseImage, tempDir, installDir, wrapperScript, aptSrc string, pkgs []
 		return nil, err
 	}
 
-	defer l.Close()
+	defer l.Close() //nolint:errcheck
 
 	return runCommands(filepath.Join(root, "root"), baseImage, installDir, sqfs, l.Addr().String(), wrapperScript, pkgs)
 }
@@ -290,6 +290,7 @@ func buildContainer(sqfs, installDir string) error {
 	).Run()
 }
 
+// SingularityPath appends the singularity filename to the given path.
 func SingularityPath(installDir string) string {
 	return filepath.Join(installDir, singularitySIF)
 }

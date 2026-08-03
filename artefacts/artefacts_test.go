@@ -49,7 +49,7 @@ func TestStoreHTTP(t *testing.T) {
 		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 
-			fmt.Fprintln(w, err)
+			fmt.Fprintln(w, err) //nolint:errcheck
 
 			return
 		}
@@ -58,7 +58,7 @@ func TestStoreHTTP(t *testing.T) {
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 
-			fmt.Fprintln(w, err)
+			fmt.Fprintln(w, err) //nolint:errcheck
 
 			return
 		}
@@ -66,7 +66,7 @@ func TestStoreHTTP(t *testing.T) {
 		if _, err := io.Copy(f, r.Body); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 
-			fmt.Fprintln(w, err)
+			fmt.Fprintln(w, err) //nolint:errcheck
 
 			return
 		}

@@ -9,7 +9,12 @@ import (
 	"github.com/wtsi-hgi/softpack/module"
 )
 
-func Install(baseImage, moduleBase, tempDir, installBase, wrapperScript, artefactBase, envPath, envName, envVer, aptSrc, description string, pkgs []build.Package) (*build.Artefacts, error) {
+// Install builds an environment, installs the module file, and copies the build
+// artefacts to the given artefactBase location.
+func Install(
+	baseImage, moduleBase, tempDir, installBase, wrapperScript, artefactBase,
+	envPath, envName, envVer, aptSrc, description string, pkgs []build.Package,
+) (*build.Artefacts, error) {
 	installPath := filepath.Join(installBase, envPath, envName, envVer+"-scripts")
 
 	if err := os.MkdirAll(installPath, 0755); err != nil {

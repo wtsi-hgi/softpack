@@ -63,7 +63,7 @@ func TestReadIndex(t *testing.T) {
 	}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, testPackages)
+		io.WriteString(w, testPackages) //nolint:errcheck
 	}))
 
 	filePath := filepath.Join(t.TempDir(), "Packages.gz")

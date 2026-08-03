@@ -58,7 +58,7 @@ func storeInS3(s3URL, envPath string, artefacts map[string]Opener) error {
 			return fmt.Errorf("failed to upload artefact %s: %w", name, err)
 		}
 
-		r.Close()
+		r.Close() //nolint:errcheck
 	}
 
 	return nil
@@ -101,7 +101,7 @@ func storeInHTTP(httpURL, envPath string, artefacts map[string]Opener) error {
 		if resp.StatusCode < http.StatusOK || resp.StatusCode > http.StatusResetContent {
 			var sb strings.Builder
 
-			io.Copy(&sb, resp.Body)
+			io.Copy(&sb, resp.Body) //nolint:errcheck
 
 			return HTTPError{
 				StatusCode: resp.StatusCode,

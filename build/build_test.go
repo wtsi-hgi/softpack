@@ -25,7 +25,7 @@ func TestBuild(t *testing.T) {
 	arts, err := Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", root, []Package{
 		{Name: "abc"},
 	})
-	assert.ErrorIs(t, err, nil)
+	assert.NoError(t, err)
 
 	assert.Equal(t, arts.Exes, []string{"abc", "def"})
 	assert.Equal(t, arts.Packages, []Package{{Name: "abc", Version: "2"}})
@@ -42,7 +42,7 @@ func TestBuild(t *testing.T) {
 		{Name: "r-lib"},
 		{Name: "abc", Version: "1"},
 	})
-	assert.ErrorIs(t, err, nil)
+	assert.NoError(t, err)
 
 	assert.Equal(t, arts.Exes, []string{"R", "Rscript", "abc"})
 	assert.Equal(t, arts.Packages, []Package{
@@ -57,10 +57,10 @@ func TestBuild(t *testing.T) {
 	t.Log("Build using S3 source")
 
 	files, err := s3afero.FsPath(root, 0)
-	assert.ErrorIs(t, err, nil)
+	assert.NoError(t, err)
 
 	bucket, err := s3afero.SingleBucket("apt", files, nil)
-	assert.ErrorIs(t, err, nil)
+	assert.NoError(t, err)
 
 	srv = httptest.NewServer(gofakes3.New(bucket).Server())
 	defer srv.Close()
@@ -75,7 +75,7 @@ func TestBuild(t *testing.T) {
 	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", "s3://apt", []Package{
 		{Name: "py-xyz"},
 	})
-	assert.ErrorIs(t, err, nil)
+	assert.NoError(t, err)
 
 	assert.Equal(t, arts.Exes, []string{"python", "python3.13"})
 	assert.Equal(t, arts.Packages, []Package{
@@ -90,7 +90,7 @@ func checkSymlinks(t *testing.T, install string, exes []string) {
 
 	for _, exe := range exes {
 		link, err := os.Readlink(filepath.Join(install, exe))
-		assert.ErrorIs(t, err, nil)
+		assert.NoError(t, err)
 		assert.Equal(t, link, "some-wrapper")
 	}
 }

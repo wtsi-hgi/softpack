@@ -42,7 +42,7 @@ func startServer(aptSrc string) (net.Listener, error) {
 		return nil, err
 	}
 
-	go http.Serve(l, h)
+	go http.Serve(l, h) //nolint:errcheck
 
 	return l, nil
 }
@@ -89,7 +89,7 @@ func (s *s3Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer obj.Body.Close()
+	defer obj.Body.Close() //nolint:errcheck
 
-	io.Copy(w, obj.Body)
+	io.Copy(w, obj.Body) //nolint:errcheck
 }

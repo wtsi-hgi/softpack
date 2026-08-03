@@ -101,7 +101,7 @@ func parseIndex(r io.ReadCloser, compressed bool) ([]Package, error) {
 }
 
 func readPackageIndex(r io.ReadCloser, compressed bool) ([]control.BinaryIndex, error) {
-	defer r.Close()
+	defer r.Close() //nolint:errcheck
 
 	if compressed {
 		s, err := gzip.NewReader(r)
