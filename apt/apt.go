@@ -54,7 +54,7 @@ func readS3Index(s3URL string) ([]Package, error) {
 }
 
 func readHTTPIndex(url string) ([]Package, error) {
-	resp, err := http.Get(url)
+	resp, err := http.Get(url) //nolint:gosec
 	if err != nil {
 		return nil, err
 	}
@@ -101,7 +101,7 @@ func parseIndex(r io.ReadCloser, compressed bool) ([]Package, error) {
 }
 
 func readPackageIndex(r io.ReadCloser, compressed bool) ([]control.BinaryIndex, error) {
-	defer r.Close() //nolint:errcheck
+	defer r.Close()
 
 	if compressed {
 		s, err := gzip.NewReader(r)

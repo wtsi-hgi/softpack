@@ -50,9 +50,9 @@ func TestNew(t *testing.T) {
 
 	expectation := []Package{
 		{
-			Name:        "py-torch",
-			Description: "big lib",
-			Versions:    []string{"2.0.0"},
+			Name:        "py-torch",        //nolint:goconst
+			Description: "big lib",         //nolint:goconst
+			Versions:    []string{"2.0.0"}, //nolint:goconst
 		},
 	}
 
@@ -75,7 +75,7 @@ func TestGetRecipeDescription(t *testing.T) {
 	s, err := New(srv.URL, 0)
 	assert.NoError(t, err)
 
-	desc, err := s.GetRecipeDescription("py-torch")
+	desc, err := s.GetRecipeDescription("py-torch") //nolint:goconst
 	assert.NoError(t, err)
 	assert.Equal(t, desc, "big lib")
 
@@ -99,9 +99,9 @@ func TestCheckPkgsExist(t *testing.T) {
 	assert.NoError(t, err)
 
 	expected := db.Package{
-		Name:        "py-torch",
-		Description: "big lib",
-		Version:     "2.0.0",
+		Name:        "py-torch", //nolint:goconst
+		Description: "big lib",  //nolint:goconst
+		Version:     "2.0.0",    //nolint:goconst
 	}
 
 	// TODO: This will fail if the expected pkg only has one of the versions, should it?

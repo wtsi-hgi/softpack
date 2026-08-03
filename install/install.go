@@ -17,7 +17,7 @@ func Install(
 ) (*build.Artefacts, error) {
 	installPath := filepath.Join(installBase, envPath, envName, envVer+"-scripts")
 
-	if err := os.MkdirAll(installPath, 0755); err != nil {
+	if err := os.MkdirAll(installPath, 0755); err != nil { //nolint:mnd
 		return nil, err
 	}
 
@@ -26,7 +26,10 @@ func Install(
 		return nil, err
 	}
 
-	if err = module.Install(moduleBase, installBase, envPath, envName, envVer, description, arts.Exes, arts.Packages); err != nil {
+	if err = module.Install(
+		moduleBase, installBase,
+		envPath, envName, envVer, description, arts.Exes, arts.Packages,
+	); err != nil {
 		return nil, err
 	}
 

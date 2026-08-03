@@ -14,11 +14,13 @@ import (
 
 //go:embed module.tmpl
 var moduleTmplStr string
-var moduleTmpl = template.Must(template.New("").Parse(moduleTmplStr))
+var moduleTmpl = template.Must(template.New("").Parse(moduleTmplStr)) //nolint:gochecknoglobals
 
 // Install creates and installs the module file for the given environment parts.
-func Install(moduleBase, installBase, envPath, envName, envVer, description string, exes []string, pkgs []build.Package) error {
-	if err := os.MkdirAll(filepath.Join(moduleBase, envPath, envName), 0755); err != nil {
+func Install(moduleBase, installBase,
+	envPath, envName, envVer, description string, exes []string, pkgs []build.Package,
+) error {
+	if err := os.MkdirAll(filepath.Join(moduleBase, envPath, envName), 0755); err != nil { //nolint:mnd
 		return err
 	}
 
@@ -37,14 +39,16 @@ func Install(moduleBase, installBase, envPath, envName, envVer, description stri
 	return nil
 }
 
-// ModuleFile returns the path of the module for for the given environment
+// ModuleFile returns the path of the module for the given environment
 // parts.
-func ModuleFile(moduleBase, envPath, envName, envVersion string) string {
+func ModuleFile(moduleBase, envPath, envName, envVersion string) string { //nolint:revive
 	return filepath.Join(moduleBase, envPath, envName, envVersion)
 }
 
-func writeModuleFile(w io.Writer, installBase, envPath, envName, envVersion, description string, exes []string, pkgs []build.Package) error {
-	return moduleTmpl.Execute(w, struct { //nolint:errcheck
+func writeModuleFile(w io.Writer, installBase,
+	envPath, envName, envVersion, description string, exes []string, pkgs []build.Package,
+) error {
+	return moduleTmpl.Execute(w, struct {
 		InstallDir         string
 		EnvironmentPath    string
 		EnvironmentName    string

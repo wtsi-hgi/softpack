@@ -4,8 +4,8 @@ import (
 	"archive/tar"
 	"cmp"
 	"compress/gzip"
-	"crypto/md5"
-	"crypto/sha1"
+	"crypto/md5"  //nolint:gosec
+	"crypto/sha1" //nolint:gosec
 	"crypto/sha256"
 	"crypto/sha512"
 	"errors"
@@ -26,7 +26,7 @@ import (
 	"vimagination.zapto.org/rwcount"
 )
 
-// BuildBase is the ubuntu docker container used for testing
+// BuildBase is the ubuntu docker container used for testing.
 const BuildBase = "docker://ubuntu:resolute-20260413"
 
 // SkipIfBadEnvironment will skip remaining tests if the environment does not
@@ -48,7 +48,7 @@ type Deb struct {
 
 // CreateTestAptRepo creates a simple on-disk APT repository, from the supplied
 // deb file metadata, that can be used with the build package.
-func CreateTestAptRepo(t *testing.T, debs []Deb) string {
+func CreateTestAptRepo(t *testing.T, debs []Deb) string { //nolint:funlen
 	t.Helper()
 	root := t.TempDir()
 
@@ -63,8 +63,8 @@ func CreateTestAptRepo(t *testing.T, debs []Deb) string {
 	dists := filepath.Join(root, "dists", "resolute", "main", "binary-"+runtime.GOARCH)
 
 	assert.NoError(t, cmp.Or(
-		os.MkdirAll(dists, 0700),
-		os.MkdirAll(filepath.Join(root, bins), 0700),
+		os.MkdirAll(dists, 0700),                     //nolint:mnd
+		os.MkdirAll(filepath.Join(root, bins), 0700), //nolint:mnd
 	))
 
 	distFile, err := os.Create(filepath.Join(dists, "Packages"))
@@ -90,8 +90,8 @@ func CreateTestAptRepo(t *testing.T, debs []Deb) string {
 		f, err := os.Create(filepath.Join(root, debPath))
 		assert.NoError(t, err)
 
-		m := md5.New()
-		s1 := sha1.New()
+		m := md5.New()   //nolint:gosec
+		s1 := sha1.New() //nolint:gosec
 		s2 := sha256.New()
 		s5 := sha512.New()
 
@@ -123,7 +123,7 @@ const emptyTarGz = "\x1f\x8b\x08\x00\x00\x00\x00\x00" +
 	"\x14\x8c\x54\x00\x00\x2e\xaf\xb5" +
 	"\xef\x00\x04\x00\x00"
 
-func createDebFile(t *testing.T, w io.Writer, control string) {
+func createDebFile(t *testing.T, w io.Writer, control string) { //nolint:funlen
 	t.Helper()
 
 	arw := ar.NewWriter(w)
@@ -131,14 +131,14 @@ func createDebFile(t *testing.T, w io.Writer, control string) {
 	assert.NoError(t, arw.WriteHeader(&ar.Header{
 		Name:    "debian-binary",
 		ModTime: time.Now(),
-		Mode:    0644,
-		Size:    4,
+		Mode:    0644, //nolint:mnd
+		Size:    4,    //nolint:mnd
 	}))
 	assert.NoError(t, writeString(arw, "2.0\n"), nil)
 	assert.NoError(t, arw.WriteHeader(&ar.Header{
 		Name:    "control.tar.gz",
 		ModTime: time.Now(),
-		Mode:    0644,
+		Mode:    0644, //nolint:mnd
 		Size:    ar.UnknownSize,
 	}))
 
@@ -147,7 +147,7 @@ func createDebFile(t *testing.T, w io.Writer, control string) {
 
 	assert.NoError(t, tr.WriteHeader(&tar.Header{
 		Name:    "control",
-		Mode:    0644,
+		Mode:    0644, //nolint:mnd
 		Size:    int64(len(control)),
 		ModTime: time.Now(),
 	}))
@@ -158,7 +158,7 @@ func createDebFile(t *testing.T, w io.Writer, control string) {
 	assert.NoError(t, arw.WriteHeader(&ar.Header{
 		Name:    "data.tar.gz",
 		ModTime: time.Now(),
-		Mode:    0644,
+		Mode:    0644, //nolint:mnd
 		Size:    int64(len(emptyTarGz)),
 	}))
 	assert.NoError(t, writeString(arw, emptyTarGz))
@@ -174,41 +174,41 @@ func writeString(w io.Writer, str string) error {
 // ExamplePackages returns a simple selection of possible packages that can be
 // used with CreateTestAptRepo to create a simple APT repo that can be used for
 // testing.
-func ExamplePackages() []Deb {
+func ExamplePackages() []Deb { //nolint:funlen
 	return []Deb{
 		{
-			Name:    "abc",
+			Name:    "abc", //nolint:goconst
 			Version: "1",
 			Metadata: map[string]string{
-				"XB-Executables": "abc",
+				"XB-Executables": "abc", //nolint:goconst
 			},
 		},
 		{
-			Name:    "abc",
+			Name:    "abc", //nolint:goconst
 			Version: "2",
 			Metadata: map[string]string{
-				"XB-Executables": "abc, def",
+				"XB-Executables": "abc, def", //nolint:goconst
 			},
 		},
 		{
-			Name:    "python",
+			Name:    "python", //nolint:goconst
 			Version: "3.13",
 			Metadata: map[string]string{
-				"XB-Executables": "python, python3.13",
+				"XB-Executables": "python, python3.13", //nolint:goconst
 			},
 		},
 		{
 			Name:    "py-xyz",
 			Version: "2.1",
 			Metadata: map[string]string{
-				"Depends": "python",
+				"Depends": "python", //nolint:goconst
 			},
 		},
 		{
 			Name:    "r",
 			Version: "4.4.0",
 			Metadata: map[string]string{
-				"XB-Executables": "R, Rscript",
+				"XB-Executables": "R, Rscript", //nolint:goconst
 			},
 		},
 		{

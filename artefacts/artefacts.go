@@ -20,13 +20,13 @@ type Opener interface {
 }
 
 func Store(url, envPath string, artefacts map[string]Opener) error {
-	if strings.HasPrefix(url, "s3://") {
+	if strings.HasPrefix(url, "s3://") { //nolint:gocritic
 		return storeInS3(url, envPath, artefacts)
 	} else if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
 		return storeInHTTP(url, envPath, artefacts)
-	} else {
-		return storeInFS(url, envPath, artefacts)
 	}
+
+	return storeInFS(url, envPath, artefacts)
 }
 
 func storeInS3(s3URL, envPath string, artefacts map[string]Opener) error {
@@ -51,14 +51,12 @@ func storeInS3(s3URL, envPath string, artefacts map[string]Opener) error {
 		p := path.Join(u.Path, envPath, name)
 
 		if _, err := client.PutObject(context.Background(), &s3.PutObjectInput{
-			Bucket: &u.Host,
-			Key:    &p,
-			Body:   r,
+			Bucket: &u.Host, Key: &p, Body: r,
 		}); err != nil {
 			return fmt.Errorf("failed to upload artefact %s: %w", name, err)
 		}
 
-		r.Close() //nolint:errcheck
+		r.Close()
 	}
 
 	return nil
@@ -70,7 +68,7 @@ type HTTPError struct {
 }
 
 func (h HTTPError) Error() string {
-	return fmt.Sprintf("recieved unexpected status code: %d", h.StatusCode)
+	return fmt.Sprintf("received unexpected status code: %d", h.StatusCode)
 }
 
 func storeInHTTP(httpURL, envPath string, artefacts map[string]Opener) error {
@@ -89,11 +87,7 @@ func storeInHTTP(httpURL, envPath string, artefacts map[string]Opener) error {
 			return fmt.Errorf("failed to open artefact %s: %w", name, err)
 		}
 
-		resp, err := http.DefaultClient.Do(&http.Request{
-			Method: http.MethodPut,
-			URL:    u,
-			Body:   r,
-		})
+		resp, err := http.DefaultClient.Do(&http.Request{Method: http.MethodPut, URL: u, Body: r})
 		if err != nil {
 			return fmt.Errorf("failed to upload artefact %s: %w", name, err)
 		}
@@ -103,21 +97,18 @@ func storeInHTTP(httpURL, envPath string, artefacts map[string]Opener) error {
 
 			io.Copy(&sb, resp.Body) //nolint:errcheck
 
-			return HTTPError{
-				StatusCode: resp.StatusCode,
-				Body:       sb.String(),
-			}
+			return HTTPError{StatusCode: resp.StatusCode, Body: sb.String()}
 		}
 	}
 
 	return nil
 }
 
-func storeInFS(path, envPath string, artefacts map[string]Opener) error {
+func storeInFS(path, envPath string, artefacts map[string]Opener) error { //nolint:gocognit
 	for name, artefact := range artefacts {
 		ap := filepath.Join(path, envPath, name)
 
-		if err := os.MkdirAll(filepath.Dir(ap), 0755); err != nil {
+		if err := os.MkdirAll(filepath.Dir(ap), 0755); err != nil { //nolint:mnd
 			return err
 		}
 

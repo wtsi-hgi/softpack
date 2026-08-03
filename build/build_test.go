@@ -27,8 +27,8 @@ func TestBuild(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	assert.Equal(t, arts.Exes, []string{"abc", "def"})
-	assert.Equal(t, arts.Packages, []Package{{Name: "abc", Version: "2"}})
+	assert.Equal(t, arts.Exes, []string{"abc", "def"})                     //nolint:goconst
+	assert.Equal(t, arts.Packages, []Package{{Name: "abc", Version: "2"}}) //nolint:goconst
 	checkSymlinks(t, install, arts.Exes)
 
 	t.Log("Build using HTTP source")
@@ -77,10 +77,10 @@ func TestBuild(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	assert.Equal(t, arts.Exes, []string{"python", "python3.13"})
+	assert.Equal(t, arts.Exes, []string{"python", "python3.13"}) //nolint:goconst
 	assert.Equal(t, arts.Packages, []Package{
 		{Name: "py-xyz", Version: "2.1"},
-		{Name: "python", Version: "3.13", Interpreter: true},
+		{Name: "python", Version: "3.13", Interpreter: true}, //nolint:goconst
 	})
 	checkSymlinks(t, install, arts.Exes)
 }

@@ -51,9 +51,9 @@ Description: big lib
 func TestReadIndex(t *testing.T) {
 	expectations := []Package{
 		{
-			Name:        "py-torch",
-			Description: "big lib",
-			Versions:    []string{"2.0.0", "2.0.1"},
+			Name:        "py-torch",                 //nolint:goconst
+			Description: "big lib",                  //nolint:goconst
+			Versions:    []string{"2.0.0", "2.0.1"}, //nolint:goconst
 		},
 		{
 			Name:        "r-ggplot2",

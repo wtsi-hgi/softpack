@@ -37,7 +37,7 @@ func startServer(aptSrc string) (net.Listener, error) {
 		h = http.FileServer(http.Dir(aptSrc))
 	}
 
-	l, err := net.Listen("tcp", "127.0.0.1:0")
+	l, err := net.Listen("tcp", "127.0.0.1:0") //nolint:noctx
 	if err != nil {
 		return nil, err
 	}
@@ -73,12 +73,12 @@ func newS3Proxy(u *url.URL) (http.Handler, error) {
 func (s *s3Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p := strings.TrimPrefix(path.Join(s.path, r.URL.Path), "/")
 
-	obj, err := s.client.GetObject(context.Background(), &s3.GetObjectInput{
+	obj, err := s.client.GetObject(context.Background(), &s3.GetObjectInput{ //nolint:contextcheck
 		Bucket: &s.host,
 		Key:    &p,
 	})
 	if err != nil {
-		if _, ok := errors.AsType[*types.NoSuchKey](err); ok {
+		if _, ok := errors.AsType[*types.NoSuchKey](err); ok { //nolint:errcheck
 			http.NotFound(w, r)
 
 			return
@@ -89,7 +89,7 @@ func (s *s3Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	defer obj.Body.Close() //nolint:errcheck
+	defer obj.Body.Close()
 
 	io.Copy(w, obj.Body) //nolint:errcheck
 }

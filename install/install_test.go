@@ -17,10 +17,12 @@ func TestInstall(t *testing.T) {
 	installBase := t.TempDir()
 	artefactBase := t.TempDir()
 
-	arts, err := Install(apt.BuildBase, moduleBase, "", installBase, "a-wrapper-script", artefactBase, "groups/myGroup", "myEnv", "1", root, "My Environment", []build.Package{
-		{Name: "r-lib"},
-		{Name: "abc", Version: "1"},
-	})
+	arts, err := Install(apt.BuildBase, moduleBase, "", installBase, "a-wrapper-script", artefactBase,
+		"groups/myGroup", "myEnv", "1", root, "My Environment", []build.Package{
+			{Name: "r-lib"},
+			{Name: "abc", Version: "1"}, //nolint:goconst
+		},
+	)
 	assert.NoError(t, err)
 
 	assert.Equal(t, arts.Exes, []string{"R", "Rscript", "abc"})

@@ -22,9 +22,11 @@ func TestStoreFile(t *testing.T) {
 }
 
 func testStore(t *testing.T, tmp, url string) {
+	t.Helper()
+
 	file := filepath.Join(t.TempDir(), "aFile.txt")
 
-	assert.NoError(t, os.WriteFile(file, []byte("A file of data"), 0644))
+	assert.NoError(t, os.WriteFile(file, []byte("A file of data"), 0600))
 	assert.NoError(t, Store(url, "myEnv", map[string]Opener{
 		"myFile":         File(file),
 		"logs/build.log": Data("Some Data"),
@@ -44,12 +46,12 @@ func TestStoreHTTP(t *testing.T) {
 	mux := http.NewServeMux()
 
 	mux.Handle("PUT /files/", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		p := filepath.Join(tmp, strings.TrimPrefix(r.URL.Path, "/files/"))
+		p := filepath.Join(tmp, strings.TrimPrefix(r.URL.Path, "/files/")) //nolint:gosec
 
 		if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 
-			fmt.Fprintln(w, err) //nolint:errcheck
+			fmt.Fprintln(w, err)
 
 			return
 		}
@@ -58,7 +60,7 @@ func TestStoreHTTP(t *testing.T) {
 		if err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 
-			fmt.Fprintln(w, err) //nolint:errcheck
+			fmt.Fprintln(w, err)
 
 			return
 		}
@@ -66,7 +68,7 @@ func TestStoreHTTP(t *testing.T) {
 		if _, err := io.Copy(f, r.Body); err != nil {
 			w.WriteHeader(http.StatusInternalServerError)
 
-			fmt.Fprintln(w, err) //nolint:errcheck
+			fmt.Fprintln(w, err)
 
 			return
 		}
