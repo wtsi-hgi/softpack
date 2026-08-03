@@ -15,6 +15,8 @@ func init() {
 	RootCmd.AddCommand(serverCmd)
 
 	serverCmd.Flags().StringVarP(&configPath, "config", "c", "", "config")
+
+	serverCmd.MarkFlagRequired("config")
 }
 
 var serverCmd = &cobra.Command{
