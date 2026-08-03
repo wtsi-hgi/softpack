@@ -43,7 +43,6 @@ func (db *DB) RemoveRequestedRecipe(ctx context.Context, recipe RecipeRequest) e
 	}).Delete(&RecipeRequest{})
 
 	err := result.Error
-
 	if err != nil {
 		return err
 	}

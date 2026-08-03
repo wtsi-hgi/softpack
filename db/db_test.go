@@ -21,6 +21,8 @@ func setup(t *testing.T) (context.Context, *DB) {
 }
 
 func setupWithEnv1(t *testing.T) (context.Context, *DB, Environment) {
+	t.Helper()
+
 	ctx, db := setup(t)
 
 	env := Environment{

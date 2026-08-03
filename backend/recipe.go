@@ -134,7 +134,11 @@ func (s *Server) FulfilRequestedRecipe(w http.ResponseWriter, r *http.Request) e
 
 		for _, env := range envs {
 			if waiting := s.waitingEnvs.ContainsEnv(env); !waiting {
-				// build environment + add to envs db? is it alr there?
+				// TODO: build environment + add to envs db? is it alr there?
+				err := s.Build(env)
+				if err != nil {
+					return err
+				}
 			}
 		}
 	}

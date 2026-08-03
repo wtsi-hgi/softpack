@@ -6,18 +6,24 @@ import (
 	"gopkg.in/yaml.v3"
 )
 
-// BaseImage - local path, or docker:// url for the base install image (currently, an Ubuntu Resolute image).
-// TempDir - local directory where the image will be extracted and modified; this can be empty and it will create a temp directory in the final install directory.
-// InstallDir - local directory where the final container and symlinks will be put.
-// WrapperScript - local path to wrapper script that the symlinks will point to.
-// AptSrc - local directory, http:// URL, or s3:// URL pointing to the APT repo that will be used to install.
-
-// In addition, we will also need:
-
-// ModulePath - local path to place the generated module files.
-// ArtefactStore - local path or s3:// URL used to store generated artefacts.
-// DBConn - either pointing to a local sqlite location, or a mysql:// style URI for a remote DB.
-// ListenAddr - address that the webserver will listen on; can default to something like ":8080" if not specified.
+// Config represnts a parsed config.yaml file.
+//
+// Fields:
+//   - base-img-path: Local path or docker:// URL for the base installation image
+//   - temp-dir: Local directory used to extract and modify the image. If unprovided,
+//     one will be created inside of the install-dir.
+//   - install-dir: Local directory where the final container image and generated
+//     symlinks will be stored.
+//   - wrapper-script: Local path to the wrapper script that generated symlinks
+//     will point to.
+//   - apt-src: Local directory, HTTP URL, or s3:// URL pointing to the APT
+//     repository used to install packages into the image.
+//   - module-path: Local directory where generated module files will be placed.
+//   - artefact-store: Local path or s3:// URL used to store generated artefacts.
+//   - db-conn: Database connection string, either a local SQLite path or a
+//     mysql:// style URI for a remote database.
+//   - listen-addr: Address where the web server will listen. If unspecified,
+//     defaults to a value such as ":8080".
 type Config struct {
 	BaseImgPath   string `yaml:"base-img-path"`
 	TempDir       string `yaml:"temp-dir"`
@@ -31,6 +37,7 @@ type Config struct {
 	ListenAddr    string `yaml:"listen-addr"`
 }
 
+// Load will load the config at the provided path.
 func Load(path string) (*Config, error) {
 	file, err := os.ReadFile(path)
 	if err != nil {

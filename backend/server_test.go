@@ -56,7 +56,7 @@ func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 
 	ps := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, testPackages)
+		io.WriteString(w, testPackages) //nolint:errcheck
 	}))
 
 	t.Cleanup(ps.Close)

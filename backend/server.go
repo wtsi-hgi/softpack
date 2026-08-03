@@ -23,7 +23,8 @@ var (
 )
 
 type Server struct {
-	waitingEnvs utils.WaitingEnvs
+	waitingEnvs  utils.WaitingEnvs
+	buildingEnvs map[uint]BuildingEnv
 
 	db     *db.DB
 	apt    *apt.Server
@@ -47,6 +48,7 @@ func (b *Server) Serve() http.Handler {
 	// m.Handle("/fulfil-requested-recipe", handler(b.FulfilRequestedRecipe))
 	m.Handle("/groups", handler(b.GetGroups))
 	m.Handle("/tags", handler(b.GetTags))
+	m.Handle("/build-status", handler(b.GetAverageBuildTime))
 
 	return &m
 

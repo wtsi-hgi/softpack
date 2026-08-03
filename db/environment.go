@@ -9,16 +9,22 @@ import (
 
 var ErrNoRowsAffected = errors.New("no rows affected by query")
 
+// EnvironmentIndex represents a multiindex used to uniquely identify a record
+// in the Environment table.
 type EnvironmentIndex struct {
 	Name, Path string
 	Version    int
 }
 
+// UpdateValue allows one specific field of an environment record, identified by
+// EnvironmentIndex, to be updated.
 type UpdateValue struct { // TODO: I dont like this, unnecessary duplication with updateenv
 	EnvironmentIndex
 	Value string
 }
 
+// UpdateEnv allows multiple fields of an environment record, identified by EnvironmentIndex,
+// to be updated.
 type UpdateEnv struct {
 	EnvironmentIndex
 	Description *string
@@ -30,16 +36,12 @@ func (e *Environment) BeforeCreate(tx *gorm.DB) error {
 	if e.Name == "" || e.Path == "" || e.Version == 0 || e.Created == 0 {
 		return ErrMissingField
 	}
-	// if e.Tags == nil {
-	// 	e.Tags = []string{}
-	// }
-	// if e.Packages == nil {
-	// 	e.Packages = []string{}
-	// }
 
 	return nil
 }
 
+// ToIndex returns an EnvironmentIndex that will uniquely identify the environment
+// it is called upon.
 func (e *Environment) ToIndex() EnvironmentIndex {
 	return EnvironmentIndex{
 		Name:    e.Name,
@@ -56,6 +58,7 @@ func (u *UpdateValue) ToIndex() EnvironmentIndex {
 	}
 }
 
+// CreateEnvironments will add the given Environments to the database.
 func (db *DB) CreateEnvironments(ctx context.Context, envs []Environment) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, env := range envs {
@@ -68,10 +71,15 @@ func (db *DB) CreateEnvironments(ctx context.Context, envs []Environment) error 
 	})
 }
 
+// CreateEnvironment will add the given Environment to the database.
 func (db *DB) CreateEnvironment(ctx context.Context, env Environment) error {
 	return db.WithContext(ctx).Create(&env).Error
 }
 
+// UpdateEnvironment will update the environment record specified by the EnvironmentIndex
+// to match the non-nil UpdateEnv fields.
+// Providing 'Tags' here will result in all previous tags being removed and subsequently
+// replaced with the provided ones, to add/delete tags, consider using <Add/Delete>EnvironmentTag.
 func (db *DB) UpdateEnvironment(ctx context.Context, u UpdateEnv) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		updates := map[string]interface{}{}
