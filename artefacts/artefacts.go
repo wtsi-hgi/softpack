@@ -19,17 +19,17 @@ type Opener interface {
 	Open() (io.ReadSeekCloser, error)
 }
 
-func Store(url string, envPath string, artefacts map[string]Opener) error {
+func Store(url, envPath string, artefacts map[string]Opener) error {
 	if strings.HasPrefix(url, "s3://") {
-		return storeInS3(url, artefacts)
+		return storeInS3(url, envPath, artefacts)
 	} else if strings.HasPrefix(url, "http://") || strings.HasPrefix(url, "https://") {
-		return storeInHTTP(url, artefacts)
+		return storeInHTTP(url, envPath, artefacts)
 	} else {
-		return storeInFS(url, artefacts)
+		return storeInFS(url, envPath, artefacts)
 	}
 }
 
-func storeInS3(s3URL string, artefacts map[string]Opener) error {
+func storeInS3(s3URL, envPath string, artefacts map[string]Opener) error {
 	cfg, err := config.LoadDefaultConfig(context.Background())
 	if err != nil {
 		return fmt.Errorf("failed to load S3 configuration, %w", err)
@@ -43,17 +43,12 @@ func storeInS3(s3URL string, artefacts map[string]Opener) error {
 	client := s3.NewFromConfig(cfg)
 
 	for name, artefact := range artefacts {
-		// _, err := client.CreateBucket(context.Background(), &s3.CreateBucketInput{})
-		// if err != nil {
-		// 	return err
-		// }
-
 		r, err := artefact.Open()
 		if err != nil {
 			return fmt.Errorf("failed to open artefact %s: %w", name, err)
 		}
 
-		p := path.Join(u.Path, name)
+		p := path.Join(u.Path, envPath, name)
 
 		if _, err := client.PutObject(context.Background(), &s3.PutObjectInput{
 			Bucket: &u.Host,
@@ -78,7 +73,7 @@ func (h HTTPError) Error() string {
 	return fmt.Sprintf("recieved unexpected status code: %d", h.StatusCode)
 }
 
-func storeInHTTP(httpURL string, artefacts map[string]Opener) error {
+func storeInHTTP(httpURL, envPath string, artefacts map[string]Opener) error {
 	u, err := url.Parse(httpURL)
 	if err != nil {
 		return fmt.Errorf("failed to parse HTTP URL %s: %w", httpURL, err)
@@ -87,7 +82,7 @@ func storeInHTTP(httpURL string, artefacts map[string]Opener) error {
 	upath := u.Path
 
 	for name, artefact := range artefacts {
-		u.Path = path.Join(upath, name)
+		u.Path = path.Join(upath, envPath, name)
 
 		r, err := artefact.Open()
 		if err != nil {
@@ -118,9 +113,9 @@ func storeInHTTP(httpURL string, artefacts map[string]Opener) error {
 	return nil
 }
 
-func storeInFS(path string, artefacts map[string]Opener) error {
+func storeInFS(path, envPath string, artefacts map[string]Opener) error {
 	for name, artefact := range artefacts {
-		ap := filepath.Join(path, name)
+		ap := filepath.Join(path, envPath, name)
 
 		if err := os.MkdirAll(filepath.Dir(ap), 0755); err != nil {
 			return err

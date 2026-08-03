@@ -30,11 +30,11 @@ func testStore(t *testing.T, tmp, url string) {
 		"logs/build.log": Data("Some Data"),
 	}))
 
-	data, err := os.ReadFile(filepath.Join(tmp, "myFile"))
+	data, err := os.ReadFile(filepath.Join(tmp, "myEnv", "myFile"))
 	assert.NoError(t, err)
 	assert.Equal(t, string(data), "A file of data")
 
-	data, err = os.ReadFile(filepath.Join(tmp, "logs", "build.log"))
+	data, err = os.ReadFile(filepath.Join(tmp, "myEnv", "logs", "build.log"))
 	assert.NoError(t, err)
 	assert.Equal(t, string(data), "Some Data")
 }

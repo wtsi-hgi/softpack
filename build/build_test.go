@@ -14,7 +14,9 @@ import (
 )
 
 func TestBuild(t *testing.T) {
-	root := initRepo(t)
+	apt.SkipIfBadEnvironment(t)
+
+	root := apt.CreateTestAptRepo(t, apt.ExamplePackages())
 
 	install := t.TempDir()
 
@@ -91,54 +93,4 @@ func checkSymlinks(t *testing.T, install string, exes []string) {
 		assert.ErrorIs(t, err, nil)
 		assert.Equal(t, link, "some-wrapper")
 	}
-}
-
-func initRepo(t *testing.T) string {
-	t.Helper()
-	apt.SkipIfBadEnvironment(t)
-
-	return apt.CreateTestAptRepo(t, []apt.Deb{
-		{
-			Name:    "abc",
-			Version: "1",
-			Metadata: map[string]string{
-				"XB-Executables": "abc",
-			},
-		},
-		{
-			Name:    "abc",
-			Version: "2",
-			Metadata: map[string]string{
-				"XB-Executables": "abc, def",
-			},
-		},
-		{
-			Name:    "python",
-			Version: "3.13",
-			Metadata: map[string]string{
-				"XB-Executables": "python, python3.13",
-			},
-		},
-		{
-			Name:    "py-xyz",
-			Version: "2.1",
-			Metadata: map[string]string{
-				"Depends": "python",
-			},
-		},
-		{
-			Name:    "r",
-			Version: "4.4.0",
-			Metadata: map[string]string{
-				"XB-Executables": "R, Rscript",
-			},
-		},
-		{
-			Name:    "r-lib",
-			Version: "1.1",
-			Metadata: map[string]string{
-				"Depends": "r",
-			},
-		},
-	})
 }

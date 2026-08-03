@@ -170,3 +170,50 @@ func writeString(w io.Writer, str string) error {
 
 	return err
 }
+
+func ExamplePackages() []Deb {
+	return []Deb{
+		{
+			Name:    "abc",
+			Version: "1",
+			Metadata: map[string]string{
+				"XB-Executables": "abc",
+			},
+		},
+		{
+			Name:    "abc",
+			Version: "2",
+			Metadata: map[string]string{
+				"XB-Executables": "abc, def",
+			},
+		},
+		{
+			Name:    "python",
+			Version: "3.13",
+			Metadata: map[string]string{
+				"XB-Executables": "python, python3.13",
+			},
+		},
+		{
+			Name:    "py-xyz",
+			Version: "2.1",
+			Metadata: map[string]string{
+				"Depends": "python",
+			},
+		},
+		{
+			Name:    "r",
+			Version: "4.4.0",
+			Metadata: map[string]string{
+				"XB-Executables": "R, Rscript",
+			},
+		},
+		{
+			Name:    "r-lib",
+			Version: "1.1",
+			Metadata: map[string]string{
+				"Depends": "r",
+			},
+		},
+	}
+}

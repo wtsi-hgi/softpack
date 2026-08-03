@@ -286,8 +286,12 @@ func buildContainer(sqfs, installDir string) error {
 	return exec.Command(
 		"singularity",
 		"build",
-		filepath.Join(installDir, singularitySIF), sqfs,
+		SingularityPath(installDir), sqfs,
 	).Run()
+}
+
+func SingularityPath(installDir string) string {
+	return filepath.Join(installDir, singularitySIF)
 }
 
 func addWrappers(installDir, wrapperScript string, exes []string) error {

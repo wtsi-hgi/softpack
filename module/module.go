@@ -16,26 +16,28 @@ import (
 var moduleTmplStr string
 var moduleTmpl = template.Must(template.New("").Parse(moduleTmplStr))
 
-func Install(moduleBase, installBase, envPath, envName, envVersion, description string, exes []string, pkgs []build.Package) (string, error) {
-	if err := os.MkdirAll(filepath.Join(moduleBase, envPath), 0755); err != nil {
-		return "", err
+func Install(moduleBase, installBase, envPath, envName, envVer, description string, exes []string, pkgs []build.Package) error {
+	if err := os.MkdirAll(filepath.Join(moduleBase, envPath, envName), 0755); err != nil {
+		return err
 	}
 
-	f, err := os.Create(filepath.Join(moduleBase, envPath, envVersion))
+	f, err := os.Create(ModuleFile(moduleBase, envPath, envName, envVer))
 	if err != nil {
-		return "", err
+		return err
 	}
-
-	var sb strings.Builder
 
 	if err := cmp.Or(
-		writeModuleFile(io.MultiWriter(f, &sb), installBase, envPath, envName, envVersion, description, exes, pkgs),
+		writeModuleFile(f, installBase, envPath, envName, envVer, description, exes, pkgs),
 		f.Close(),
 	); err != nil {
-		return "", err
+		return err
 	}
 
-	return sb.String(), nil
+	return nil
+}
+
+func ModuleFile(moduleBase, envPath, envName, envVersion string) string {
+	return filepath.Join(moduleBase, envPath, envName, envVersion)
 }
 
 func writeModuleFile(w io.Writer, installBase, envPath, envName, envVersion, description string, exes []string, pkgs []build.Package) error {
