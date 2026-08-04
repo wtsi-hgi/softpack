@@ -42,7 +42,7 @@ func startServer(aptSrc string) (net.Listener, error) {
 		return nil, err
 	}
 
-	go http.Serve(l, h) //nolint:errcheck
+	go http.Serve(l, h) //nolint:errcheck,gosec
 
 	return l, nil
 }
@@ -73,7 +73,7 @@ func newS3Proxy(u *url.URL) (http.Handler, error) {
 func (s *s3Proxy) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	p := strings.TrimPrefix(path.Join(s.path, r.URL.Path), "/")
 
-	obj, err := s.client.GetObject(r.Context(), &s3.GetObjectInput{
+	obj, err := s.client.GetObject(context.Background(), &s3.GetObjectInput{ //nolint:contextcheck
 		Bucket: &s.host,
 		Key:    &p,
 	})

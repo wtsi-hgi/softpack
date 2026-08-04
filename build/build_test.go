@@ -14,7 +14,9 @@ import (
 )
 
 func TestBuild(t *testing.T) {
-	root := initRepo(t)
+	apt.SkipIfBadEnvironment(t)
+
+	root := apt.CreateTestAptRepo(t, apt.ExamplePackages())
 
 	install := t.TempDir()
 
@@ -23,10 +25,10 @@ func TestBuild(t *testing.T) {
 	arts, err := Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", root, []Package{
 		{Name: "abc"}, //nolint:goconst
 	})
-	assert.ErrorIs(t, err, nil)
+	assert.NoError(t, err)
 
-	assert.Equal(t, arts.Exes, []string{"abc", "def"})
-	assert.Equal(t, arts.Packages, []Package{{Name: "abc", Version: "2"}})
+	assert.Equal(t, arts.Exes, []string{"abc", "def"})                     //nolint:goconst
+	assert.Equal(t, arts.Packages, []Package{{Name: "abc", Version: "2"}}) //nolint:goconst
 	checkSymlinks(t, install, arts.Exes)
 
 	t.Log("Build using HTTP source")
@@ -40,7 +42,7 @@ func TestBuild(t *testing.T) {
 		{Name: "r-lib"}, //nolint:goconst
 		{Name: "abc", Version: "1"},
 	})
-	assert.ErrorIs(t, err, nil)
+	assert.NoError(t, err)
 
 	assert.Equal(t, arts.Exes, []string{"R", "Rscript", "abc"})
 	assert.Equal(t, arts.Packages, []Package{
@@ -55,10 +57,10 @@ func TestBuild(t *testing.T) {
 	t.Log("Build using S3 source")
 
 	files, err := s3afero.FsPath(root, 0)
-	assert.ErrorIs(t, err, nil)
+	assert.NoError(t, err)
 
 	bucket, err := s3afero.SingleBucket("apt", files, nil)
-	assert.ErrorIs(t, err, nil)
+	assert.NoError(t, err)
 
 	srv = httptest.NewServer(gofakes3.New(bucket).Server())
 	defer srv.Close()
@@ -73,12 +75,12 @@ func TestBuild(t *testing.T) {
 	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", "s3://apt", []Package{
 		{Name: "py-xyz"}, //nolint:goconst
 	})
-	assert.ErrorIs(t, err, nil)
+	assert.NoError(t, err)
 
 	assert.Equal(t, arts.Exes, []string{"python", "python3.13"}) //nolint:goconst
 	assert.Equal(t, arts.Packages, []Package{
 		{Name: "py-xyz", Version: "2.1"},
-		{Name: "python", Version: "3.13", Interpreter: true},
+		{Name: "python", Version: "3.13", Interpreter: true}, //nolint:goconst
 	})
 	checkSymlinks(t, install, arts.Exes)
 }
@@ -88,57 +90,7 @@ func checkSymlinks(t *testing.T, install string, exes []string) {
 
 	for _, exe := range exes {
 		link, err := os.Readlink(filepath.Join(install, exe))
-		assert.ErrorIs(t, err, nil)
+		assert.NoError(t, err)
 		assert.Equal(t, link, "some-wrapper")
 	}
-}
-
-func initRepo(t *testing.T) string {
-	t.Helper()
-	apt.SkipIfBadEnvironment(t)
-
-	return apt.CreateTestAptRepo(t, []apt.Deb{
-		{
-			Name:    "abc",
-			Version: "1",
-			Metadata: map[string]string{
-				"XB-Executables": "abc", //nolint:goconst
-			},
-		},
-		{
-			Name:    "abc",
-			Version: "2",
-			Metadata: map[string]string{
-				"XB-Executables": "abc, def",
-			},
-		},
-		{
-			Name:    "python",
-			Version: "3.13",
-			Metadata: map[string]string{
-				"XB-Executables": "python, python3.13",
-			},
-		},
-		{
-			Name:    "py-xyz",
-			Version: "2.1",
-			Metadata: map[string]string{
-				"Depends": "python",
-			},
-		},
-		{
-			Name:    "r",
-			Version: "4.4.0",
-			Metadata: map[string]string{
-				"XB-Executables": "R, Rscript",
-			},
-		},
-		{
-			Name:    "r-lib",
-			Version: "1.1",
-			Metadata: map[string]string{
-				"Depends": "r",
-			},
-		},
-	})
 }

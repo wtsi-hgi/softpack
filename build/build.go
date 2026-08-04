@@ -83,8 +83,6 @@ func Build(baseImage, tempDir, installDir, wrapperScript, aptSrc string, pkgs []
 		return nil, err
 	}
 
-	defer l.Close()
-
 	return runCommands(filepath.Join(root, "root"), baseImage, installDir, sqfs, l.Addr().String(), wrapperScript, pkgs)
 }
 
@@ -128,7 +126,7 @@ func runCommands(root, baseImage, installDir, sqfs, httpURL, wrapperScript strin
 }
 
 func extractImage(root, baseImage string) error {
-	if err := exec.Command(
+	if err := exec.Command( //nolint:noctx,gosec
 		"singularity",
 		"build",
 		"--sandbox", root,
@@ -146,7 +144,7 @@ func setAptRepo(root, httpURL string) error {
 		os.WriteFile(
 			filepath.Join(root, "etc", "apt", "sources.list.d", "ubuntu.list"),
 			fmt.Appendf(nil, "deb [trusted=yes] http://%s resolute main", httpURL),
-			0644, //nolint:mnd
+			0600, //nolint:mnd
 		),
 	)
 }
@@ -180,7 +178,7 @@ func installPackages(root string, pkgs []Package) (*Artefacts, error) {
 }
 
 func aptWithLog(log *strings.Builder, root string, args ...string) error {
-	cmd := exec.Command(
+	cmd := exec.Command( //nolint:noctx,gosec
 		"singularity",
 		append([]string{
 			"exec", "--writable", "--no-home", root, "apt",
@@ -214,6 +212,16 @@ func getArtefacts(root string, pkgs []Package, log string) (*Artefacts, error) {
 		return nil, err
 	}
 
+	executables := getExecutablesAndConcretise(pkgs, installed)
+
+	return &Artefacts{
+		Exes:     executables,
+		Packages: pkgs,
+		Log:      log,
+	}, nil
+}
+
+func getExecutablesAndConcretise(pkgs []Package, installed []control.BinaryIndex) []string {
 	pkgs = addInterpreters(pkgs)
 	exes := map[string]struct{}{}
 
@@ -235,18 +243,14 @@ func getArtefacts(root string, pkgs []Package, log string) (*Artefacts, error) {
 	executables := slices.Collect(maps.Keys(exes))
 	slices.Sort(executables)
 
-	return &Artefacts{
-		Exes:     executables,
-		Packages: pkgs,
-		Log:      log,
-	}, nil
+	return executables
 }
 
-func addInterpreters(pkgs []Package) []Package {
+func addInterpreters(pkgs []Package) []Package { //nolint:gocognit,gocyclo,cyclop
 	var hasPy, hasPython, hasRLib, hasR bool
 
 	for _, pkg := range pkgs {
-		if pkg.Name == "r" { //nolint:goconst
+		if pkg.Name == "r" { //nolint:gocritic,nestif
 			hasR = true
 		} else if pkg.Name == "python" { //nolint:goconst
 			hasPython = true
@@ -275,7 +279,7 @@ func addInterpreters(pkgs []Package) []Package {
 }
 
 func makeSquashFS(root, sqfs string) error {
-	return exec.Command( //nolint:noctx
+	return exec.Command( //nolint:noctx,gosec
 		"mksquashfs",
 		root,
 		sqfs,
@@ -284,11 +288,16 @@ func makeSquashFS(root, sqfs string) error {
 }
 
 func buildContainer(sqfs, installDir string) error {
-	return exec.Command(
+	return exec.Command( //nolint:noctx,gosec
 		"singularity",
 		"build",
-		filepath.Join(installDir, singularitySIF), sqfs,
+		SingularityPath(installDir), sqfs,
 	).Run()
+}
+
+// SingularityPath appends the singularity filename to the given path.
+func SingularityPath(installDir string) string {
+	return filepath.Join(installDir, singularitySIF)
 }
 
 func addWrappers(installDir, wrapperScript string, exes []string) error {

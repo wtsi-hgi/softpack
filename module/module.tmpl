@@ -1,0 +1,20 @@
+#%Module
+
+proc ModulesHelp { } {
+	{{- range .Description }}
+	puts stderr "{{ . }}"
+	{{- end }}
+	puts stderr ""
+	puts stderr "The following executables are added to your PATH:"
+	{{- range .Exes }}
+	puts stderr "  - {{ . }}"
+	{{- end }}
+}
+
+module-whatis "Name: {{ .EnvironmentName }}"
+{{- if ne .EnvironmentVersion "" }}
+module-whatis "Version: {{ .EnvironmentVersion }}"
+{{- end }}
+module-whatis "Packages: {{ range $index, $package := .Packages }}{{ if ne $index 0 }}, {{ end }}{{ $package.Name }}{{ if ne $package.Version "" }}@{{ $package.Version }}{{ end }}{{ end }}"
+
+prepend-path PATH "{{ .InstallDir }}/{{ .EnvironmentPath }}/{{ .EnvironmentName }}/{{ .EnvironmentVersion}}-scripts"

@@ -4,8 +4,8 @@ import (
 	"archive/tar"
 	"cmp"
 	"compress/gzip"
-	"crypto/md5"
-	"crypto/sha1"
+	"crypto/md5"  //nolint:gosec
+	"crypto/sha1" //nolint:gosec
 	"crypto/sha256"
 	"crypto/sha512"
 	"errors"
@@ -50,7 +50,7 @@ type Deb struct {
 
 // CreateTestAptRepo creates a simple on-disk APT repository, from the supplied
 // deb file metadata, that can be used with the build package.
-func CreateTestAptRepo(t *testing.T, debs []Deb) string {
+func CreateTestAptRepo(t *testing.T, debs []Deb) string { //nolint:funlen
 	t.Helper()
 	root := t.TempDir()
 
@@ -64,13 +64,13 @@ func CreateTestAptRepo(t *testing.T, debs []Deb) string {
 	bins := filepath.Join("pool", "main", "binary-"+runtime.GOARCH)
 	dists := filepath.Join(root, "dists", "resolute", "main", "binary-"+runtime.GOARCH)
 
-	assert.ErrorIs(t, cmp.Or(
+	assert.NoError(t, cmp.Or(
 		os.MkdirAll(dists, 0700),                     //nolint:mnd
 		os.MkdirAll(filepath.Join(root, bins), 0700), //nolint:mnd
-	), nil)
+	))
 
 	distFile, err := os.Create(filepath.Join(dists, "Packages"))
-	assert.ErrorIs(t, err, nil)
+	assert.NoError(t, err)
 
 	for n, deb := range debs {
 		debPath := filepath.Join(bins, strconv.Itoa(n)+".deb")
@@ -90,10 +90,10 @@ func CreateTestAptRepo(t *testing.T, debs []Deb) string {
 		}
 
 		f, err := os.Create(filepath.Join(root, debPath))
-		assert.ErrorIs(t, err, nil)
+		assert.NoError(t, err)
 
-		m := md5.New()
-		s1 := sha1.New()
+		m := md5.New()   //nolint:gosec
+		s1 := sha1.New() //nolint:gosec
 		s2 := sha256.New()
 		s5 := sha512.New()
 
@@ -112,10 +112,10 @@ func CreateTestAptRepo(t *testing.T, debs []Deb) string {
 			s2.Sum(nil),
 			s5.Sum(nil),
 		)
-		assert.ErrorIs(t, err, nil)
+		assert.NoError(t, err)
 	}
 
-	assert.ErrorIs(t, distFile.Close(), nil)
+	assert.NoError(t, distFile.Close())
 
 	return root
 }
@@ -125,50 +125,100 @@ const emptyTarGz = "\x1f\x8b\x08\x00\x00\x00\x00\x00" +
 	"\x14\x8c\x54\x00\x00\x2e\xaf\xb5" +
 	"\xef\x00\x04\x00\x00"
 
-func createDebFile(t *testing.T, w io.Writer, control string) {
+func createDebFile(t *testing.T, w io.Writer, control string) { //nolint:funlen
 	t.Helper()
 
 	arw := ar.NewWriter(w)
 
-	assert.ErrorIs(t, arw.WriteHeader(&ar.Header{
+	assert.NoError(t, arw.WriteHeader(&ar.Header{
 		Name:    "debian-binary",
 		ModTime: time.Now(),
 		Mode:    0644, //nolint:mnd
 		Size:    4,    //nolint:mnd
-	}), nil)
-	assert.ErrorIs(t, writeString(arw, "2.0\n"), nil)
-	assert.ErrorIs(t, arw.WriteHeader(&ar.Header{
+	}))
+	assert.NoError(t, writeString(arw, "2.0\n"), nil)
+	assert.NoError(t, arw.WriteHeader(&ar.Header{
 		Name:    "control.tar.gz",
 		ModTime: time.Now(),
 		Mode:    0644, //nolint:mnd
 		Size:    ar.UnknownSize,
-	}), nil)
+	}))
 
 	g := gzip.NewWriter(arw)
 	tr := tar.NewWriter(g)
 
-	assert.ErrorIs(t, tr.WriteHeader(&tar.Header{
+	assert.NoError(t, tr.WriteHeader(&tar.Header{
 		Name:    "control",
 		Mode:    0644, //nolint:mnd
 		Size:    int64(len(control)),
 		ModTime: time.Now(),
-	}), nil)
+	}))
 
-	assert.ErrorIs(t, writeString(tr, control), nil)
-	assert.ErrorIs(t, tr.Close(), nil)
-	assert.ErrorIs(t, g.Close(), nil)
-	assert.ErrorIs(t, arw.WriteHeader(&ar.Header{
+	assert.NoError(t, writeString(tr, control))
+	assert.NoError(t, tr.Close())
+	assert.NoError(t, g.Close())
+	assert.NoError(t, arw.WriteHeader(&ar.Header{
 		Name:    "data.tar.gz",
 		ModTime: time.Now(),
 		Mode:    0644, //nolint:mnd
 		Size:    int64(len(emptyTarGz)),
-	}), nil)
-	assert.ErrorIs(t, writeString(arw, emptyTarGz), nil)
-	assert.ErrorIs(t, arw.Close(), nil)
+	}))
+	assert.NoError(t, writeString(arw, emptyTarGz))
+	assert.NoError(t, arw.Close())
 }
 
 func writeString(w io.Writer, str string) error {
 	_, err := io.WriteString(w, str)
 
 	return err
+}
+
+// ExamplePackages returns a simple selection of possible packages that can be
+// used with CreateTestAptRepo to create a simple APT repo that can be used for
+// testing.
+func ExamplePackages() []Deb { //nolint:funlen
+	return []Deb{
+		{
+			Name:    "abc", //nolint:goconst
+			Version: "1",
+			Metadata: map[string]string{
+				"XB-Executables": "abc", //nolint:goconst
+			},
+		},
+		{
+			Name:    "abc", //nolint:goconst
+			Version: "2",
+			Metadata: map[string]string{
+				"XB-Executables": "abc, def", //nolint:goconst
+			},
+		},
+		{
+			Name:    "python", //nolint:goconst
+			Version: "3.13",
+			Metadata: map[string]string{
+				"XB-Executables": "python, python3.13", //nolint:goconst
+			},
+		},
+		{
+			Name:    "py-xyz",
+			Version: "2.1",
+			Metadata: map[string]string{
+				"Depends": "python", //nolint:goconst
+			},
+		},
+		{
+			Name:    "r",
+			Version: "4.4.0",
+			Metadata: map[string]string{
+				"XB-Executables": "R, Rscript", //nolint:goconst
+			},
+		},
+		{
+			Name:    "r-lib",
+			Version: "1.1",
+			Metadata: map[string]string{
+				"Depends": "r",
+			},
+		},
+	}
 }
