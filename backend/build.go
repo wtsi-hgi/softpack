@@ -23,10 +23,10 @@ type BuildingEnv struct {
 func (s *Server) Build(env db.Environment) error {
 	// ch := make(chan BuildResponse)
 	go func() {
-		s.buildingEnvs[env.ID] = BuildingEnv{
-			env,
-			time.Now(),
-		}
+		// s.buildingEnvs[env.ID] = BuildingEnv{
+		// 	env,
+		// 	time.Now(),
+		// }
 
 		// TODO: Surely I should be submitting the environment name to the builder?
 
