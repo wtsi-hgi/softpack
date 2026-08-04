@@ -23,8 +23,8 @@ var (
 )
 
 type Server struct {
-	waitingEnvs  utils.WaitingEnvs
-	buildingEnvs map[uint]BuildingEnv
+	waitingEnvs utils.WaitingEnvs
+	// buildingEnvs map[uint]BuildingEnv
 
 	db     *db.DB
 	apt    *apt.Server
@@ -114,6 +114,7 @@ func New(config *config.Config) *Server {
 		config: config,
 
 		waitingEnvs: utils.New(),
+		// buildingEnvs: ,
 	}
 
 	s.generateWaitingEnvs()
@@ -122,7 +123,7 @@ func New(config *config.Config) *Server {
 }
 
 func (b *Server) Run() error {
-	return http.ListenAndServe(b.config.ListenAddr, b.Serve())
+	return http.ListenAndServe(b.config.ListenAddr, b.Serve()) //nolint:gosec
 }
 
 func (b *Server) generateWaitingEnvs() {

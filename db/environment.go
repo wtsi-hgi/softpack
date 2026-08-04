@@ -80,7 +80,7 @@ func (db *DB) CreateEnvironment(ctx context.Context, env Environment) error {
 // to match the non-nil UpdateEnv fields.
 // Providing 'Tags' here will result in all previous tags being removed and subsequently
 // replaced with the provided ones, to add/delete tags, consider using <Add/Delete>EnvironmentTag.
-func (db *DB) UpdateEnvironment(ctx context.Context, u UpdateEnv) error { //nolint:gocognit
+func (db *DB) UpdateEnvironment(ctx context.Context, u UpdateEnv) error { //nolint:gocognit,funlen
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		updates := map[string]interface{}{}
 

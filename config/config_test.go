@@ -23,7 +23,7 @@ listen-addr:
 `
 
 	path := filepath.Join(dir, "config.yaml")
-	assert.NoError(t, os.WriteFile(path, []byte(configYAML), 0644))
+	assert.NoError(t, os.WriteFile(path, []byte(configYAML), 0644)) //nolint:gosec
 
 	cfg, err := Load(path)
 	assert.NoError(t, err)

@@ -56,7 +56,6 @@ func storeInS3(s3URL, envPath string, artefacts map[string]Opener) error {
 		}); err != nil {
 			return fmt.Errorf("failed to upload artefact %s: %w", name, err)
 		}
-
 	}
 
 	return nil
@@ -104,7 +103,7 @@ func storeInHTTP(httpURL, envPath string, artefacts map[string]Opener) error {
 	return nil
 }
 
-func storeInFS(path, envPath string, artefacts map[string]Opener) error { //nolint:gocognit
+func storeInFS(path, envPath string, artefacts map[string]Opener) error {
 	for name, artefact := range artefacts {
 		ap := filepath.Join(path, envPath, name)
 

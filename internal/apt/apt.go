@@ -186,31 +186,31 @@ func ExamplePackages() []Deb { //nolint:funlen
 			},
 		},
 		{
-			Name:    "abc", //nolint:goconst
+			Name:    "abc",
 			Version: "2",
 			Metadata: map[string]string{
-				"XB-Executables": "abc, def", //nolint:goconst
+				"XB-Executables": "abc, def",
 			},
 		},
 		{
-			Name:    "python", //nolint:goconst
+			Name:    "python",
 			Version: "3.13",
 			Metadata: map[string]string{
-				"XB-Executables": "python, python3.13", //nolint:goconst
+				"XB-Executables": "python, python3.13",
 			},
 		},
 		{
 			Name:    "py-xyz",
 			Version: "2.1",
 			Metadata: map[string]string{
-				"Depends": "python", //nolint:goconst
+				"Depends": "python",
 			},
 		},
 		{
 			Name:    "r",
 			Version: "4.4.0",
 			Metadata: map[string]string{
-				"XB-Executables": "R, Rscript", //nolint:goconst
+				"XB-Executables": "R, Rscript",
 			},
 		},
 		{

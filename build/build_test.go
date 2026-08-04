@@ -27,8 +27,8 @@ func TestBuild(t *testing.T) {
 	})
 	assert.NoError(t, err)
 
-	assert.Equal(t, arts.Exes, []string{"abc", "def"})                     //nolint:goconst
-	assert.Equal(t, arts.Packages, []Package{{Name: "abc", Version: "2"}}) //nolint:goconst
+	assert.Equal(t, arts.Exes, []string{"abc", "def"})
+	assert.Equal(t, arts.Packages, []Package{{Name: "abc", Version: "2"}})
 	checkSymlinks(t, install, arts.Exes)
 
 	t.Log("Build using HTTP source")
@@ -39,7 +39,7 @@ func TestBuild(t *testing.T) {
 	install = t.TempDir()
 
 	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", srv.URL, []Package{
-		{Name: "r-lib"}, //nolint:goconst
+		{Name: "r-lib"},
 		{Name: "abc", Version: "1"},
 	})
 	assert.NoError(t, err)
@@ -73,14 +73,14 @@ func TestBuild(t *testing.T) {
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "SECRET")
 
 	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", "s3://apt", []Package{
-		{Name: "py-xyz"}, //nolint:goconst
+		{Name: "py-xyz"},
 	})
 	assert.NoError(t, err)
 
 	assert.Equal(t, arts.Exes, []string{"python", "python3.13"}) //nolint:goconst
 	assert.Equal(t, arts.Packages, []Package{
 		{Name: "py-xyz", Version: "2.1"},
-		{Name: "python", Version: "3.13", Interpreter: true}, //nolint:goconst
+		{Name: "python", Version: "3.13", Interpreter: true},
 	})
 	checkSymlinks(t, install, arts.Exes)
 }

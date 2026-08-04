@@ -17,7 +17,7 @@ import (
 
 type BuildingEnv struct {
 	db.Environment
-	start time.Time
+	// start time.Time
 }
 
 func (s *Server) Build(env db.Environment) error {
@@ -29,7 +29,6 @@ func (s *Server) Build(env db.Environment) error {
 		// }
 
 		// TODO: Surely I should be submitting the environment name to the builder?
-
 		_, err := build.Build(
 			s.config.BaseImgPath,
 			s.config.TempDir,

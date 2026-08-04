@@ -126,7 +126,7 @@ func runCommands(root, baseImage, installDir, sqfs, httpURL, wrapperScript strin
 }
 
 func extractImage(root, baseImage string) error {
-	if err := exec.Command( //nolint:noctx,gosec
+	if err := exec.Command( //nolint:noctx
 		"singularity",
 		"build",
 		"--sandbox", root,
@@ -279,7 +279,7 @@ func addInterpreters(pkgs []Package) []Package { //nolint:gocognit,gocyclo,cyclo
 }
 
 func makeSquashFS(root, sqfs string) error {
-	return exec.Command( //nolint:noctx,gosec
+	return exec.Command( //nolint:noctx
 		"mksquashfs",
 		root,
 		sqfs,
