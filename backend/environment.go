@@ -10,7 +10,7 @@ import (
 	"github.com/wtsi-hgi/softpack/db"
 )
 
-func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	env, err := GetItemFromRequest[db.Environment](r)
 	if err != nil {
 		return err
