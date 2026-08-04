@@ -125,17 +125,17 @@ func (b *Server) Run() error {
 	return http.ListenAndServe(b.config.ListenAddr, b.Serve())
 }
 
-func (s *Server) generateWaitingEnvs() {
+func (b *Server) generateWaitingEnvs() {
 	ctx := context.Background()
 
-	reqs, _ := s.db.GetRequestedRecipes(ctx) //nolint:errcheck
-	envs, _ := s.db.GetEnvironments(ctx)     //nolint:errcheck
+	reqs, _ := b.db.GetRequestedRecipes(ctx) //nolint:errcheck
+	envs, _ := b.db.GetEnvironments(ctx)     //nolint:errcheck
 
 	for _, req := range reqs {
 		for _, env := range envs {
 			for _, pkg := range env.Packages {
 				if db.CheckPkgEqual(pkg, req) {
-					s.waitingEnvs.Append(req, env)
+					b.waitingEnvs.Append(req, env)
 				}
 			}
 		}

@@ -42,7 +42,7 @@ func startServer(aptSrc string) (net.Listener, error) {
 		return nil, err
 	}
 
-	go http.Serve(l, h)
+	go http.Serve(l, h) //nolint:errcheck
 
 	return l, nil
 }
