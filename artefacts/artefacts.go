@@ -47,6 +47,7 @@ func storeInS3(s3URL, envPath string, artefacts map[string]Opener) error {
 		if err != nil {
 			return fmt.Errorf("failed to open artefact %s: %w", name, err)
 		}
+		defer r.Close()
 
 		p := path.Join(u.Path, envPath, name)
 
@@ -56,7 +57,6 @@ func storeInS3(s3URL, envPath string, artefacts map[string]Opener) error {
 			return fmt.Errorf("failed to upload artefact %s: %w", name, err)
 		}
 
-		r.Close()
 	}
 
 	return nil
@@ -116,6 +116,7 @@ func storeInFS(path, envPath string, artefacts map[string]Opener) error { //noli
 		if err != nil {
 			return fmt.Errorf("failed to open artefact %s: %w", name, err)
 		}
+		defer r.Close()
 
 		f, err := os.Create(ap)
 		if err != nil {
