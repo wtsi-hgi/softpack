@@ -290,24 +290,21 @@ func makeSquashFS(root, sqfs string) error {
 
 func buildContainer(sqfs, installDir string) error {
 	sif := SingularityPath(installDir)
-	if err := exec.Command(
-		"singularity", "sif", "new", sif,
-	).Run(); err != nil {
-		return err
-	}
 
-	cmd := exec.Command( //nolint:noctx,gosec
-		"singularity",
-		"sif",
-		"add",
-		"--datatype", "4",
-		"--parttype", "1",
-		"--partfs", "1",
-		"--partarch", arch[runtime.GOARCH],
-		SingularityPath(installDir), sqfs,
+	return cmp.Or(
+		exec.Command("singularity", "sif", "new", sif).Run(), //nolint:noctx,gosec
+		exec.Command( //nolint:noctx,gosec
+			"singularity",
+			"sif",
+			"add",
+			"--datatype", "4",
+			"--parttype", "1",
+			"--partfs", "1",
+			"--partarch", arch[runtime.GOARCH],
+			SingularityPath(installDir), sqfs,
+		).Run(),
+		exec.Command("singularity", "sif", "setprim", "1", sif).Run(), //nolint:noctx,gosec
 	)
-
-	return cmd.Run()
 }
 
 var arch = map[string]string{
