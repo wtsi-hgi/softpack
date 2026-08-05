@@ -1,6 +1,7 @@
 package backend
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -23,8 +24,8 @@ var (
 )
 
 type Server struct {
-	waitingEnvs utils.WaitingEnvs
-	// buildingEnvs map[uint]BuildingEnv
+	waitingEnvs  utils.WaitingEnvs
+	buildingEnvs map[uint]*db.Environment
 
 	db     *db.DB
 	apt    *apt.Server
@@ -94,18 +95,33 @@ func responseCode(err error) int {
 	return http.StatusInternalServerError
 }
 
-func GetItemFromRequest[T any](r *http.Request) (*T, error) {
+func GetItemFromRequest[T any](r *http.Request) (T, error) {
 	var item T
 
-	if err := json.NewDecoder(r.Body).Decode(&item); err != nil {
-		return nil, err
+	var buf bytes.Buffer
+
+	n, err := io.Copy(&buf, r.Body)
+	if err != nil {
+		return item, err
 	}
 
-	return &item, nil
+	if n == 0 {
+		return item, nil
+	}
+
+	if err := json.Unmarshal(buf.Bytes(), &item); err != nil {
+		return item, err
+	}
+
+	return item, nil
 }
 
 func New(config *config.Config) *Server {
-	apt, _ := apt.New(config.AptSrc, time.Minute)       //nolint:errcheck
+	apt, err := apt.New(config.AptIndexSrc, time.Minute)
+	if err != nil {
+		return nil
+	}
+
 	database, _ := db.Connect("sqlite3", config.DBConn) //nolint:errcheck
 
 	s := &Server{
@@ -113,11 +129,11 @@ func New(config *config.Config) *Server {
 		apt:    apt,
 		config: config,
 
-		waitingEnvs: utils.New(),
-		// buildingEnvs: ,
+		waitingEnvs:  utils.New(),
+		buildingEnvs: make(map[uint]*db.Environment),
 	}
 
-	s.generateWaitingEnvs()
+	s.populateServerCaches()
 
 	return s
 }
@@ -126,7 +142,7 @@ func (b *Server) Run() error {
 	return http.ListenAndServe(b.config.ListenAddr, b.Serve()) //nolint:gosec
 }
 
-func (b *Server) generateWaitingEnvs() {
+func (b *Server) populateServerCaches() { //nolint:gocognit
 	ctx := context.Background()
 
 	reqs, _ := b.db.GetRequestedRecipes(ctx) //nolint:errcheck
@@ -134,6 +150,10 @@ func (b *Server) generateWaitingEnvs() {
 
 	for _, req := range reqs {
 		for _, env := range envs {
+			if env.Status == db.Building {
+				b.buildingEnvs[env.ID] = &env
+			}
+
 			for _, pkg := range env.Packages {
 				if db.CheckPkgEqual(pkg, req) {
 					b.waitingEnvs.Append(req, env)

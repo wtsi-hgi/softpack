@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/wtsi-hgi/softpack/build"
+	"github.com/wtsi-hgi/softpack/db"
 )
 
 //go:embed module.tmpl
@@ -18,7 +18,7 @@ var moduleTmpl = template.Must(template.New("").Parse(moduleTmplStr)) //nolint:g
 
 // Install creates and installs the module file for the given environment parts.
 func Install(moduleBase, installBase,
-	envPath, envName, envVer, description string, exes []string, pkgs []build.Package,
+	envPath, envName, envVer, description string, exes []string, pkgs []db.Package,
 ) error {
 	if err := os.MkdirAll(filepath.Join(moduleBase, envPath, envName), 0755); err != nil { //nolint:mnd
 		return err
@@ -46,7 +46,7 @@ func ModuleFile(moduleBase, envPath, envName, envVersion string) string { //noli
 }
 
 func writeModuleFile(w io.Writer, installBase,
-	envPath, envName, envVersion, description string, exes []string, pkgs []build.Package,
+	envPath, envName, envVersion, description string, exes []string, pkgs []db.Package,
 ) error {
 	return moduleTmpl.Execute(w, struct {
 		InstallDir         string
@@ -55,7 +55,7 @@ func writeModuleFile(w io.Writer, installBase,
 		EnvironmentVersion string
 		Exes               []string
 		Description        []string
-		Packages           []build.Package
+		Packages           []db.Package
 	}{
 		InstallDir:         installBase,
 		EnvironmentPath:    envPath,

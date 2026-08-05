@@ -30,6 +30,7 @@ type Config struct {
 	InstallDir    string `yaml:"install-dir"`
 	WrapperScript string `yaml:"wrapper-script"`
 	AptSrc        string `yaml:"apt-src"`
+	AptIndexSrc   string `yaml:"apt-index-src"`
 
 	ModulePath    string `yaml:"module-path"`
 	ArtefactStore string `yaml:"artefact-store"`

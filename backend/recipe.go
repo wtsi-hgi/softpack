@@ -21,7 +21,7 @@ func (s *Server) RequestRecipe(_ http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if err = s.db.RequestRecipe(r.Context(), *req); err != nil {
+	if err = s.db.RequestRecipe(r.Context(), req); err != nil {
 		return err
 	}
 
@@ -49,7 +49,7 @@ func (s *Server) GetRecipeDescription(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
-	idx := s.getPackageIndex(*name)
+	idx := s.getPackageIndex(name)
 
 	desc, err := s.apt.GetRecipeDescription(idx.Name)
 	if err != nil {
@@ -101,11 +101,11 @@ func (s *Server) RemoveRequestedRecipe(_ http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	if _, exists := s.waitingEnvs.Get(*toDelete); exists {
+	if _, exists := s.waitingEnvs.Get(toDelete); exists {
 		return ErrEnvUsingRecipe
 	}
 
-	if err := s.db.RemoveRequestedRecipe(r.Context(), *toDelete); err != nil {
+	if err := s.db.RemoveRequestedRecipe(r.Context(), toDelete); err != nil {
 		return err
 	}
 
@@ -127,8 +127,8 @@ func (s *Server) FulfilRequestedRecipe(_ http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	if envs, exists := s.waitingEnvs.Get(*recipe); exists {
-		s.waitingEnvs.Delete(*recipe)
+	if envs, exists := s.waitingEnvs.Get(recipe); exists {
+		s.waitingEnvs.Delete(recipe)
 
 		if err := s.buildWaitingEnvs(envs); err != nil {
 			return err
@@ -141,11 +141,7 @@ func (s *Server) FulfilRequestedRecipe(_ http.ResponseWriter, r *http.Request) e
 func (s *Server) buildWaitingEnvs(envs []db.Environment) error {
 	for _, env := range envs {
 		if waiting := s.waitingEnvs.ContainsEnv(env); !waiting {
-			// TODO: build environment + add to envs db? is it alr there?
-			err := s.Build(env)
-			if err != nil {
-				return err
-			}
+			s.Build(&env)
 		}
 	}
 

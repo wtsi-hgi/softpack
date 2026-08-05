@@ -10,8 +10,8 @@ func TestCreateEnvironments(t *testing.T) {
 	ctx, db := setup(t)
 
 	env1 := Environment{
-		Name:        "name",        //nolint:goconst
-		Path:        "path/to/env", //nolint:goconst
+		Name:        "name", //nolint:goconst
+		Path:        "path/to/env",
 		Description: "description", //nolint:goconst
 		Version:     1,
 		Created:     248933,
@@ -81,24 +81,6 @@ func TestCreateEnvironments(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, []Environment{env1, env2, env3}, zeroEnvKey(envs))
 
-	indexes := []EnvironmentIndex{
-		{
-			Name:    "name",
-			Path:    "path/to/env",
-			Version: 1,
-		},
-		{
-			Name:    "name2",
-			Path:    "path/to/env2",
-			Version: 2,
-		},
-	}
-
-	envs, err = db.GetEnvironments(ctx, indexes...)
-
-	assert.NoError(t, err)
-	assert.Equal(t, []Environment{env1, env2}, zeroEnvKey(envs))
-
 	env4 := Environment{
 		Path: "path/to/incomplete/env",
 	}
@@ -127,7 +109,7 @@ func TestUpdateEnvironment(t *testing.T) {
 	err := db.UpdateEnvironment(ctx, u)
 	assert.NoError(t, err)
 
-	envs, err := db.GetEnvironments(ctx, env.ToIndex())
+	envs, err := db.GetEnvironments(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, len(envs), 1)
 	assert.False(t, envs[0].Hidden)
@@ -143,7 +125,7 @@ func TestUpdateEnvironment(t *testing.T) {
 	err = db.UpdateEnvironment(ctx, u)
 	assert.NoError(t, err)
 
-	envs, err = db.GetEnvironments(ctx, env.ToIndex())
+	envs, err = db.GetEnvironments(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, len(envs), 1)
 	assert.Equal(t, tags, envs[0].Tags)
@@ -151,7 +133,7 @@ func TestUpdateEnvironment(t *testing.T) {
 	err = db.UpdateEnvironment(ctx, UpdateEnv{EnvironmentIndex: env.ToIndex()})
 	assert.NoError(t, err)
 
-	envs, err = db.GetEnvironments(ctx, env.ToIndex())
+	envs, err = db.GetEnvironments(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, len(envs), 1)
 	assert.Equal(t, envs[0].Tags, tags)
@@ -165,9 +147,9 @@ func TestDeleteEnvironment(t *testing.T) {
 	err := db.DeleteEnvironment(ctx, index)
 	assert.NoError(t, err)
 
-	envs, err := db.GetEnvironments(ctx, index)
-	assert.ErrorContains(t, err, "record not found")
+	envs, err := db.GetEnvironments(ctx)
 	assert.Equal(t, len(envs), 0)
+	assert.NoError(t, err)
 
 	err = db.DeleteEnvironment(ctx, index)
 	assert.ErrorIs(t, err, ErrNoRowsAffected)
@@ -185,7 +167,7 @@ func TestAddAndDeleteTags(t *testing.T) {
 	err := db.AddEnvironmentTag(ctx, uidx)
 	assert.NoError(t, err)
 
-	envs, err := db.GetEnvironments(ctx, env.ToIndex())
+	envs, err := db.GetEnvironments(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, []Tag{{Name: "newtag"}}, zeroTagKey(envs[0].Tags))
 }

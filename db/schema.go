@@ -1,5 +1,12 @@
 package db
 
+const (
+	Waiting = iota
+	Building
+	Concretised
+	Failed
+)
+
 type Environment struct {
 	ID          uint      `gorm:"primaryKey"                    json:"-"`
 	Name        string    `gorm:"not null;uniqueIndex:capybara" json:"name"`
@@ -10,8 +17,8 @@ type Environment struct {
 	Hidden      bool      `gorm:"not null"                      json:"hidden"`
 	Tags        []Tag     `gorm:"many2many:environment_tags"`
 	Packages    []Package `gorm:"not null;serializer:json"      json:"packages"`
-	// Tags     []string  `json:"tags" gorm:"not null;serializer:json"`
-	// status
+	Status      int
+	BuildStart  int64
 	// readme string
 	// envtype type EnvironmentType = "softpack" | "module";
 	// username? string
@@ -23,6 +30,7 @@ type Package struct {
 	Name        string `json:"name"`
 	Description string `json:"-"`
 	Version     string `json:"version"`
+	Interpreter bool   `json:"interpreter"`
 }
 
 type RecipeRequest struct {

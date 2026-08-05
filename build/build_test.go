@@ -10,6 +10,7 @@ import (
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3afero"
 	"github.com/stretchr/testify/assert"
+	"github.com/wtsi-hgi/softpack/db"
 	"github.com/wtsi-hgi/softpack/internal/apt"
 )
 
@@ -22,13 +23,13 @@ func TestBuild(t *testing.T) {
 
 	t.Log("Build using FS source")
 
-	arts, err := Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", root, []Package{
+	arts, err := Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", root, []db.Package{
 		{Name: "abc"}, //nolint:goconst
 	})
 	assert.NoError(t, err)
 
 	assert.Equal(t, arts.Exes, []string{"abc", "def"})
-	assert.Equal(t, arts.Packages, []Package{{Name: "abc", Version: "2"}})
+	assert.Equal(t, arts.Packages, []db.Package{{Name: "abc", Version: "2"}})
 	checkSymlinks(t, install, arts.Exes)
 
 	t.Log("Build using HTTP source")
@@ -38,14 +39,14 @@ func TestBuild(t *testing.T) {
 
 	install = t.TempDir()
 
-	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", srv.URL, []Package{
+	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", srv.URL, []db.Package{
 		{Name: "r-lib"},
 		{Name: "abc", Version: "1"},
 	})
 	assert.NoError(t, err)
 
 	assert.Equal(t, arts.Exes, []string{"R", "Rscript", "abc"})
-	assert.Equal(t, arts.Packages, []Package{
+	assert.Equal(t, arts.Packages, []db.Package{
 		{Name: "r-lib", Version: "1.1"},
 		{Name: "abc", Version: "1"},
 		{Name: "r", Version: "4.4.0", Interpreter: true},
@@ -72,13 +73,13 @@ func TestBuild(t *testing.T) {
 	t.Setenv("AWS_ACCESS_KEY_ID", "ACCESS_KEY")
 	t.Setenv("AWS_SECRET_ACCESS_KEY", "SECRET")
 
-	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", "s3://apt", []Package{
+	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", "s3://apt", []db.Package{
 		{Name: "py-xyz"},
 	})
 	assert.NoError(t, err)
 
 	assert.Equal(t, arts.Exes, []string{"python", "python3.13"}) //nolint:goconst
-	assert.Equal(t, arts.Packages, []Package{
+	assert.Equal(t, arts.Packages, []db.Package{
 		{Name: "py-xyz", Version: "2.1"},
 		{Name: "python", Version: "3.13", Interpreter: true},
 	})

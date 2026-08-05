@@ -30,6 +30,7 @@ type UpdateEnv struct {
 	Description *string
 	Hidden      *bool
 	Tags        *[]Tag
+	Status      *int
 }
 
 func (e *Environment) BeforeCreate(_ *gorm.DB) error {
@@ -82,7 +83,7 @@ func (db *DB) CreateEnvironment(ctx context.Context, env Environment) error {
 // replaced with the provided ones, to add/delete tags, consider using <Add/Delete>EnvironmentTag.
 func (db *DB) UpdateEnvironment(ctx context.Context, u UpdateEnv) error { //nolint:gocognit,funlen
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		updates := map[string]interface{}{}
+		updates := map[string]any{}
 
 		if u.Description != nil {
 			updates["Description"] = *u.Description
@@ -90,6 +91,10 @@ func (db *DB) UpdateEnvironment(ctx context.Context, u UpdateEnv) error { //noli
 
 		if u.Hidden != nil {
 			updates["Hidden"] = *u.Hidden
+		}
+
+		if u.Status != nil {
+			updates["Status"] = *u.Status
 		}
 
 		e, err := preLoadEnv(tx, u)
@@ -149,37 +154,35 @@ func replaceTags(tx *gorm.DB, u UpdateEnv, e Environment) error {
 	return nil
 }
 
-// GetEnvironments retrieves environments from the database.
-// Provide no additional arguments to retrieve all environments.
-// Provide one or more EnvironmentIndex items to retrieve specific environments.
-func (db *DB) GetEnvironments(ctx context.Context, indexes ...EnvironmentIndex) ([]Environment, error) {
+// GetEnvironments retrieves all environments from the database.
+func (db *DB) GetEnvironments(ctx context.Context) ([]Environment, error) {
 	var envs []Environment
 
-	if len(indexes) == 0 {
-		if err := db.WithContext(ctx).Preload("Tags").Find(&envs).Error; err != nil {
-			return nil, err
-		}
-
-		return envs, nil
-	}
-
-	for _, index := range indexes {
-		var env Environment
-
-		r := db.WithContext(ctx).Preload("Tags").Where(&Environment{
-			Name:    index.Name,
-			Path:    index.Path,
-			Version: index.Version,
-		}).First(&env)
-
-		if r.Error != nil {
-			return nil, r.Error
-		}
-
-		envs = append(envs, env)
+	// if len(indexes) == 0 {
+	if err := db.WithContext(ctx).Preload("Tags").Find(&envs).Error; err != nil {
+		return nil, err
 	}
 
 	return envs, nil
+	// }
+
+	// for _, index := range indexes {
+	// 	var env Environment
+
+	// 	r := db.WithContext(ctx).Preload("Tags").Where(&Environment{
+	// 		Name:    index.Name,
+	// 		Path:    index.Path,
+	// 		Version: index.Version,
+	// 	}).First(&env)
+
+	// 	if r.Error != nil {
+	// 		return nil, r.Error
+	// 	}
+
+	// 	envs = append(envs, env)
+	// }
+
+	// return envs, nil
 }
 
 func (db *DB) DeleteEnvironment(ctx context.Context, index EnvironmentIndex) error {
@@ -227,4 +230,14 @@ func (db *DB) GetTags(ctx context.Context) ([]Tag, error) {
 	}
 
 	return tags, nil
+}
+
+func (db *DB) Concretise(env Environment, pkgs []Package) error {
+	return db.Model(&env).Where(&Environment{
+		Name:    env.Name,
+		Path:    env.Path,
+		Version: env.Version,
+	}).Updates(&Environment{
+		Packages: pkgs,
+	}).Error
 }

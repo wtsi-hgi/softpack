@@ -10,7 +10,7 @@ import (
 	"github.com/wtsi-hgi/softpack/db"
 )
 
-func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) error { //nolint:funlen
+func (s *Server) CreateEnvironment(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	env, err := GetItemFromRequest[db.Environment](r)
 	if err != nil {
 		return err
@@ -20,32 +20,29 @@ func (s *Server) CreateEnvironment(w http.ResponseWriter, r *http.Request) error
 		return db.ErrMissingField
 	}
 
-	ctx := r.Context()
-
 	if exists := s.apt.CheckPackagesExist(env.Packages); exists {
 		return apt.ErrInvalidPackage
 	}
 
-	reqs, err := s.checkRequiredRecipes(ctx, *env)
+	ctx := r.Context()
+
+	reqs, err := s.checkRequiredRecipes(ctx, env)
 	if err != nil {
 		return err
 	}
 
-	if err := s.db.CreateEnvironment(ctx, *env); err != nil {
+	if err := s.db.CreateEnvironment(ctx, env); err != nil {
 		return err
 	}
 
 	if len(reqs) == 0 {
-		if err := s.Build(*env); err != nil { //nolint:contextcheck
-			return err
-		}
+		s.Build(&env) //nolint:contextcheck
 	}
 
 	for _, r := range reqs {
-		s.waitingEnvs.Append(r, *env) // TODO: Do i need to let the frontend know its waiting?
+		env.Status = db.Waiting
+		s.waitingEnvs.Append(r, env)
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 
 	return nil
 }
@@ -90,7 +87,7 @@ func (s *Server) DeleteEnvironment(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
-	if err := s.db.DeleteEnvironment(r.Context(), *idx); err != nil {
+	if err := s.db.DeleteEnvironment(r.Context(), idx); err != nil {
 		return err
 	}
 
@@ -105,7 +102,7 @@ func (s *Server) UpdateEnvironment(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
-	if err := s.db.UpdateEnvironment(r.Context(), *u); err != nil {
+	if err := s.db.UpdateEnvironment(r.Context(), u); err != nil {
 		return err
 	}
 
@@ -181,7 +178,7 @@ func (s *Server) getEnvFromUpdateIdx(r *http.Request) (*db.Environment, *db.Upda
 		return nil, nil, err
 	}
 
-	return &env, u, nil
+	return &env, &u, nil
 }
 
 func (s *Server) GetTags(w http.ResponseWriter, r *http.Request) error {
@@ -198,22 +195,3 @@ func (s *Server) GetTags(w http.ResponseWriter, r *http.Request) error {
 
 	return nil
 }
-
-// type readmeInput struct {
-// 	module_path string
-// 	singularity_path string
-// }
-
-// func (s *Server) getEnvReadme() error {
-// 	tmpl, err := template.New("readme.tmpl").ParseFiles("readme.tmpl")
-// 	if err != nil {
-// 		return err
-// 	}
-
-// 	readme := ""
-
-// 	tmpl.Execute(readme, readmeInput{
-// 		module_path: "",
-// 		singularity_path: s.config.InstallDir +
-// 	})
-// }

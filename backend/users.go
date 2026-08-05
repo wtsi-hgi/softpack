@@ -37,7 +37,7 @@ func (s *Server) GetGroups(w http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	groups := getUserGroups(*username)
+	groups := getUserGroups(username)
 
 	w.Header().Set("Content-Type", "application/json")
 

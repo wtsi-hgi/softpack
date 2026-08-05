@@ -31,6 +31,7 @@ func TestCreateEnvironment(t *testing.T) {
 		Version:     1,
 		Description: "description",
 		Created:     1,
+		Status:      db.Building,
 		Tags:        []db.Tag{},
 		Packages: []db.Package{
 			{
@@ -134,6 +135,7 @@ func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
 		Description: "description",
 		Created:     1,
 		Tags:        []db.Tag{},
+		Status:      db.Building,
 		Packages: []db.Package{
 			{
 				Name: "pkg1",
