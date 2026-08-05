@@ -11,6 +11,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 
@@ -212,16 +213,16 @@ func getArtefacts(root string, pkgs []Package, log string) (*Artefacts, error) {
 		return nil, err
 	}
 
-	executables := getExecutablesAndConcretise(pkgs, installed)
+	ps, executables := getExecutablesAndConcretise(pkgs, installed)
 
 	return &Artefacts{
 		Exes:     executables,
-		Packages: pkgs,
+		Packages: ps,
 		Log:      log,
 	}, nil
 }
 
-func getExecutablesAndConcretise(pkgs []Package, installed []control.BinaryIndex) []string {
+func getExecutablesAndConcretise(pkgs []Package, installed []control.BinaryIndex) ([]Package, []string) {
 	pkgs = addInterpreters(pkgs)
 	exes := map[string]struct{}{}
 
@@ -243,7 +244,7 @@ func getExecutablesAndConcretise(pkgs []Package, installed []control.BinaryIndex
 	executables := slices.Collect(maps.Keys(exes))
 	slices.Sort(executables)
 
-	return executables
+	return pkgs, executables
 }
 
 func addInterpreters(pkgs []Package) []Package { //nolint:gocognit,gocyclo,cyclop
@@ -288,11 +289,40 @@ func makeSquashFS(root, sqfs string) error {
 }
 
 func buildContainer(sqfs, installDir string) error {
-	return exec.Command( //nolint:noctx,gosec
+	sif := SingularityPath(installDir)
+	if err := exec.Command(
+		"singularity", "sif", "new", sif,
+	).Run(); err != nil {
+		return err
+	}
+
+	cmd := exec.Command( //nolint:noctx,gosec
 		"singularity",
-		"build",
+		"sif",
+		"add",
+		"--datatype", "4",
+		"--parttype", "1",
+		"--partfs", "1",
+		"--partarch", arch[runtime.GOARCH],
 		SingularityPath(installDir), sqfs,
-	).Run()
+	)
+
+	return cmd.Run()
+}
+
+var arch = map[string]string{
+	"386":      "1",
+	"amd64":    "2",
+	"arm":      "3",
+	"arm64":    "4",
+	"ppc64":    "5",
+	"ppc64le":  "6",
+	"mips":     "7",
+	"mipsle":   "8",
+	"mips64":   "9",
+	"mips64le": "10",
+	"s390x":    "11",
+	"riscv64":  "12",
 }
 
 // SingularityPath appends the singularity filename to the given path.
