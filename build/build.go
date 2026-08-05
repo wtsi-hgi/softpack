@@ -292,7 +292,7 @@ func buildContainer(sqfs, installDir string) error {
 	sif := SingularityPath(installDir)
 
 	return cmp.Or(
-		exec.Command("singularity", "sif", "new", sif).Run(), //nolint:noctx,gosec
+		exec.Command("singularity", "sif", "new", sif).Run(), //nolint:noctx
 		exec.Command( //nolint:noctx,gosec
 			"singularity",
 			"sif",
@@ -303,7 +303,7 @@ func buildContainer(sqfs, installDir string) error {
 			"--partarch", arch[runtime.GOARCH],
 			SingularityPath(installDir), sqfs,
 		).Run(),
-		exec.Command("singularity", "sif", "setprim", "1", sif).Run(), //nolint:noctx,gosec
+		exec.Command("singularity", "sif", "setprim", "1", sif).Run(), //nolint:noctx
 	)
 }
 
