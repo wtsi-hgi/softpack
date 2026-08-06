@@ -1,7 +1,9 @@
 package db
 
+type Status int
+
 const (
-	Waiting = iota
+	Waiting Status = iota
 	Building
 	Concretised
 	Failed
@@ -17,7 +19,7 @@ type Environment struct {
 	Hidden      bool      `gorm:"not null"                      json:"hidden"`
 	Tags        []Tag     `gorm:"many2many:environment_tags"`
 	Packages    []Package `gorm:"not null;serializer:json"      json:"packages"`
-	Status      int
+	Status      Status
 	BuildStart  int64
 	// readme string
 	// envtype type EnvironmentType = "softpack" | "module";

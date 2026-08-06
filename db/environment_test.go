@@ -99,44 +99,25 @@ func ptrTo[T any](v T) *T {
 
 func TestUpdateEnvironment(t *testing.T) {
 	ctx, db, env := setupWithEnv1(t)
+	idx := env.ToIndex()
 
-	u := UpdateEnv{
-		EnvironmentIndex: env.ToIndex(),
-		Hidden:           ptrTo(false),
-		Description:      ptrTo("second new description"),
-	}
+	err := db.UpdateHidden(ctx, UpdateValue[bool]{
+		EnvironmentIndex: idx,
+		Value:            false,
+	})
+	assert.NoError(t, err)
 
-	err := db.UpdateEnvironment(ctx, u)
+	err = db.UpdateStatus(ctx, UpdateValue[Status]{
+		EnvironmentIndex: idx,
+		Value:            Concretised,
+	})
 	assert.NoError(t, err)
 
 	envs, err := db.GetEnvironments(ctx)
 	assert.NoError(t, err)
 	assert.Equal(t, len(envs), 1)
 	assert.False(t, envs[0].Hidden)
-	assert.Equal(t, envs[0].Description, "second new description")
-
-	tags := []Tag{{Name: "new tag"}}
-
-	u = UpdateEnv{
-		EnvironmentIndex: env.ToIndex(),
-		Tags:             ptrTo(tags),
-	}
-
-	err = db.UpdateEnvironment(ctx, u)
-	assert.NoError(t, err)
-
-	envs, err = db.GetEnvironments(ctx)
-	assert.NoError(t, err)
-	assert.Equal(t, len(envs), 1)
-	assert.Equal(t, tags, envs[0].Tags)
-
-	err = db.UpdateEnvironment(ctx, UpdateEnv{EnvironmentIndex: env.ToIndex()})
-	assert.NoError(t, err)
-
-	envs, err = db.GetEnvironments(ctx)
-	assert.NoError(t, err)
-	assert.Equal(t, len(envs), 1)
-	assert.Equal(t, envs[0].Tags, tags)
+	assert.Equal(t, Concretised, envs[0].Status)
 }
 
 func TestDeleteEnvironment(t *testing.T) {
@@ -157,19 +138,30 @@ func TestDeleteEnvironment(t *testing.T) {
 
 func TestAddAndDeleteTags(t *testing.T) {
 	ctx, db, env := setupWithEnv1(t)
-	index := env.ToIndex()
+	idx := env.ToIndex()
 
-	uidx := UpdateValue{
-		EnvironmentIndex: index,
-		Value:            "newtag",
-	}
+	tag := Tag{Name: "newtag"}
 
-	err := db.AddEnvironmentTag(ctx, uidx)
+	err := db.AddEnvironmentTag(ctx, UpdateValue[Tag]{
+		EnvironmentIndex: idx,
+		Value:            tag,
+	})
 	assert.NoError(t, err)
 
 	envs, err := db.GetEnvironments(ctx)
 	assert.NoError(t, err)
-	assert.Equal(t, []Tag{{Name: "newtag"}}, zeroTagKey(envs[0].Tags))
+	assert.Equal(t, len(envs), 1)
+	assert.Equal(t, []Tag{tag}, zeroTagKey(envs[0].Tags))
+
+	err = db.DeleteEnvironmentTag(ctx, UpdateValue[Tag]{
+		EnvironmentIndex: idx,
+		Value:            tag,
+	})
+	assert.NoError(t, err)
+
+	envs, err = db.GetEnvironments(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, []Tag{}, zeroTagKey(envs[0].Tags))
 }
 
 func zeroTagKey(tags []Tag) []Tag {

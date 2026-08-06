@@ -36,7 +36,7 @@ func TestGetRecipeDescription(t *testing.T) {
 	code, resp := getResponse(t, s, "/get-recipe-description", "pkg5")
 	assertBadRequest(t, code, resp, apt.ErrInvalidPackage)
 
-	code, resp = getResponse(t, s, "/get-recipe-description", "pkg1")
+	code, resp = getResponse(t, s, "/get-recipe-description", "abc")
 	assert.Equal(t, http.StatusOK, code)
 
 	var desc RecipeDescriptionResponse
@@ -54,20 +54,24 @@ func TestGetAllPackages(t *testing.T) {
 
 	expectedPackages := []apt.Package{
 		{
-			Name:     "pkg1", //nolint:goconst
+			Name:     "abc", //nolint:goconst
 			Versions: []string{"1", "2"},
 		},
 		{
-			Name:     "pkg2", //nolint:goconst
-			Versions: []string{"2", "5", "8"},
+			Name:     "py-xyz",
+			Versions: []string{"2.1"},
 		},
 		{
-			Name:     "pkg3",
-			Versions: []string{"3"},
+			Name:     "python", //nolint:goconst
+			Versions: []string{"3.13"},
 		},
 		{
-			Name:     "pkg4",
-			Versions: []string{"4"},
+			Name:     "r",
+			Versions: []string{"4.4.0"},
+		},
+		{
+			Name:     "r-lib",
+			Versions: []string{"1.1"},
 		},
 	}
 
@@ -102,56 +106,84 @@ func TestRemoveRequestedRecipe(t *testing.T) {
 	checkAllEqual(t, s, []db.RecipeRequest{})
 }
 
-// func TestFulfilRequestedRecipe(t *testing.T) {
-// 	s := newTestServer(t)
+func TestFulfilRequestedRecipe(t *testing.T) {
+	s := newTestServer(t)
 
-// 	req := db.RecipeRequest{
-// 		Name:    "requestedpkg",
-// 		Version: "version",
-// 		URL:     "url/for/name",
-// 		Details: "details",
-// 	}
-// 	code, resp := getResponse(t, s, "/request-recipe", req)
-// 	assertEmptyResp(t, code, resp)
+	req := db.RecipeRequest{
+		Name:    "requestedpkg",
+		Version: "version",
+		URL:     "url/for/name",
+		Details: "details",
+	}
+	code, resp := getResponse(t, s, "/request-recipe", req)
+	assertEmptyResp(t, code, resp)
 
-// 	req2 := db.RecipeRequest{
-// 		Name:    "requestedpkg2",
-// 		Version: "version",
-// 		URL:     "url/for/name",
-// 		Details: "details",
-// 	}
-// 	code, resp = getResponse(t, s, "/request-recipe", req2)
-// 	assertEmptyResp(t, code, resp)
+	req2 := db.RecipeRequest{
+		Name:    "requestedpkg2",
+		Version: "version",
+		URL:     "url/for/name",
+		Details: "details",
+	}
+	code, resp = getResponse(t, s, "/request-recipe", req2)
+	assertEmptyResp(t, code, resp)
 
-// 	env := db.Environment{
-// 		Name:        "test",
-// 		Path:        "path/to/test",
-// 		Version:     1,
-// 		Description: "description",
-// 		Created:     1,
-// 		Packages: []db.Package{
-// 			{
-// 				Name:     "requestedpkg",
-// 				Versions: []string{"version"},
-// 			},
-// 			{
-// 				Name:     "requestedpkg2",
-// 				Versions: []string{"version"},
-// 			},
-// 		},
-// 	}
-// 	code, resp = getResponse(t, s, "/create-environment", env)
-// 	assertEmptyResp(t, code, resp)
+	env := db.Environment{
+		Name:        "test",
+		Path:        "path/to/test",
+		Version:     1,
+		Description: "description",
+		Created:     1,
+		Tags:        []db.Tag{},
+		Packages: []db.Package{
+			{
+				Name: "requestedpkg",
+			},
+			{
+				Name:    "requestedpkg2",
+				Version: "version",
+			},
+		},
+	}
+	code, resp = getResponse(t, s, "/create-environment", env)
+	assertEmptyResp(t, code, resp)
 
-// 	checkAllEqual(t, s, []db.Environment{})
+	code, resp = getResponse(t, s, "/get-environments")
+	assert.Equal(t, http.StatusOK, code)
 
-// 	code, resp = getResponse(t, s, "/fulfil-requested-recipe", req)
-// 	assertEmptyResp(t, code, resp)
+	var envs []db.Environment
 
-// 	checkAllEqual(t, s, []db.Environment{})
+	err := json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(envs))
+	assert.Equal(t, db.Waiting, envs[0].Status)
 
-// 	code, resp = getResponse(t, s, "/fulfil-requested-recipe", req2)
-// 	assertEmptyResp(t, code, resp)
+	code, resp = getResponse(t, s, "/fulfil-requested-recipe", db.FulfilRequestBody{
+		req,
+		"abc",
+		"1",
+	})
+	assertEmptyResp(t, code, resp)
 
-// 	checkAllEqual(t, s, []db.Environment{env})
-// }
+	code, resp = getResponse(t, s, "/get-environments")
+	assert.Equal(t, http.StatusOK, code)
+
+	err = json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(envs))
+	assert.Equal(t, db.Waiting, envs[0].Status)
+
+	code, resp = getResponse(t, s, "/fulfil-requested-recipe", db.FulfilRequestBody{
+		req2,
+		"abc",
+		"2",
+	})
+	assertEmptyResp(t, code, resp)
+
+	code, resp = getResponse(t, s, "/get-environments")
+	assert.Equal(t, http.StatusOK, code)
+
+	err = json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(envs))
+	assert.Equal(t, db.Building, envs[0].Status)
+}

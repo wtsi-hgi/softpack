@@ -27,6 +27,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 		WrapperScript: "capy",
 		ModulePath:    t.TempDir(),
 		ArtefactStore: t.TempDir(),
+		Driver:        "sqlite3",
 	})
 	s := newHttpServer(t, backend)
 

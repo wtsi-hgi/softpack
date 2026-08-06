@@ -28,6 +28,5 @@ listen-addr:
 	cfg, err := Load(path)
 	assert.NoError(t, err)
 
-	assert.Equal(t, "8080", cfg.ListenAddr)
 	assert.Equal(t, "test.db", cfg.DBConn)
 }

@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 )
 
 var ErrNoRowsAffected = errors.New("no rows affected by query")
@@ -18,9 +19,9 @@ type EnvironmentIndex struct {
 
 // UpdateValue allows one specific field of an environment record, identified by
 // EnvironmentIndex, to be updated.
-type UpdateValue struct { // TODO: I dont like this, unnecessary duplication with updateenv //nolint:godox
+type UpdateValue[T any] struct { // TODO: I dont like this, unnecessary duplication with updateenv //nolint:godox
 	EnvironmentIndex
-	Value string
+	Value T
 }
 
 // UpdateEnv allows multiple fields of an environment record, identified by EnvironmentIndex,
@@ -51,7 +52,7 @@ func (e *Environment) ToIndex() EnvironmentIndex {
 	}
 }
 
-func (u *UpdateValue) ToIndex() EnvironmentIndex {
+func (u *UpdateValue[T]) ToIndex() EnvironmentIndex {
 	return EnvironmentIndex{
 		Name:    u.Name,
 		Path:    u.Path,
@@ -81,108 +82,112 @@ func (db *DB) CreateEnvironment(ctx context.Context, env Environment) error {
 // to match the non-nil UpdateEnv fields.
 // Providing 'Tags' here will result in all previous tags being removed and subsequently
 // replaced with the provided ones, to add/delete tags, consider using <Add/Delete>EnvironmentTag.
-func (db *DB) UpdateEnvironment(ctx context.Context, u UpdateEnv) error { //nolint:gocognit,funlen
-	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		updates := map[string]any{}
+// func (db *DB) UpdateEnvironment(ctx context.Context, u UpdateEnv) error {
+// 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+// 		updates := collectUpdates(u)
 
-		if u.Description != nil {
-			updates["Description"] = *u.Description
-		}
+// 		e, err := preLoadEnv(tx, u)
+// 		if err != nil {
+// 			return err
+// 		}
 
-		if u.Hidden != nil {
-			updates["Hidden"] = *u.Hidden
-		}
+// 		if len(updates) > 0 {
+// 			if err := tx.Model(e).Where(&Environment{
+// 				Name:    u.Name,
+// 				Path:    u.Path,
+// 				Version: u.Version,
+// 			}).Updates(updates).Error; err != nil {
+// 				return err
+// 			}
+// 		}
 
-		if u.Status != nil {
-			updates["Status"] = *u.Status
-		}
+// 		if u.Tags != nil {
+// 			if err := replaceTags(tx, u, *e); err != nil {
+// 				return err
+// 			}
+// 		}
 
-		e, err := preLoadEnv(tx, u)
-		if err != nil {
-			return err
-		}
+// 		return nil
+// 	})
+// }
 
-		if len(updates) > 0 {
-			if err := tx.Model(e).Where(&Environment{
-				Name:    u.Name,
-				Path:    u.Path,
-				Version: u.Version,
-			}).Updates(updates).Error; err != nil {
-				return err
-			}
-		}
-
-		if u.Tags != nil {
-			if err := replaceTags(tx, u, *e); err != nil {
-				return err
-			}
-		}
-
-		return nil
-	})
-}
-
-func preLoadEnv(tx *gorm.DB, u UpdateEnv) (*Environment, error) {
-	var e Environment
-
-	if err := tx.Where(&Environment{
+func (db *DB) UpdateHidden(ctx context.Context, u UpdateValue[bool]) error {
+	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
 		Name:    u.Name,
 		Path:    u.Path,
 		Version: u.Version,
-	}).First(&e).Error; err != nil {
-		return nil, err
-	}
-
-	return &e, nil
+	}).Update("Hidden", u.Value).Error
 }
 
-func replaceTags(tx *gorm.DB, u UpdateEnv, e Environment) error {
-	tags := *u.Tags
-
-	for i := range tags {
-		if err := tx.FirstOrCreate(&tags[i], Tag{
-			Name: tags[i].Name,
-		}).Error; err != nil {
-			return err
-		}
-	}
-
-	if err := tx.Model(&e).Association("Tags").Replace(tags); err != nil {
-		return err
-	}
-
-	return nil
+func (db *DB) UpdateStatus(ctx context.Context, u UpdateValue[Status]) error {
+	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
+		Name:    u.Name,
+		Path:    u.Path,
+		Version: u.Version,
+	}).Update("Status", u.Value).Error
 }
+
+// func(db *DB)
+
+// func collectUpdates(u UpdateEnv) map[string]any {
+// 	updates := map[string]any{}
+
+// 	if u.Description != nil {
+// 		updates["Description"] = *u.Description
+// 	}
+
+// 	if u.Hidden != nil {
+// 		updates["Hidden"] = *u.Hidden
+// 	}
+
+// 	if u.Status != nil {
+// 		updates["Status"] = *u.Status
+// 	}
+
+// 	return updates
+// }
+
+// func preLoadEnv(tx *gorm.DB, u UpdateEnv) (*Environment, error) {
+// 	var e Environment
+
+// 	if err := tx.Where(&Environment{
+// 		Name:    u.Name,
+// 		Path:    u.Path,
+// 		Version: u.Version,
+// 	}).First(&e).Error; err != nil {
+// 		return nil, err
+// 	}
+
+// 	return &e, nil
+// }
+
+// func replaceTags(tx *gorm.DB, u UpdateEnv, e Environment) error {
+// 	tags := *u.Tags
+
+// 	for i := range tags {
+// 		if err := tx.FirstOrCreate(&tags[i], Tag{
+// 			Name: tags[i].Name,
+// 		}).Error; err != nil {
+// 			return err
+// 		}
+// 	}
+
+// 	if err := tx.Model(&e).Association("Tags").Replace(tags); err != nil {
+// 		return err
+// 	}
+
+// 	return nil
+// }
 
 // GetEnvironments retrieves all environments from the database.
 func (db *DB) GetEnvironments(ctx context.Context) ([]Environment, error) {
 	var envs []Environment
 
-	// if len(indexes) == 0 {
-	if err := db.WithContext(ctx).Preload("Tags").Find(&envs).Error; err != nil {
+	if err := db.WithContext(ctx).Preload(clause.Associations).Find(&envs).Error; err != nil {
 		return nil, err
 	}
 
 	return envs, nil
-	// }
-
-	// for _, index := range indexes {
-	// 	var env Environment
-
-	// 	r := db.WithContext(ctx).Preload("Tags").Where(&Environment{
-	// 		Name:    index.Name,
-	// 		Path:    index.Path,
-	// 		Version: index.Version,
-	// 	}).First(&env)
-
-	// 	if r.Error != nil {
-	// 		return nil, r.Error
-	// 	}
-
-	// 	envs = append(envs, env)
-	// }
-
-	// return envs, nil
 }
 
 func (db *DB) DeleteEnvironment(ctx context.Context, index EnvironmentIndex) error {
@@ -204,22 +209,41 @@ func (db *DB) DeleteEnvironment(ctx context.Context, index EnvironmentIndex) err
 	return nil
 }
 
-func (db *DB) AddEnvironmentTag(ctx context.Context, idx UpdateValue) error {
+func (db *DB) AddEnvironmentTag(ctx context.Context, u UpdateValue[Tag]) error {
 	var env Environment
 
 	if err := db.WithContext(ctx).Where(&Environment{
-		Name:    idx.Name,
-		Path:    idx.Path,
-		Version: idx.Version,
+		Name:    u.Name,
+		Path:    u.Path,
+		Version: u.Version,
 	}).First(&env).Error; err != nil {
 		return err
 	}
 
-	return db.WithContext(ctx).Model(&env).Association("Tags").Append(&Tag{Name: idx.Value})
+	return db.WithContext(ctx).Model(&env).Association("Tags").Append(u.Value)
 }
 
-func (db *DB) DeleteEnvironmentTag(ctx context.Context, idx UpdateValue) error {
-	return db.WithContext(ctx).Model(&Environment{}).Association("Tags").Delete(Tag{Name: idx.Value})
+func (db *DB) DeleteEnvironmentTag(ctx context.Context, u UpdateValue[Tag]) error {
+	var env Environment
+	if err := db.WithContext(ctx).Where(&Environment{
+		Name:    u.Name,
+		Path:    u.Path,
+		Version: u.Version,
+	}).First(&env).Error; err != nil {
+		return err
+	}
+
+	var tag Tag
+	if err := db.WithContext(ctx).Where(&Tag{
+		Name: u.Value.Name,
+	}).First(&tag).Error; err != nil {
+		return err
+	}
+
+	return db.WithContext(ctx).
+		Model(&env).
+		Association("Tags").
+		Delete(&tag)
 }
 
 func (db *DB) GetTags(ctx context.Context) ([]Tag, error) {
@@ -240,4 +264,37 @@ func (db *DB) Concretise(env Environment, pkgs []Package) error {
 	}).Updates(&Environment{
 		Packages: pkgs,
 	}).Error
+}
+
+type FulfilRequestBody struct {
+	RecipeRequest
+	CanonicalName    string
+	CanonicalVersion string
+}
+
+func (db *DB) UpdateEnvPackage(ctx context.Context, u UpdateValue[FulfilRequestBody]) error {
+	var env Environment
+
+	if err := db.WithContext(ctx).Where(&Environment{
+		Name:    u.Name,
+		Path:    u.Path,
+		Version: u.Version,
+	}).First(&env).Error; err != nil {
+		return err
+	}
+
+	for n, pkg := range env.Packages {
+		if CheckPkgEqual(pkg, u.Value.RecipeRequest) {
+			env.Packages[n].Name = u.Value.CanonicalName
+			env.Packages[n].Version = u.Value.CanonicalVersion
+
+			break
+		}
+	}
+
+	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
+		Name:    u.Name,
+		Path:    u.Path,
+		Version: u.Version,
+	}).Update("Packages", env.Packages).Error
 }

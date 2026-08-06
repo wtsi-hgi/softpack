@@ -37,16 +37,17 @@ func (b *Server) Serve() http.Handler {
 
 	m.Handle("/create-environment", handler(b.CreateEnvironment))
 	m.Handle("/get-environments", handler(b.GetEnvironment))
-	m.Handle("/update-environment", handler(b.UpdateEnvironment))
+	// m.Handle("/update-environment", handler(b.UpdateEnvironment))
 	m.Handle("/delete-environment", handler(b.DeleteEnvironment))
 	m.Handle("/add-tag", handler(b.AddEnvironmentTag))
+	m.Handle("/set-hidden", handler(b.SetEnvironmentHidden))
 	m.Handle("/delete-tag", handler(b.DeleteEnvironmentTag))
 	m.Handle("/request-recipe", handler(b.RequestRecipe))
 	m.Handle("/requested-recipes", handler(b.GetRequestedRecipes))
 	m.Handle("/get-recipe-description", handler(b.GetRecipeDescription))
 	m.Handle("/package-collection", handler(b.GetAllPackages))
 	m.Handle("/remove-requested-recipe", handler(b.RemoveRequestedRecipe))
-	// m.Handle("/fulfil-requested-recipe", handler(b.FulfilRequestedRecipe))
+	m.Handle("/fulfil-requested-recipe", handler(b.FulfilRequestedRecipe))
 	m.Handle("/groups", handler(b.GetGroups))
 	m.Handle("/tags", handler(b.GetTags))
 	m.Handle("/build-status", handler(b.GetAverageBuildTime))
@@ -56,7 +57,6 @@ func (b *Server) Serve() http.Handler {
 	// todo //nolint:godox
 
 	// /upload - upload artefacts (only needed for tooling).
-	// /build-status - frontend request for average build times (may not be required).
 	// /update-module - tooling request to update non-Softpack module.
 }
 
@@ -122,7 +122,7 @@ func New(config *config.Config) *Server {
 		return nil
 	}
 
-	database, _ := db.Connect("sqlite3", config.DBConn) //nolint:errcheck
+	database, _ := db.Connect(config.Driver, config.DBConn) //nolint:errcheck
 
 	s := &Server{
 		db:     database,

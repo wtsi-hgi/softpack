@@ -26,6 +26,7 @@ func TestInstall(t *testing.T) {
 		WrapperScript: "a-wrapper-script",
 		AptSrc:        root,
 		ArtefactStore: artefactBase,
+		Driver:        "sqlite3",
 	}
 
 	e := db.Environment{

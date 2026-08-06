@@ -67,16 +67,12 @@ func TestUpdateEnvironment(t *testing.T) {
 
 	var envs []db.Environment
 
-	tags := []db.Tag{{Name: "tag1"}, {Name: "tag2"}}
+	idx := env.ToIndex()
 
-	u := db.UpdateEnv{
-		EnvironmentIndex: env.ToIndex(),
-		Description:      ptrTo("new description"),
-		Hidden:           ptrTo(true),
-		Tags:             ptrTo(tags),
-	}
-
-	code, resp := getResponse(t, s, "/update-environment", u)
+	code, resp := getResponse(t, s, "/set-hidden", db.UpdateValue[bool]{
+		EnvironmentIndex: idx,
+		Value:            true,
+	})
 	assertEmptyResp(t, code, resp)
 
 	code, resp = getResponse(t, s, "/get-environments", env.ToIndex())
@@ -85,9 +81,7 @@ func TestUpdateEnvironment(t *testing.T) {
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(envs))
-	assert.Equal(t, "new description", envs[0].Description)
 	assert.True(t, envs[0].Hidden)
-	assert.Equal(t, tags, zeroTagKey(envs[0].Tags))
 }
 
 func TestAddAndDeleteTags(t *testing.T) {
@@ -95,9 +89,9 @@ func TestAddAndDeleteTags(t *testing.T) {
 
 	tag := db.Tag{Name: "new tag"}
 
-	u := db.UpdateValue{
+	u := db.UpdateValue[db.Tag]{
 		EnvironmentIndex: env.ToIndex(),
-		Value:            tag.Name,
+		Value:            tag,
 	}
 
 	code, resp := getResponse(t, s, "/delete-tag", u)

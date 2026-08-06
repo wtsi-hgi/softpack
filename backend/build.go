@@ -44,10 +44,10 @@ func (s *Server) Build(env *db.Environment) {
 }
 
 // TODO: Should probs do in a transaction so the db and map cant become out of sync.
-func (s *Server) updateEnvStatus(env *db.Environment, status int) error {
-	if err := s.db.UpdateEnvironment(context.Background(), db.UpdateEnv{
+func (s *Server) updateEnvStatus(env *db.Environment, status db.Status) error {
+	if err := s.db.UpdateStatus(context.Background(), db.UpdateValue[db.Status]{
 		EnvironmentIndex: env.ToIndex(),
-		Status:           ptrTo(status),
+		Value:            status,
 	}); err != nil {
 		return err
 	}

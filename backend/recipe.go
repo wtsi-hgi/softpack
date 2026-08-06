@@ -1,11 +1,14 @@
 package backend
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/wtsi-hgi/softpack/apt"
 	"github.com/wtsi-hgi/softpack/db"
 )
 
@@ -112,25 +115,25 @@ func (s *Server) RemoveRequestedRecipe(_ http.ResponseWriter, r *http.Request) e
 	return nil
 }
 
-// Frontend expects to pass in:
-// method: POST
-//
-//	body: JSON.stringify({
-//	  name: canonicalName,
-//	  version: canonicalVersion,
-//	  requestedName: name,
-//	  requestedVersion: version
-//	})
 func (s *Server) FulfilRequestedRecipe(_ http.ResponseWriter, r *http.Request) error {
-	recipe, err := GetItemFromRequest[db.RecipeRequest](r)
+	recipe, err := GetItemFromRequest[db.FulfilRequestBody](r)
 	if err != nil {
 		return err
 	}
 
-	if envs, exists := s.waitingEnvs.Get(recipe); exists {
-		s.waitingEnvs.Delete(recipe)
+	if exists := s.apt.CheckPackageExists(db.Package{
+		Name:    recipe.CanonicalName,
+		Version: recipe.CanonicalVersion,
+	}); !exists {
+		return fmt.Errorf("%q, %q, %w", recipe.CanonicalName, recipe.CanonicalVersion, apt.ErrInvalidPackage)
+	}
 
-		if err := s.buildWaitingEnvs(envs); err != nil {
+	// need to update the packages bit on all envs that were waiting on the recipie with the canonical name and version
+
+	if envs, exists := s.waitingEnvs.Get(recipe.RecipeRequest); exists {
+		s.waitingEnvs.Delete(recipe.RecipeRequest)
+
+		if err := s.updateAndBuildEnvs(r.Context(), envs, recipe); err != nil {
 			return err
 		}
 	}
@@ -138,11 +141,21 @@ func (s *Server) FulfilRequestedRecipe(_ http.ResponseWriter, r *http.Request) e
 	return nil
 }
 
-func (s *Server) buildWaitingEnvs(envs []db.Environment) error {
+func (s *Server) updateAndBuildEnvs(ctx context.Context, envs []db.Environment, recipie db.FulfilRequestBody) error {
 	for _, env := range envs {
+		s.renameFulfilledPkg(ctx, env, recipie)
+
 		if waiting := s.waitingEnvs.ContainsEnv(env); !waiting {
 			s.Build(&env)
 		}
+	}
+
+	return nil
+}
+
+func (s *Server) renameFulfilledPkg(ctx context.Context, env db.Environment, req db.FulfilRequestBody) error {
+	if err := s.db.UpdateEnvPackage(ctx, db.UpdateValue[db.FulfilRequestBody]{env.ToIndex(), req}); err != nil {
+		return err
 	}
 
 	return nil

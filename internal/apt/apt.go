@@ -183,6 +183,8 @@ func ExamplePackages() []Deb { //nolint:funlen
 			Version: "1",
 			Metadata: map[string]string{
 				"XB-Executables": "abc", //nolint:goconst
+				"XB-Softpack":    "true",
+				"Description":    "desc1",
 			},
 		},
 		{
@@ -190,6 +192,8 @@ func ExamplePackages() []Deb { //nolint:funlen
 			Version: "2",
 			Metadata: map[string]string{
 				"XB-Executables": "abc, def",
+				"XB-Softpack":    "true",
+				"Description":    "desc1",
 			},
 		},
 		{
@@ -197,13 +201,15 @@ func ExamplePackages() []Deb { //nolint:funlen
 			Version: "3.13",
 			Metadata: map[string]string{
 				"XB-Executables": "python, python3.13",
+				"XB-Softpack":    "true",
 			},
 		},
 		{
 			Name:    "py-xyz",
 			Version: "2.1",
 			Metadata: map[string]string{
-				"Depends": "python",
+				"Depends":     "python",
+				"XB-Softpack": "true",
 			},
 		},
 		{
@@ -219,7 +225,8 @@ func ExamplePackages() []Deb { //nolint:funlen
 			Name:    "r-lib",
 			Version: "1.1",
 			Metadata: map[string]string{
-				"Depends": "r",
+				"Depends":     "r",
+				"XB-Softpack": "true",
 			},
 		},
 	}

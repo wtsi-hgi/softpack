@@ -96,41 +96,23 @@ func (s *Server) DeleteEnvironment(w http.ResponseWriter, r *http.Request) error
 	return nil
 }
 
-func (s *Server) UpdateEnvironment(w http.ResponseWriter, r *http.Request) error {
-	u, err := GetItemFromRequest[db.UpdateEnv](r)
-	if err != nil {
-		return err
-	}
-
-	if err := s.db.UpdateEnvironment(r.Context(), u); err != nil {
-		return err
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-
-	return nil
-}
-
-// Implementing these below to match api to old frontend, realistically would want to
-// swap to only using the general case UpdateEnvironment function.
-
 func (s *Server) AddEnvironmentTag(w http.ResponseWriter, r *http.Request) error {
-	env, u, err := s.getEnvFromUpdateIdx(r)
+	env, u, err := getUpdateValue[db.Tag](s, r)
 	if err != nil {
 		return err
 	}
 
 	for _, tag := range env.Tags {
-		if tag.Name == u.Value {
+		if tag.Name == u.Value.Name {
 			return ErrDuplicateItem
 		}
 	}
 
-	env.Tags = append(env.Tags, db.Tag{Name: u.Value})
+	env.Tags = append(env.Tags, db.Tag{Name: u.Value.Name})
 
-	if err := s.db.UpdateEnvironment(r.Context(), db.UpdateEnv{
+	if err := s.db.AddEnvironmentTag(r.Context(), db.UpdateValue[db.Tag]{
 		EnvironmentIndex: u.EnvironmentIndex,
-		Tags:             &env.Tags,
+		Value:            u.Value,
 	}); err != nil {
 		return err
 	}
@@ -141,7 +123,7 @@ func (s *Server) AddEnvironmentTag(w http.ResponseWriter, r *http.Request) error
 }
 
 func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) error {
-	env, u, err := s.getEnvFromUpdateIdx(r)
+	env, u, err := getUpdateValue[db.Tag](s, r)
 	if err != nil {
 		return err
 	}
@@ -155,9 +137,9 @@ func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) er
 
 	env.Tags = slices.Delete(env.Tags, i, i+1)
 
-	if err := s.db.UpdateEnvironment(r.Context(), db.UpdateEnv{
+	if err := s.db.DeleteEnvironmentTag(r.Context(), db.UpdateValue[db.Tag]{
 		EnvironmentIndex: u.EnvironmentIndex,
-		Tags:             &env.Tags,
+		Value:            u.Value,
 	}); err != nil {
 		return err
 	}
@@ -167,14 +149,16 @@ func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) er
 	return nil
 }
 
-func (s *Server) getEnvFromUpdateIdx(r *http.Request) (*db.Environment, *db.UpdateValue, error) {
-	u, err := GetItemFromRequest[db.UpdateValue](r)
+func getUpdateValue[T any](s *Server, r *http.Request) (*db.Environment, *db.UpdateValue[T], error) {
+	u, err := GetItemFromRequest[db.UpdateValue[T]](r)
 	if err != nil {
 		return nil, nil, err
 	}
 
 	var env db.Environment
-	if err := s.db.WithContext(r.Context()).Preload("Tags").First(&env, u.EnvironmentIndex).Error; err != nil {
+	if err := s.db.WithContext(r.Context()).
+		Preload("Tags").
+		First(&env, u.EnvironmentIndex).Error; err != nil {
 		return nil, nil, err
 	}
 
@@ -194,4 +178,13 @@ func (s *Server) GetTags(w http.ResponseWriter, r *http.Request) error {
 	}
 
 	return nil
+}
+
+func (s *Server) SetEnvironmentHidden(w http.ResponseWriter, r *http.Request) error {
+	_, u, err := getUpdateValue[bool](s, r)
+	if err != nil {
+		return err
+	}
+
+	return s.db.UpdateHidden(r.Context(), *u)
 }

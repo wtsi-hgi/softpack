@@ -6,12 +6,15 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/wtsi-hgi/softpack/config"
 	"github.com/wtsi-hgi/softpack/db"
+	"github.com/wtsi-hgi/softpack/internal/apt"
 )
 
 const testPackages = `
@@ -59,16 +62,30 @@ func newTestServer(t *testing.T) *httptest.Server {
 func newServer(t *testing.T, backend *Server) *httptest.Server {
 	t.Helper()
 
-	ps := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, testPackages) //nolint:errcheck
-	}))
+	// ps := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// 	io.WriteString(w, testPackages) //nolint:errcheck
+	// }))
 
-	t.Cleanup(ps.Close)
+	// t.Cleanup(ps.Close)
 
 	if backend == nil {
-		config := config.DefaultConf()
-		config.AptIndexSrc = ps.URL
-		backend = New(config)
+		root := apt.CreateTestAptRepo(t, apt.ExamplePackages())
+		moduleBase := t.TempDir()
+		installBase := t.TempDir()
+		artefactBase := t.TempDir()
+
+		backend = New(&config.Config{
+			BaseImgPath:   apt.BuildBase,
+			ModulePath:    moduleBase,
+			TempDir:       "",
+			InstallDir:    installBase,
+			WrapperScript: "a-wrapper-script",
+			AptSrc:        root,
+			AptIndexSrc:   filepath.Join(root, "dists", "resolute", "main", "binary-"+runtime.GOARCH, "Packages"),
+			ArtefactStore: artefactBase,
+			DBConn:        ":memory:",
+			Driver:        "sqlite3",
+		})
 	}
 
 	s := httptest.NewServer(backend.Serve())
