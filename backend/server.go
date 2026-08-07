@@ -7,6 +7,7 @@ import (
 	"errors"
 	"io"
 	"log"
+	"log/slog"
 	"net/http"
 	"slices"
 	"time"
@@ -119,6 +120,7 @@ func GetItemFromRequest[T any](r *http.Request) (T, error) {
 func New(config *config.Config) *Server {
 	apt, err := apt.New(config.AptIndexSrc, time.Minute)
 	if err != nil {
+		slog.Error("Invalid apt index", "index", config.AptIndexSrc)
 		return nil
 	}
 

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"slices"
+	"time"
 
 	"github.com/wtsi-hgi/softpack/apt"
 	"github.com/wtsi-hgi/softpack/db"
@@ -30,6 +31,8 @@ func (s *Server) CreateEnvironment(_ http.ResponseWriter, r *http.Request) error
 	if err != nil {
 		return err
 	}
+
+	env.Created = int(time.Now().Unix())
 
 	if err := s.db.CreateEnvironment(ctx, env); err != nil {
 		return err
