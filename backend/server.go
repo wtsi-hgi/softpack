@@ -26,7 +26,7 @@ var (
 
 type Server struct {
 	waitingEnvs  utils.WaitingEnvs
-	buildingEnvs map[uint]*db.Environment
+	buildingEnvs map[db.EnvironmentIndex]*db.Environment
 
 	db     *db.DB
 	apt    *apt.Server
@@ -118,9 +118,10 @@ func GetItemFromRequest[T any](r *http.Request) (T, error) {
 }
 
 func New(config *config.Config) *Server {
-	apt, err := apt.New(config.AptIndexSrc, time.Minute)
+	apt, err := apt.New(config.AptIndexSrc, 5*time.Minute) //nolint:mnd
 	if err != nil {
 		slog.Error("Invalid apt index", "index", config.AptIndexSrc)
+
 		return nil
 	}
 
@@ -132,7 +133,7 @@ func New(config *config.Config) *Server {
 		config: config,
 
 		waitingEnvs:  utils.New(),
-		buildingEnvs: make(map[uint]*db.Environment),
+		buildingEnvs: make(map[db.EnvironmentIndex]*db.Environment),
 	}
 
 	s.populateServerCaches()
@@ -153,7 +154,7 @@ func (b *Server) populateServerCaches() { //nolint:gocognit
 	for _, req := range reqs {
 		for _, env := range envs {
 			if env.Status == db.Building {
-				b.buildingEnvs[env.ID] = &env
+				b.buildingEnvs[env.ToIndex()] = &env
 			}
 
 			for _, pkg := range env.Packages {
@@ -163,8 +164,4 @@ func (b *Server) populateServerCaches() { //nolint:gocognit
 			}
 		}
 	}
-}
-
-func ptrTo[T any](v T) *T {
-	return &v
 }

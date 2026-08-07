@@ -26,9 +26,9 @@ func setupWithEnv1(t *testing.T) (context.Context, *DB, Environment) {
 	ctx, db := setup(t)
 
 	env := Environment{
-		Name:        "name", //nolint:goconst
-		Path:        "path/to/env",
-		Version:     1,
+		Name: "name",        //nolint:goconst
+		Path: "path/to/env", //nolint:goconst
+		// Version:     1,
 		Description: "description", //nolint:goconst
 		Created:     248933,
 		Hidden:      false,
@@ -43,7 +43,7 @@ func setupWithEnv1(t *testing.T) (context.Context, *DB, Environment) {
 		},
 	}
 
-	err := db.CreateEnvironment(ctx, env)
+	err := db.CreateEnvironment(ctx, &env)
 	assert.NoError(t, err)
 
 	return ctx, db, env

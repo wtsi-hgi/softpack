@@ -16,14 +16,14 @@ func TestRequestRecipe(t *testing.T) {
 
 	req := db.RecipeRequest{
 		Name:    "name",
-		Version: "version",
-		URL:     "url/for/name",
+		Version: "version",      //nolint: goconst
+		URL:     "url/for/name", //nolint: goconst
 	}
 
 	code, resp := getResponse(t, s, "/request-recipe", req)
 	assertBadRequest(t, code, resp, db.ErrMissingField)
 
-	req.Details = "details"
+	req.Details = "details" //nolint: goconst
 	code, resp = getResponse(t, s, "/request-recipe", req)
 	assertEmptyResp(t, code, resp)
 
@@ -128,11 +128,10 @@ func TestFulfilRequestedRecipe(t *testing.T) {
 	assertEmptyResp(t, code, resp)
 
 	env := db.Environment{
-		Name:        "test",
-		Path:        "path/to/test",
-		Version:     1,
-		Description: "description",
-		Created:     1,
+		Name: "test",         //nolint: goconst
+		Path: "path/to/test", //nolint: goconst
+		// Version:     1,
+		Description: "description", //nolint: goconst
 		Tags:        []db.Tag{},
 		Packages: []db.Package{
 			{
@@ -158,9 +157,9 @@ func TestFulfilRequestedRecipe(t *testing.T) {
 	assert.Equal(t, db.Waiting, envs[0].Status)
 
 	code, resp = getResponse(t, s, "/fulfil-requested-recipe", db.FulfilRequestBody{
-		req,
-		"abc",
-		"1",
+		RecipeRequest:    req,
+		CanonicalName:    "abc",
+		CanonicalVersion: "1",
 	})
 	assertEmptyResp(t, code, resp)
 
@@ -173,9 +172,9 @@ func TestFulfilRequestedRecipe(t *testing.T) {
 	assert.Equal(t, db.Waiting, envs[0].Status)
 
 	code, resp = getResponse(t, s, "/fulfil-requested-recipe", db.FulfilRequestBody{
-		req2,
-		"abc",
-		"2",
+		RecipeRequest:    req2,
+		CanonicalName:    "abc",
+		CanonicalVersion: "2",
 	})
 	assertEmptyResp(t, code, resp)
 

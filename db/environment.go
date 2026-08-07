@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"errors"
+	"time"
 
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
@@ -19,23 +20,13 @@ type EnvironmentIndex struct {
 
 // UpdateValue allows one specific field of an environment record, identified by
 // EnvironmentIndex, to be updated.
-type UpdateValue[T any] struct { // TODO: I dont like this, unnecessary duplication with updateenv //nolint:godox
+type UpdateValue[T any] struct {
 	EnvironmentIndex
 	Value T
 }
 
-// UpdateEnv allows multiple fields of an environment record, identified by EnvironmentIndex,
-// to be updated.
-type UpdateEnv struct {
-	EnvironmentIndex
-	Description *string
-	Hidden      *bool
-	Tags        *[]Tag
-	Status      *int
-}
-
 func (e *Environment) BeforeCreate(_ *gorm.DB) error {
-	if e.Name == "" || e.Path == "" || e.Version == 0 || e.Created == 0 {
+	if e.Name == "" || e.Path == "" || e.Version == 0 {
 		return ErrMissingField
 	}
 
@@ -64,6 +55,12 @@ func (u *UpdateValue[T]) ToIndex() EnvironmentIndex {
 func (db *DB) CreateEnvironments(ctx context.Context, envs []Environment) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, env := range envs {
+			version, err := getNextEnvVersion(ctx, tx, env.Name, env.Path)
+			if err != nil {
+				return err
+			}
+
+			env.Version = version
 			if err := gorm.G[Environment](tx).Create(ctx, &env); err != nil {
 				return err
 			}
@@ -74,42 +71,23 @@ func (db *DB) CreateEnvironments(ctx context.Context, envs []Environment) error 
 }
 
 // CreateEnvironment will add the given Environment to the database.
-func (db *DB) CreateEnvironment(ctx context.Context, env Environment) error {
-	return db.WithContext(ctx).Create(&env).Error
+func (db *DB) CreateEnvironment(ctx context.Context, env *Environment) error {
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		version, err := getNextEnvVersion(ctx, tx, env.Name, env.Path)
+		if err != nil {
+			return err
+		}
+
+		env.Created = int(time.Now().Unix())
+		env.Version = version
+
+		if err := tx.WithContext(ctx).Create(env).Error; err != nil {
+			return err
+		}
+
+		return nil
+	})
 }
-
-// UpdateEnvironment will update the environment record specified by the EnvironmentIndex
-// to match the non-nil UpdateEnv fields.
-// Providing 'Tags' here will result in all previous tags being removed and subsequently
-// replaced with the provided ones, to add/delete tags, consider using <Add/Delete>EnvironmentTag.
-// func (db *DB) UpdateEnvironment(ctx context.Context, u UpdateEnv) error {
-// 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-// 		updates := collectUpdates(u)
-
-// 		e, err := preLoadEnv(tx, u)
-// 		if err != nil {
-// 			return err
-// 		}
-
-// 		if len(updates) > 0 {
-// 			if err := tx.Model(e).Where(&Environment{
-// 				Name:    u.Name,
-// 				Path:    u.Path,
-// 				Version: u.Version,
-// 			}).Updates(updates).Error; err != nil {
-// 				return err
-// 			}
-// 		}
-
-// 		if u.Tags != nil {
-// 			if err := replaceTags(tx, u, *e); err != nil {
-// 				return err
-// 			}
-// 		}
-
-// 		return nil
-// 	})
-// }
 
 func (db *DB) UpdateHidden(ctx context.Context, u UpdateValue[bool]) error {
 	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
@@ -126,58 +104,6 @@ func (db *DB) UpdateStatus(ctx context.Context, u UpdateValue[Status]) error {
 		Version: u.Version,
 	}).Update("Status", u.Value).Error
 }
-
-// func(db *DB)
-
-// func collectUpdates(u UpdateEnv) map[string]any {
-// 	updates := map[string]any{}
-
-// 	if u.Description != nil {
-// 		updates["Description"] = *u.Description
-// 	}
-
-// 	if u.Hidden != nil {
-// 		updates["Hidden"] = *u.Hidden
-// 	}
-
-// 	if u.Status != nil {
-// 		updates["Status"] = *u.Status
-// 	}
-
-// 	return updates
-// }
-
-// func preLoadEnv(tx *gorm.DB, u UpdateEnv) (*Environment, error) {
-// 	var e Environment
-
-// 	if err := tx.Where(&Environment{
-// 		Name:    u.Name,
-// 		Path:    u.Path,
-// 		Version: u.Version,
-// 	}).First(&e).Error; err != nil {
-// 		return nil, err
-// 	}
-
-// 	return &e, nil
-// }
-
-// func replaceTags(tx *gorm.DB, u UpdateEnv, e Environment) error {
-// 	tags := *u.Tags
-
-// 	for i := range tags {
-// 		if err := tx.FirstOrCreate(&tags[i], Tag{
-// 			Name: tags[i].Name,
-// 		}).Error; err != nil {
-// 			return err
-// 		}
-// 	}
-
-// 	if err := tx.Model(&e).Association("Tags").Replace(tags); err != nil {
-// 		return err
-// 	}
-
-// 	return nil
-// }
 
 // GetEnvironments retrieves all environments from the database.
 func (db *DB) GetEnvironments(ctx context.Context) ([]Environment, error) {
@@ -256,6 +182,7 @@ func (db *DB) GetTags(ctx context.Context) ([]Tag, error) {
 	return tags, nil
 }
 
+// Concretise will replace the given environment's packages with those provided.
 func (db *DB) Concretise(env Environment, pkgs []Package) error {
 	return db.Model(&env).Where(&Environment{
 		Name:    env.Name,
@@ -272,6 +199,8 @@ type FulfilRequestBody struct {
 	CanonicalVersion string
 }
 
+// UpdateEnvPackage will update an environment's package information to match a newly
+// fulfilled request for a package that it relies on.
 func (db *DB) UpdateEnvPackage(ctx context.Context, u UpdateValue[FulfilRequestBody]) error {
 	var env Environment
 
@@ -292,9 +221,30 @@ func (db *DB) UpdateEnvPackage(ctx context.Context, u UpdateValue[FulfilRequestB
 		}
 	}
 
-	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
-		Name:    u.Name,
-		Path:    u.Path,
-		Version: u.Version,
-	}).Update("Packages", env.Packages).Error
+	return db.WithContext(ctx).Save(&env).Error
+}
+
+func getNextEnvVersion(ctx context.Context, tx *gorm.DB, name, path string) (int, error) {
+	var envs []Environment
+
+	if err := tx.WithContext(ctx).Preload(clause.Associations).Where(&Environment{
+		Name: name,
+		Path: path,
+	}).Find(&envs).Error; err != nil {
+		return -1, err
+	}
+
+	if len(envs) == 0 {
+		return 1, nil
+	}
+
+	highest := -1
+
+	for _, env := range envs {
+		if env.Version > highest {
+			highest = env.Version
+		}
+	}
+
+	return highest + 1, nil
 }

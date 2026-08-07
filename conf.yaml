@@ -1,7 +1,7 @@
 base-img-path: "docker://ubuntu:resolute-20260413"
 temp-dir: "/tmp/tmp.66FLano2y3/tmp/"
 install-dir: "/tmp/tmp.66FLano2y3/install/"
-wrapper-script: "artemefact"
+wrapper-script: "/tmp/sh55/wrapper.script"
 apt-src: "s3://spack/apt/"
 apt-index-src: "s3://spack/apt/dists/resolute/main/binary-amd64/Packages"
 module-path: "/tmp/tmp.66FLano2y3/module/"
@@ -9,3 +9,5 @@ artefact-store: "/tmp/tmp.66FLano2y3/atefact/"
 db-conn: ":memory:"
 listen-addr: ":8080"
 driver: "sqlite3"
+
+# curl -H "Content-Type: application/json" -d '{"name": "TestEnv", "path": "groups/hgi", "version": 1, "description": "My Env", "packages": [{"name": "xxhash"}]}' http://127.0.0.1:1025/create-environment

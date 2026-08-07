@@ -18,11 +18,13 @@ func (s *Server) Build(env *db.Environment) {
 
 	go func() {
 		defer func() {
-			delete(s.buildingEnvs, env.ID)
+			delete(s.buildingEnvs, env.ToIndex())
 			buildComplete()
 		}()
 
 		env.BuildStart = time.Now().Unix()
+
+		slog.Debug("starting build", "env", env.Name, "time", env.BuildStart)
 
 		artefacts, err := install.Install(s.config, *env)
 		if err != nil {
@@ -39,6 +41,10 @@ func (s *Server) Build(env *db.Environment) {
 			return
 		}
 
+		slog.Debug("build finished", "env", env.Name, "time", env.BuildStart)
+
+		env.BuildEnd = time.Now().Unix()
+
 		s.updateEnvStatus(env, db.Concretised) //nolint:errcheck
 	}()
 }
@@ -53,7 +59,7 @@ func (s *Server) updateEnvStatus(env *db.Environment, status db.Status) error {
 	}
 
 	env.Status = status
-	s.buildingEnvs[env.ID] = env
+	s.buildingEnvs[env.ToIndex()] = env
 
 	return nil
 }

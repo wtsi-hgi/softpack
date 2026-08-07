@@ -5,7 +5,6 @@ import (
 	"encoding/json"
 	"net/http"
 	"slices"
-	"time"
 
 	"github.com/wtsi-hgi/softpack/apt"
 	"github.com/wtsi-hgi/softpack/db"
@@ -32,9 +31,7 @@ func (s *Server) CreateEnvironment(_ http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
-	env.Created = int(time.Now().Unix())
-
-	if err := s.db.CreateEnvironment(ctx, env); err != nil {
+	if err := s.db.CreateEnvironment(ctx, &env); err != nil {
 		return err
 	}
 
@@ -183,7 +180,7 @@ func (s *Server) GetTags(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) SetEnvironmentHidden(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) SetEnvironmentHidden(_ http.ResponseWriter, r *http.Request) error {
 	_, u, err := getUpdateValue[bool](s, r)
 	if err != nil {
 		return err

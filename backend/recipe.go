@@ -128,8 +128,6 @@ func (s *Server) FulfilRequestedRecipe(_ http.ResponseWriter, r *http.Request) e
 		return fmt.Errorf("%q, %q, %w", recipe.CanonicalName, recipe.CanonicalVersion, apt.ErrInvalidPackage)
 	}
 
-	// need to update the packages bit on all envs that were waiting on the recipie with the canonical name and version
-
 	if envs, exists := s.waitingEnvs.Get(recipe.RecipeRequest); exists {
 		s.waitingEnvs.Delete(recipe.RecipeRequest)
 
@@ -143,19 +141,16 @@ func (s *Server) FulfilRequestedRecipe(_ http.ResponseWriter, r *http.Request) e
 
 func (s *Server) updateAndBuildEnvs(ctx context.Context, envs []db.Environment, recipie db.FulfilRequestBody) error {
 	for _, env := range envs {
-		s.renameFulfilledPkg(ctx, env, recipie)
+		if err := s.db.UpdateEnvPackage(ctx, db.UpdateValue[db.FulfilRequestBody]{
+			EnvironmentIndex: env.ToIndex(),
+			Value:            recipie,
+		}); err != nil {
+			return err
+		}
 
 		if waiting := s.waitingEnvs.ContainsEnv(env); !waiting {
 			s.Build(&env)
 		}
-	}
-
-	return nil
-}
-
-func (s *Server) renameFulfilledPkg(ctx context.Context, env db.Environment, req db.FulfilRequestBody) error {
-	if err := s.db.UpdateEnvPackage(ctx, db.UpdateValue[db.FulfilRequestBody]{env.ToIndex(), req}); err != nil {
-		return err
 	}
 
 	return nil

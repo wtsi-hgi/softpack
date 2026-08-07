@@ -10,10 +10,9 @@ func TestCreateEnvironments(t *testing.T) {
 	ctx, db := setup(t)
 
 	env1 := Environment{
-		Name:        "name", //nolint:goconst
-		Path:        "path/to/env",
+		Name:        "name",        //nolint:goconst
+		Path:        "path/to/env", //nolint:goconst
 		Description: "description", //nolint:goconst
-		Version:     1,
 		Created:     248933,
 		Hidden:      false,
 		Tags:        []Tag{},
@@ -27,18 +26,19 @@ func TestCreateEnvironments(t *testing.T) {
 		},
 	}
 
-	err := db.CreateEnvironment(ctx, env1)
+	err := db.CreateEnvironment(ctx, &env1)
 	assert.NoError(t, err)
 
 	envs, err := db.GetEnvironments(ctx)
 	assert.NoError(t, err)
-	assert.Equal(t, []Environment{env1}, zeroEnvKey(envs))
+
+	env1.Version = 1
+	assert.Equal(t, zeroEnvKey([]Environment{env1}), zeroEnvKey(envs))
 
 	env2 := Environment{
-		Name:        "name2",
-		Path:        "path/to/env2",
+		Name:        "name",
+		Path:        "path/to/env",
 		Description: "description",
-		Version:     2,
 		Created:     24854323,
 		Hidden:      false,
 		Tags:        []Tag{},
@@ -56,7 +56,6 @@ func TestCreateEnvironments(t *testing.T) {
 		Name:        "name3",
 		Path:        "path/to/env3",
 		Description: "description",
-		Version:     3,
 		Created:     24854365423,
 		Hidden:      true,
 		Tags:        []Tag{},
@@ -67,34 +66,26 @@ func TestCreateEnvironments(t *testing.T) {
 		},
 	}
 
-	err = db.CreateEnvironments(ctx, []Environment{env1, env2})
-	assert.ErrorContains(t, err, UniqueConstraintFailed)
-
-	envs, err = db.GetEnvironments(ctx)
-	assert.NoError(t, err)
-	assert.Equal(t, []Environment{env1}, zeroEnvKey(envs)) // TODO: Do i want it to still add env2 given that env1 fails?
-
 	err = db.CreateEnvironments(ctx, []Environment{env2, env3})
 	assert.NoError(t, err)
 
 	envs, err = db.GetEnvironments(ctx)
 	assert.NoError(t, err)
-	assert.Equal(t, []Environment{env1, env2, env3}, zeroEnvKey(envs))
+
+	env2.Version = 2
+	env3.Version = 1
+	assert.Equal(t, zeroEnvKey([]Environment{env1, env2, env3}), zeroEnvKey(envs))
 
 	env4 := Environment{
 		Path: "path/to/incomplete/env",
 	}
 
-	err = db.CreateEnvironment(ctx, env4)
+	err = db.CreateEnvironment(ctx, &env4)
 	assert.ErrorIs(t, err, ErrMissingField)
 
 	envs, err = db.GetEnvironments(ctx)
 	assert.NoError(t, err)
-	assert.Equal(t, zeroEnvKey(envs), []Environment{env1, env2, env3})
-}
-
-func ptrTo[T any](v T) *T {
-	return &v
+	assert.Equal(t, zeroEnvKey([]Environment{env1, env2, env3}), zeroEnvKey(envs))
 }
 
 func TestUpdateEnvironment(t *testing.T) {

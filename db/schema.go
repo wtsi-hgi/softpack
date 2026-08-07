@@ -21,7 +21,7 @@ type Environment struct {
 	Packages    []Package `gorm:"not null;serializer:json"      json:"packages"`
 	Status      Status
 	BuildStart  int64
-	// readme string
+	BuildEnd    int64
 	// envtype type EnvironmentType = "softpack" | "module";
 	// username? string
 	// failure_reason? string
@@ -42,8 +42,6 @@ type RecipeRequest struct {
 	Details   string `gorm:"not null"  json:"details"`
 	Requester string `json:"requester"`
 }
-
-// path/name-version
 
 type Tag struct {
 	ID   uint   `gorm:"primaryKey"`

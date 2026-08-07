@@ -182,7 +182,7 @@ func checkAllEqual[T db.Environment | db.RecipeRequest](t *testing.T, s *httptes
 	case db.Environment:
 		assert.Equal(t,
 			expected,
-			zeroEnvKey(any(actual).([]db.Environment)), //nolint:errcheck,forcetypeassert
+			zeroEnv(t, any(actual).([]db.Environment)), //nolint:errcheck,forcetypeassert
 		)
 	default:
 		assert.Equal(t, expected, actual)

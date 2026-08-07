@@ -2,6 +2,7 @@ package backend
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"path/filepath"
 	"runtime"
@@ -28,6 +29,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 		ModulePath:    t.TempDir(),
 		ArtefactStore: t.TempDir(),
 		Driver:        "sqlite3",
+		DBConn:        ":memory:",
 	})
 	s := newHttpServer(t, backend)
 
@@ -52,11 +54,11 @@ func TestGetAverageBuildTime(t *testing.T) {
 	code, resp := getResponse(t, s, "/create-environment", env1)
 	assertEmptyResp(t, code, resp)
 
-	e, exists := backend.buildingEnvs[env1.ID]
+	e, exists := backend.buildingEnvs[env1.ToIndex()]
 	assert.True(t, exists)
 	assert.Equal(t, db.Building, e.Status)
 
-	code, resp = getResponse(t, s, "/get-environments", env1.ToIndex())
+	code, resp = getResponse(t, s, "/get-environments")
 	assert.Equal(t, http.StatusOK, code)
 
 	var envs []db.Environment
@@ -68,25 +70,16 @@ func TestGetAverageBuildTime(t *testing.T) {
 
 	<-ch
 
-	_, exists = backend.buildingEnvs[env1.ID]
+	_, exists = backend.buildingEnvs[env1.ToIndex()]
 	assert.False(t, exists)
 
-	code, resp = getResponse(t, s, "/get-environments", env1.ToIndex())
+	code, resp = getResponse(t, s, "/get-environments")
 	assert.Equal(t, http.StatusOK, code)
 
 	err = json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(envs))
 	assert.Equal(t, db.Failed, envs[0].Status)
-
-	// backend.config = &config.Config{
-	// 	AptSrc:        apt.CreateTestAptRepo(t, apt.ExamplePackages()),
-	// 	BaseImgPath:   apt.BuildBase,
-	// 	InstallDir:    t.TempDir(),
-	// 	WrapperScript: "capy",
-	// 	ModulePath:    t.TempDir(),
-	// 	ArtefactStore: t.TempDir(),
-	// }
 
 	env2 := &db.Environment{
 		Name:    "env2",
@@ -96,11 +89,11 @@ func TestGetAverageBuildTime(t *testing.T) {
 		Tags:    []db.Tag{},
 		Packages: []db.Package{
 			{
-				Name:    "abc",
+				Name:    "abc", //nolint: goconst
 				Version: "2",
 			},
 			{
-				Name: "python",
+				Name: "python", //nolint: goconst
 			},
 		},
 	}
@@ -112,13 +105,15 @@ func TestGetAverageBuildTime(t *testing.T) {
 
 	<-ch
 
-	_, exists = backend.buildingEnvs[env2.ID]
+	_, exists = backend.buildingEnvs[env2.ToIndex()]
 	assert.False(t, exists)
 
-	code, resp = getResponse(t, s, "/get-environments", env1.ToIndex())
+	code, resp = getResponse(t, s, "/get-environments")
 	assert.Equal(t, http.StatusOK, code)
 
 	err = json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
+
+	fmt.Println("=== environments:", envs)
 
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(envs))
