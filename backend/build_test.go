@@ -53,10 +53,6 @@ func TestGetAverageBuildTime(t *testing.T) {
 	code, resp := getResponse(t, s, "/create-environment", env1)
 	assertEmptyResp(t, code, resp)
 
-	e, exists := backend.buildingEnvs[env1.ToIndex()]
-	assert.True(t, exists)
-	assert.Equal(t, db.Building, e.Status)
-
 	code, resp = getResponse(t, s, "/get-environments")
 	assert.Equal(t, http.StatusOK, code)
 
@@ -68,9 +64,6 @@ func TestGetAverageBuildTime(t *testing.T) {
 	assert.Equal(t, db.Building, envs[0].Status)
 
 	<-ch
-
-	_, exists = backend.buildingEnvs[env1.ToIndex()]
-	assert.False(t, exists)
 
 	code, resp = getResponse(t, s, "/get-environments")
 	assert.Equal(t, http.StatusOK, code)
@@ -103,9 +96,6 @@ func TestGetAverageBuildTime(t *testing.T) {
 	assertEmptyResp(t, code, resp)
 
 	<-ch
-
-	_, exists = backend.buildingEnvs[env2.ToIndex()]
-	assert.False(t, exists)
 
 	code, resp = getResponse(t, s, "/get-environments")
 	assert.Equal(t, http.StatusOK, code)

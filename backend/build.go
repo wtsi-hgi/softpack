@@ -18,8 +18,6 @@ func (s *Server) Build(env *db.Environment) {
 
 	go func() {
 		defer func() {
-			delete(s.buildingEnvs, env.ToIndex())
-
 			if err := s.buildTimes.AddBuildTime(env.BuildStart, env.BuildEnd); err != nil {
 				slog.Error("Failure adding build times for env", "env", env.ToIndex())
 			}
@@ -54,19 +52,11 @@ func (s *Server) Build(env *db.Environment) {
 	}()
 }
 
-// TODO: Should probs do in a transaction so the db and map cant become out of sync.
 func (s *Server) updateEnvStatus(env *db.Environment, status db.Status) error {
-	if err := s.db.UpdateStatus(context.Background(), db.UpdateValue[db.Status]{
+	return s.db.UpdateStatus(context.Background(), db.UpdateValue[db.Status]{
 		EnvironmentIndex: env.ToIndex(),
 		Value:            status,
-	}); err != nil {
-		return err
-	}
-
-	env.Status = status
-	s.buildingEnvs[env.ToIndex()] = env
-
-	return nil
+	})
 }
 
 func (s *Server) GetAverageBuildTime(w http.ResponseWriter, _ *http.Request) error {
