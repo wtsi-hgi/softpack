@@ -19,6 +19,11 @@ func (s *Server) Build(env *db.Environment) {
 	go func() {
 		defer func() {
 			delete(s.buildingEnvs, env.ToIndex())
+
+			if err := s.buildTimes.AddBuildTime(env.BuildStart, env.BuildEnd); err != nil {
+				slog.Error("Failure adding build times for env", "env", env.ToIndex())
+			}
+
 			buildComplete()
 		}()
 
@@ -65,13 +70,7 @@ func (s *Server) updateEnvStatus(env *db.Environment, status db.Status) error {
 }
 
 func (s *Server) GetAverageBuildTime(w http.ResponseWriter, _ *http.Request) error {
-	totalBuildTime := int64(0)
-
-	for _, env := range s.buildingEnvs {
-		totalBuildTime += time.Now().Unix() - env.BuildStart
-	}
-
-	avrg := totalBuildTime / int64(len(s.buildingEnvs))
+	avrg := s.buildTimes.GetAverageBuildTime()
 
 	w.Header().Set("Content-Type", "application/json")
 

@@ -26,14 +26,14 @@ func Install(c *config.Config, e db.Environment) (b *build.Artefacts, err error)
 		c.BaseImgPath, c.TempDir, installPath, c.WrapperScript, c.AptSrc, e.Packages,
 	)
 	if err != nil {
-		return nil, err
+		return arts, err
 	}
 
 	if err = module.Install(
 		c.ModulePath, c.InstallDir,
 		e.Path, e.Name, envVer, e.Description, arts.Exes, arts.Packages,
 	); err != nil {
-		return nil, err
+		return arts, err
 	}
 
 	if err := artefacts.Store(c.ArtefactStore, filepath.Join(e.Path, e.Name, envVer), map[string]artefacts.Opener{
@@ -41,7 +41,7 @@ func Install(c *config.Config, e db.Environment) (b *build.Artefacts, err error)
 		"singularity.sif": artefacts.File(build.SingularityPath(installPath)),
 		"build.log":       artefacts.Data(arts.Log),
 	}); err != nil {
-		return nil, err
+		return arts, err
 	}
 
 	return arts, nil

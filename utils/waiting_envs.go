@@ -14,7 +14,7 @@ type WaitingEnvs struct {
 	m map[db.RecipeRequest][]db.Environment
 }
 
-func New() WaitingEnvs {
+func NewWaitingEnvs() WaitingEnvs {
 	return WaitingEnvs{
 		m: make(map[db.RecipeRequest][]db.Environment),
 	}

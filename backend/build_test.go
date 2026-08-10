@@ -2,7 +2,6 @@ package backend
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"path/filepath"
 	"runtime"
@@ -112,9 +111,6 @@ func TestGetAverageBuildTime(t *testing.T) {
 	assert.Equal(t, http.StatusOK, code)
 
 	err = json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
-
-	fmt.Println("=== environments:", envs)
-
 	assert.NoError(t, err)
 	assert.Equal(t, 2, len(envs))
 	assert.Equal(t, db.Concretised, envs[1].Status)
@@ -129,4 +125,13 @@ func TestGetAverageBuildTime(t *testing.T) {
 			Version: "3.13",
 		},
 	}, envs[1].Packages)
+
+	code, resp = getResponse(t, s, "/build-status")
+	assert.Equal(t, http.StatusOK, code)
+
+	var avrg int64
+
+	err = json.NewDecoder(strings.NewReader(resp)).Decode(&avrg)
+	assert.NoError(t, err)
+	assert.GreaterOrEqual(t, avrg, int64(3))
 }

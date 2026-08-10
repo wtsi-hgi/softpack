@@ -110,19 +110,19 @@ func runCommands(
 
 	a, err := installPackages(root, pkgs)
 	if err != nil {
-		return nil, err
+		return a, err
 	}
 
 	if err := makeSquashFS(root, sqfs); err != nil {
-		return nil, err
+		return a, err
 	}
 
 	if err := buildContainer(sqfs, installDir); err != nil {
-		return nil, err
+		return a, err
 	}
 
 	if err := addWrappers(installDir, wrapperScript, a.Exes); err != nil {
-		return nil, err
+		return a, err
 	}
 
 	return a, nil

@@ -27,6 +27,7 @@ var (
 type Server struct {
 	waitingEnvs  utils.WaitingEnvs
 	buildingEnvs map[db.EnvironmentIndex]*db.Environment
+	buildTimes   utils.BuildTimes
 
 	db     *db.DB
 	apt    *apt.Server
@@ -132,7 +133,8 @@ func New(config *config.Config) *Server {
 		apt:    apt,
 		config: config,
 
-		waitingEnvs:  utils.New(),
+		buildTimes:   utils.NewBuildTimes(),
+		waitingEnvs:  utils.NewWaitingEnvs(),
 		buildingEnvs: make(map[db.EnvironmentIndex]*db.Environment),
 	}
 
@@ -153,8 +155,13 @@ func (b *Server) populateServerCaches() { //nolint:gocognit
 
 	for _, req := range reqs {
 		for _, env := range envs {
-			if env.Status == db.Building {
+			switch env.Status { //nolint:exhaustive
+			case db.Building:
 				b.buildingEnvs[env.ToIndex()] = &env
+			case db.Concretised:
+				if err := b.buildTimes.AddBuildTime(env.BuildStart, env.BuildEnd); err != nil {
+					slog.Error("Failure adding build times for env", "env", env.ToIndex())
+				}
 			}
 
 			for _, pkg := range env.Packages {
