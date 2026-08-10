@@ -14,7 +14,7 @@ import (
 var buildComplete = func() {}
 
 func (s *Server) Build(env *db.Environment) {
-	s.updateEnvStatus(env, db.Building) //nolint:errcheck
+	s.updateEnvStatus(env, db.Building, nil) //nolint:errcheck
 
 	go func() {
 		defer func() {
@@ -32,14 +32,14 @@ func (s *Server) Build(env *db.Environment) {
 		artefacts, err := install.Install(s.config, *env)
 		if err != nil {
 			slog.Error("Install", "error", err)
-			s.updateEnvStatus(env, db.Failed) //nolint:errcheck
+			s.updateEnvStatus(env, db.Failed, err) //nolint:errcheck
 
 			return
 		}
 
 		if err := s.db.Concretise(*env, artefacts.Packages); err != nil {
 			slog.Error("Conretise", "error", err)
-			s.updateEnvStatus(env, db.Failed) //nolint:errcheck
+			s.updateEnvStatus(env, db.Failed, err) //nolint:errcheck
 
 			return
 		}
@@ -48,11 +48,15 @@ func (s *Server) Build(env *db.Environment) {
 
 		env.BuildEnd = time.Now().Unix()
 
-		s.updateEnvStatus(env, db.Concretised) //nolint:errcheck
+		s.updateEnvStatus(env, db.Concretised, nil) //nolint:errcheck
 	}()
 }
 
-func (s *Server) updateEnvStatus(env *db.Environment, status db.Status) error {
+func (s *Server) updateEnvStatus(env *db.Environment, status db.Status, err error) error {
+	if status == db.Failed {
+		env.FailureReason = err.Error()
+	}
+
 	return s.db.UpdateStatus(context.Background(), db.UpdateValue[db.Status]{
 		EnvironmentIndex: env.ToIndex(),
 		Value:            status,

@@ -62,12 +62,6 @@ func newTestServer(t *testing.T) *httptest.Server {
 func newServer(t *testing.T, backend *Server) *httptest.Server {
 	t.Helper()
 
-	// ps := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	// 	io.WriteString(w, testPackages) //nolint:errcheck
-	// }))
-
-	// t.Cleanup(ps.Close)
-
 	if backend == nil {
 		root := apt.CreateTestAptRepo(t, apt.ExamplePackages())
 		moduleBase := t.TempDir()

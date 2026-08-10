@@ -109,6 +109,20 @@ func TestUpdateEnvironment(t *testing.T) {
 	assert.Equal(t, len(envs), 1)
 	assert.False(t, envs[0].Hidden)
 	assert.Equal(t, Concretised, envs[0].Status)
+
+	failureReason := "Failure reason"
+
+	err = db.UpdateStatusWithFailureReason(ctx, UpdateValue[string]{
+		EnvironmentIndex: idx,
+		Value:            failureReason,
+	})
+	assert.NoError(t, err)
+
+	envs, err = db.GetEnvironments(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, len(envs), 1)
+	assert.Equal(t, Failed, envs[0].Status)
+	assert.Equal(t, failureReason, envs[0].FailureReason)
 }
 
 func TestDeleteEnvironment(t *testing.T) {

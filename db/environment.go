@@ -105,6 +105,17 @@ func (db *DB) UpdateStatus(ctx context.Context, u UpdateValue[Status]) error {
 	}).Update("Status", u.Value).Error
 }
 
+func (db *DB) UpdateStatusWithFailureReason(ctx context.Context, u UpdateValue[string]) error {
+	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
+		Name:    u.Name,
+		Path:    u.Path,
+		Version: u.Version,
+	}).Updates(map[string]interface{}{
+		"Status":        Failed,
+		"FailureReason": u.Value,
+	}).Error
+}
+
 // GetEnvironments retrieves all environments from the database.
 func (db *DB) GetEnvironments(ctx context.Context) ([]Environment, error) {
 	var envs []Environment
