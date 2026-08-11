@@ -149,7 +149,7 @@ func (s *Server) updateAndBuildEnvs(ctx context.Context, envs []db.Environment, 
 		}
 
 		if waiting := s.waitingEnvs.ContainsEnv(env); !waiting {
-			s.Build(&env)
+			s.Build(&env) //nolint:contextcheck
 		}
 	}
 

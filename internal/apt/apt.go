@@ -219,6 +219,7 @@ func ExamplePackages() []Deb { //nolint:funlen
 				"XB-Executables": "R, Rscript",
 				"Provides":       "r",
 				"XB-Alias":       "r",
+				"XB-Softpack":    "true",
 			},
 		},
 		{

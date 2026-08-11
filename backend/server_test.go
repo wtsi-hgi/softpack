@@ -6,6 +6,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -59,27 +60,37 @@ func newTestServer(t *testing.T) *httptest.Server {
 	return newServer(t, nil)
 }
 
+func newBackend(t *testing.T) *Server {
+	t.Helper()
+
+	root := apt.CreateTestAptRepo(t, apt.ExamplePackages())
+	moduleBase := t.TempDir()
+	installBase := t.TempDir()
+	artefactBase := t.TempDir()
+
+	backend := New(&config.Config{
+		BaseImgPath:   apt.BuildBase,
+		ModulePath:    moduleBase,
+		TempDir:       "",
+		InstallDir:    installBase,
+		WrapperScript: "a-wrapper-script",
+		AptSrc:        root,
+		AptIndexSrc:   filepath.Join(root, "dists", "resolute", "main", "binary-"+runtime.GOARCH, "Packages"),
+		ArtefactStore: artefactBase,
+		DBConn:        ":memory:",
+		Driver:        "sqlite3",
+
+		SMTP: os.Getenv("EMAIL_TEST_SMTP"),
+	})
+
+	return backend
+}
+
 func newServer(t *testing.T, backend *Server) *httptest.Server {
 	t.Helper()
 
 	if backend == nil {
-		root := apt.CreateTestAptRepo(t, apt.ExamplePackages())
-		moduleBase := t.TempDir()
-		installBase := t.TempDir()
-		artefactBase := t.TempDir()
-
-		backend = New(&config.Config{
-			BaseImgPath:   apt.BuildBase,
-			ModulePath:    moduleBase,
-			TempDir:       "",
-			InstallDir:    installBase,
-			WrapperScript: "a-wrapper-script",
-			AptSrc:        root,
-			AptIndexSrc:   filepath.Join(root, "dists", "resolute", "main", "binary-"+runtime.GOARCH, "Packages"),
-			ArtefactStore: artefactBase,
-			DBConn:        ":memory:",
-			Driver:        "sqlite3",
-		})
+		backend = newBackend(t)
 	}
 
 	s := httptest.NewServer(backend.Serve())

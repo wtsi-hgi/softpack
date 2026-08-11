@@ -23,6 +23,7 @@ type Environment struct {
 	BuildStart    int64
 	BuildEnd      int64
 	FailureReason string
+	Requester     string
 	// envtype type EnvironmentType = "softpack" | "module";
 
 	// username? string

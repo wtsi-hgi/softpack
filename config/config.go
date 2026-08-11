@@ -36,10 +36,16 @@ type Config struct {
 	DBConn        string `yaml:"db-conn"`
 	Driver        string `yaml:"db-driver"`
 	ListenAddr    string `yaml:"listen-addr"`
+
+	SMTP        string `yaml:"smtp"`
+	EmailDomain string `yaml:"email-domain"`
+	AdminAddr   string `yaml:"admin"`
 }
 
 // Load will load the config at the provided path.
 func Load(path string) (*Config, error) {
+	// "%s@sanger.ac.uk"
+	// fmt.Sprintf(format, username)
 	file, err := os.ReadFile(path)
 	if err != nil {
 		return nil, err

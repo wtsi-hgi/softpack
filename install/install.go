@@ -25,7 +25,7 @@ func Install(c *config.Config, e db.Environment) (b *build.Artefacts, err error)
 	arts, err := build.Build(
 		c.BaseImgPath, c.TempDir, installPath, c.WrapperScript, c.AptSrc, e.Packages,
 	)
-	if err != nil {
+	if err != nil { // build log
 		return arts, err
 	}
 

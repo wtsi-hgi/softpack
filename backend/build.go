@@ -13,13 +13,17 @@ import (
 
 var buildComplete = func() {}
 
-func (s *Server) Build(env *db.Environment) {
+func (s *Server) Build(env *db.Environment) { //nolint:funlen
 	s.updateEnvStatus(env, db.Building, nil) //nolint:errcheck
 
 	go func() {
 		defer func() {
 			if err := s.buildTimes.AddBuildTime(env.BuildStart, env.BuildEnd); err != nil {
 				slog.Error("Failure adding build times for env", "env", env.ToIndex())
+			}
+
+			if err := s.SendBuildStatusEmail(env); err != nil {
+				slog.Error("Failure sending environment build status email.")
 			}
 
 			buildComplete()
@@ -45,9 +49,7 @@ func (s *Server) Build(env *db.Environment) {
 		}
 
 		slog.Debug("build finished", "env", env.Name, "time", env.BuildStart)
-
 		env.BuildEnd = time.Now().Unix()
-
 		s.updateEnvStatus(env, db.Concretised, nil) //nolint:errcheck
 	}()
 }
