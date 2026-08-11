@@ -84,6 +84,10 @@ func parseIndex(r io.ReadCloser, compressed bool) ([]Package, error) {
 			continue
 		}
 
+		if alias, ok := entry.Values["XB-Alias"]; ok {
+			entry.Package = alias
+		}
+
 		pos, exists := slices.BinarySearchFunc(packages, Package{Name: entry.Package}, func(a, b Package) int {
 			return strings.Compare(a.Name, b.Name)
 		})

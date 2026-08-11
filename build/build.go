@@ -227,7 +227,15 @@ func getExecutablesAndConcretise(pkgs []Package, installed []control.BinaryIndex
 	exes := map[string]struct{}{}
 
 	for _, deb := range installed {
-		idx := slices.IndexFunc(pkgs, func(v Package) bool { return v.Name == deb.Package })
+		debName := deb.Package
+
+		if alias, ok := deb.Values["XB-Alias"]; ok {
+			debName = alias
+		}
+
+		idx := slices.IndexFunc(pkgs, func(v Package) bool {
+			return v.Name == debName
+		})
 		if idx < 0 {
 			continue
 		}

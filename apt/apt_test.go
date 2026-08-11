@@ -40,10 +40,11 @@ Version: 1.2.4
 Filename: pool/main/s/system-lib.deb
 Description: system package
 
-Package: py-torch
+Package: py-other
 Architecture: amd64
 Version: 2.0.1
 Filename: pool/main/p/py-torch-2.0.1.deb
+XB-Alias: py-torch
 XB-Softpack: true
 Description: big lib
 `
