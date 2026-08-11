@@ -207,10 +207,12 @@ func ExamplePackages() []Deb { //nolint:funlen
 			},
 		},
 		{
-			Name:    "r",
+			Name:    "r-base-core",
 			Version: "4.4.0",
 			Metadata: map[string]string{
 				"XB-Executables": "R, Rscript",
+				"Provides":       "r",
+				"XB-Alias":       "r",
 			},
 		},
 		{
