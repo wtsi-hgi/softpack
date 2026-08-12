@@ -79,5 +79,5 @@ func (s *Server) SendPackageRequestEmail(req db.RecipeRequest) error {
 		return err
 	}
 
-	return smtp.SendMail(s.config.SMTP, nil, req.Requester, []string{s.config.AdminAddr + s.config.EmailDomain}, msg)
+	return smtp.SendMail(s.config.SMTP, nil, req.Requester+s.config.EmailDomain, []string{s.config.AdminAddr}, msg)
 }

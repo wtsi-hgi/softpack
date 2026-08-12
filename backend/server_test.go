@@ -6,7 +6,6 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -79,8 +78,6 @@ func newBackend(t *testing.T) *Server {
 		ArtefactStore: artefactBase,
 		DBConn:        ":memory:",
 		Driver:        "sqlite3",
-
-		SMTP: os.Getenv("EMAIL_TEST_SMTP"),
 	})
 
 	return backend
