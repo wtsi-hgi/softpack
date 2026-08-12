@@ -126,7 +126,6 @@ func New(config *config.Config) *Server {
 		apt:    apt,
 		config: config,
 
-		buildTimes:  utils.NewBuildTimes(),
 		waitingEnvs: utils.NewWaitingEnvs(),
 	}
 

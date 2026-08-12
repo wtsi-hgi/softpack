@@ -11,9 +11,9 @@ const (
 
 type Environment struct {
 	ID            uint      `gorm:"primaryKey"                    json:"-"`
-	Name          string    `gorm:"not null;uniqueIndex:capybara" json:"name"`
-	Path          string    `gorm:"not null;uniqueIndex:capybara" json:"path"`
-	Version       int       `gorm:"not null;uniqueIndex:capybara" json:"version"`
+	Name          string    `gorm:"not null;uniqueIndex:envIndex" json:"name"`
+	Path          string    `gorm:"not null;uniqueIndex:envIndex" json:"path"`
+	Version       int       `gorm:"not null;uniqueIndex:envIndex" json:"version"`
 	Description   string    `gorm:"not null"                      json:"description"`
 	Created       int       `gorm:"not null"                      json:"created"`
 	Hidden        bool      `gorm:"not null"                      json:"hidden"`
@@ -24,9 +24,6 @@ type Environment struct {
 	BuildEnd      int64
 	FailureReason string
 	Requester     string
-	// envtype type EnvironmentType = "softpack" | "module";
-
-	// username? string
 }
 
 type Package struct {

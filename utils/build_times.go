@@ -14,12 +14,6 @@ type BuildTimes struct {
 	items int64
 }
 
-func NewBuildTimes() BuildTimes {
-	return BuildTimes{
-		sum: 0, items: 0,
-	}
-}
-
 func (b *BuildTimes) AddBuildTime(start, end int64) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()

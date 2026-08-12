@@ -128,10 +128,9 @@ func TestFulfilRequestedRecipe(t *testing.T) {
 	assertEmptyResp(t, code, resp)
 
 	env := db.Environment{
-		Name: "test",         //nolint: goconst
-		Path: "path/to/test", //nolint: goconst
-		// Version:     1,
-		Description: "description", //nolint: goconst
+		Name:        "test",         //nolint: goconst
+		Path:        "path/to/test", //nolint: goconst
+		Description: "description",  //nolint: goconst
 		Tags:        []db.Tag{},
 		Packages: []db.Package{
 			{
