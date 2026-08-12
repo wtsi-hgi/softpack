@@ -30,7 +30,11 @@ func (b *BuildTimes) AddBuildTime(start, end int64) error {
 
 func (b *BuildTimes) GetAverageBuildTime() int64 {
 	b.mu.RLock()
-	defer b.mu.RLock()
+	defer b.mu.RUnlock()
+
+	if b.items == 0 {
+		return 0
+	}
 
 	return b.sum / b.items
 }
