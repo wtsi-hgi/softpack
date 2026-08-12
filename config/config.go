@@ -22,19 +22,24 @@ import (
 //   - artefact-store: Local path or s3:// URL used to store generated artefacts.
 //   - db-conn: Database connection string, either a local SQLite path or a
 //     mysql:// style URI for a remote database.
-//   - listen-addr: Address where the web server will listen. If unspecified,
-//     defaults to a value such as ":8080".
+//   - listen-addr: Address where the web server will listen.
 type Config struct {
 	BaseImgPath   string `yaml:"base-img-path"`
 	TempDir       string `yaml:"temp-dir"`
 	InstallDir    string `yaml:"install-dir"`
 	WrapperScript string `yaml:"wrapper-script"`
 	AptSrc        string `yaml:"apt-src"`
+	AptIndexSrc   string `yaml:"apt-index-src"`
 
 	ModulePath    string `yaml:"module-path"`
 	ArtefactStore string `yaml:"artefact-store"`
 	DBConn        string `yaml:"db-conn"`
+	Driver        string `yaml:"db-driver"`
 	ListenAddr    string `yaml:"listen-addr"`
+
+	SMTP        string `yaml:"smtp"`
+	EmailDomain string `yaml:"email-domain"`
+	AdminAddr   string `yaml:"admin"`
 }
 
 // Load will load the config at the provided path.
@@ -44,7 +49,7 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
-	cfg := DefaultConf()
+	cfg := &Config{}
 
 	err = yaml.Unmarshal(file, &cfg)
 	if err != nil {
@@ -61,10 +66,4 @@ func Load(path string) (*Config, error) {
 	}
 
 	return cfg, nil
-}
-
-func DefaultConf() *Config {
-	return &Config{
-		ListenAddr: "8080",
-	}
 }

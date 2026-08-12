@@ -1,11 +1,14 @@
 package backend
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strings"
 
+	"github.com/wtsi-hgi/softpack/apt"
 	"github.com/wtsi-hgi/softpack/db"
 )
 
@@ -21,7 +24,7 @@ func (s *Server) RequestRecipe(_ http.ResponseWriter, r *http.Request) error {
 		return err
 	}
 
-	if err = s.db.RequestRecipe(r.Context(), *req); err != nil {
+	if err = s.db.RequestRecipe(r.Context(), req); err != nil {
 		return err
 	}
 
@@ -49,7 +52,7 @@ func (s *Server) GetRecipeDescription(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
-	idx := s.getPackageIndex(*name)
+	idx := s.getPackageIndex(name)
 
 	desc, err := s.apt.GetRecipeDescription(idx.Name)
 	if err != nil {
@@ -101,36 +104,34 @@ func (s *Server) RemoveRequestedRecipe(_ http.ResponseWriter, r *http.Request) e
 		return err
 	}
 
-	if _, exists := s.waitingEnvs.Get(*toDelete); exists {
+	if _, exists := s.waitingEnvs.Get(toDelete); exists {
 		return ErrEnvUsingRecipe
 	}
 
-	if err := s.db.RemoveRequestedRecipe(r.Context(), *toDelete); err != nil {
+	if err := s.db.RemoveRequestedRecipe(r.Context(), toDelete); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-// Frontend expects to pass in:
-// method: POST
-//
-//	body: JSON.stringify({
-//	  name: canonicalName,
-//	  version: canonicalVersion,
-//	  requestedName: name,
-//	  requestedVersion: version
-//	})
 func (s *Server) FulfilRequestedRecipe(_ http.ResponseWriter, r *http.Request) error {
-	recipe, err := GetItemFromRequest[db.RecipeRequest](r)
+	recipe, err := GetItemFromRequest[db.FulfilRequestBody](r)
 	if err != nil {
 		return err
 	}
 
-	if envs, exists := s.waitingEnvs.Get(*recipe); exists {
-		s.waitingEnvs.Delete(*recipe)
+	if exists := s.apt.CheckPackageExists(db.Package{
+		Name:    recipe.CanonicalName,
+		Version: recipe.CanonicalVersion,
+	}); !exists {
+		return fmt.Errorf("%q, %q, %w", recipe.CanonicalName, recipe.CanonicalVersion, apt.ErrInvalidPackage)
+	}
 
-		if err := s.buildWaitingEnvs(envs); err != nil {
+	if envs, exists := s.waitingEnvs.Get(recipe.RecipeRequest); exists {
+		s.waitingEnvs.Delete(recipe.RecipeRequest)
+
+		if err := s.updateAndBuildEnvs(r.Context(), envs, recipe); err != nil {
 			return err
 		}
 	}
@@ -138,14 +139,17 @@ func (s *Server) FulfilRequestedRecipe(_ http.ResponseWriter, r *http.Request) e
 	return nil
 }
 
-func (s *Server) buildWaitingEnvs(envs []db.Environment) error {
+func (s *Server) updateAndBuildEnvs(ctx context.Context, envs []db.Environment, recipie db.FulfilRequestBody) error {
 	for _, env := range envs {
+		if err := s.db.UpdateEnvPackage(ctx, db.UpdateValue[db.FulfilRequestBody]{
+			EnvironmentIndex: env.ToIndex(),
+			Value:            recipie,
+		}); err != nil {
+			return err
+		}
+
 		if waiting := s.waitingEnvs.ContainsEnv(env); !waiting {
-			// TODO: build environment + add to envs db? is it alr there?
-			err := s.Build(env)
-			if err != nil {
-				return err
-			}
+			s.Build(&env) //nolint:contextcheck
 		}
 	}
 

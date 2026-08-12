@@ -5,7 +5,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/wtsi-hgi/softpack/build"
+	"github.com/wtsi-hgi/softpack/config"
+	"github.com/wtsi-hgi/softpack/db"
 	"github.com/wtsi-hgi/softpack/internal/apt"
 )
 
@@ -17,16 +18,38 @@ func TestInstall(t *testing.T) {
 	installBase := t.TempDir()
 	artefactBase := t.TempDir()
 
-	arts, err := Install(apt.BuildBase, moduleBase, "", installBase, "a-wrapper-script", artefactBase,
-		"groups/myGroup", "myEnv", "1", root, "My Environment", []build.Package{
-			{Name: "r-lib"},
-			{Name: "abc", Version: "1"}, //nolint:goconst
+	c := &config.Config{
+		BaseImgPath:   apt.BuildBase,
+		ModulePath:    moduleBase,
+		TempDir:       "",
+		InstallDir:    installBase,
+		WrapperScript: "a-wrapper-script",
+		AptSrc:        root,
+		ArtefactStore: artefactBase,
+		Driver:        "sqlite3",
+	}
+
+	e := db.Environment{
+		Path:        "groups/myGroup",
+		Name:        "myEnv",
+		Version:     1,
+		Description: "My Environment",
+		Packages: []db.Package{
+			{
+				Name: "r-lib",
+			},
+			{
+				Name:    "abc", //nolint:goconst
+				Version: "1",
+			},
 		},
-	)
+	}
+
+	arts, err := Install(c, e)
 	assert.NoError(t, err)
 
 	assert.Equal(t, arts.Exes, []string{"R", "Rscript", "abc"})
-	assert.Equal(t, arts.Packages, []build.Package{
+	assert.Equal(t, arts.Packages, []db.Package{
 		{Name: "r-lib", Version: "1.1"},
 		{Name: "abc", Version: "1"},
 		{Name: "r", Version: "4.4.0", Interpreter: true},

@@ -26,25 +26,26 @@ func TestCreateEnvironment(t *testing.T) {
 	checkAllEqual(t, s, []db.Environment{})
 
 	env := db.Environment{
-		Name:        "test",
-		Path:        "path/to/test",
-		Version:     1,
-		Description: "description",
-		Created:     1,
+		Name:        "test",         //nolint: goconst
+		Path:        "path/to/test", //nolint: goconst
+		Description: "description",  //nolint: goconst
+		Status:      db.Building,
 		Tags:        []db.Tag{},
 		Packages: []db.Package{
 			{
-				Name: "pkg1", //nolint:goconst
+				Name: "pkg1",
 			},
 			{
-				Name: "pkg2", //nolint:goconst
+				Name: "pkg2",
 			},
 		},
 	}
 	code, resp = getResponse(t, s, "/create-environment", env)
 	assertEmptyResp(t, code, resp)
 
-	checkAllEqual(t, s, zeroEnvKey([]db.Environment{env}))
+	env.Version = 1
+	env.Created = 0
+	checkAllEqual(t, s, zeroEnv(t, []db.Environment{env}))
 }
 
 func TestDeleteEnvironment(t *testing.T) {
@@ -66,27 +67,21 @@ func TestUpdateEnvironment(t *testing.T) {
 
 	var envs []db.Environment
 
-	tags := []db.Tag{{Name: "tag1"}, {Name: "tag2"}}
+	idx := env.ToIndex()
 
-	u := db.UpdateEnv{
-		EnvironmentIndex: env.ToIndex(),
-		Description:      ptrTo("new description"),
-		Hidden:           ptrTo(true),
-		Tags:             ptrTo(tags),
-	}
-
-	code, resp := getResponse(t, s, "/update-environment", u)
+	code, resp := getResponse(t, s, "/set-hidden", db.UpdateValue[bool]{
+		EnvironmentIndex: idx,
+		Value:            true,
+	})
 	assertEmptyResp(t, code, resp)
 
-	code, resp = getResponse(t, s, "/get-environments", env.ToIndex())
+	code, resp = getResponse(t, s, "/get-environments")
 	assert.Equal(t, 200, code)
 
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(envs))
-	assert.Equal(t, "new description", envs[0].Description)
 	assert.True(t, envs[0].Hidden)
-	assert.Equal(t, tags, zeroTagKey(envs[0].Tags))
 }
 
 func TestAddAndDeleteTags(t *testing.T) {
@@ -94,9 +89,9 @@ func TestAddAndDeleteTags(t *testing.T) {
 
 	tag := db.Tag{Name: "new tag"}
 
-	u := db.UpdateValue{
+	u := db.UpdateValue[db.Tag]{
 		EnvironmentIndex: env.ToIndex(),
-		Value:            tag.Name,
+		Value:            tag,
 	}
 
 	code, resp := getResponse(t, s, "/delete-tag", u)
@@ -110,7 +105,7 @@ func TestAddAndDeleteTags(t *testing.T) {
 
 	env.Tags = []db.Tag{tag}
 
-	checkAllEqual(t, s, zeroEnvKey([]db.Environment{env}))
+	checkAllEqual(t, s, zeroEnv(t, []db.Environment{env}))
 
 	code, resp = getResponse(t, s, "/tags")
 	assert.Equal(t, http.StatusOK, code)
@@ -119,7 +114,7 @@ func TestAddAndDeleteTags(t *testing.T) {
 
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&tags)
 	assert.NoError(t, err)
-	assert.Equal(t, []db.Tag{tag}, zeroTagKey(tags))
+	assert.Equal(t, []db.Tag{tag}, zeroTagKey(t, tags))
 }
 
 func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
@@ -127,13 +122,12 @@ func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
 
 	s := newTestServer(t)
 
-	environment := db.Environment{
+	env := db.Environment{
 		Name:        "test",
 		Path:        "path/to/test",
-		Version:     1,
 		Description: "description",
-		Created:     1,
 		Tags:        []db.Tag{},
+		Status:      db.Building,
 		Packages: []db.Package{
 			{
 				Name: "pkg1",
@@ -143,21 +137,18 @@ func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
 			},
 		},
 	}
-	code, resp := getResponse(t, s, "/create-environment", environment)
+	code, resp := getResponse(t, s, "/create-environment", env)
 	assertEmptyResp(t, code, resp)
 
-	checkAllEqual(t, s, []db.Environment{environment})
+	env.Version = 1
+	checkAllEqual(t, s, []db.Environment{env})
 
-	return s, environment
+	return s, env
 }
 
-// TODO: Add a test where an environment is created, requiring a requested recipie //nolint:godox
-// verify that it is not queued for build.
-// then add the recipie, verify that the environment dependent on it is built
-//
-// potentially add multiple envs with multiple recipie dependencies to be more thorough
+func zeroTagKey(t *testing.T, tags []db.Tag) []db.Tag { // TODO: I dont like this duplication
+	t.Helper()
 
-func zeroTagKey(tags []db.Tag) []db.Tag { // TODO: I dont like this duplication
 	for n := range tags {
 		tags[n].ID = 0
 	}
@@ -165,9 +156,12 @@ func zeroTagKey(tags []db.Tag) []db.Tag { // TODO: I dont like this duplication
 	return tags
 }
 
-func zeroEnvKey(envs []db.Environment) []db.Environment {
+func zeroEnv(t *testing.T, envs []db.Environment) []db.Environment {
+	t.Helper()
+
 	for n, env := range envs {
 		envs[n].ID = 0
+		envs[n].Created = 0
 
 		for t := range env.Tags {
 			env.Tags[t].ID = 0

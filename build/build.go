@@ -15,6 +15,7 @@ import (
 	"slices"
 	"strings"
 
+	"github.com/wtsi-hgi/softpack/db"
 	"pault.ag/go/debian/control"
 )
 
@@ -28,11 +29,11 @@ const (
 //
 // The Version is optional, and Interpreter should only be set by this package
 // to indicate an installed intepreter that wasn't explicitly chosen.
-type Package struct {
-	Name        string
-	Version     string
-	Interpreter bool
-}
+// type Package struct {
+// 	Name        string
+// 	Version     string
+// 	Interpreter bool
+// }
 
 // Build constructs a singularity container, installing it into the desired
 // location and creating wrapper symlinks to make running of executables inside
@@ -61,7 +62,7 @@ type Package struct {
 // The returned artefacts will contain the list of packages with the
 // as-installed versions specified, the list of exported executables, and the
 // build log.
-func Build(baseImage, tempDir, installDir, wrapperScript, aptSrc string, pkgs []Package) (*Artefacts, error) {
+func Build(baseImage, tempDir, installDir, wrapperScript, aptSrc string, pkgs []db.Package) (*Artefacts, error) {
 	if len(pkgs) == 0 {
 		return nil, ErrNoPackages
 	}
@@ -97,7 +98,8 @@ func cleanup(root, sqfs string) {
 	}
 }
 
-func runCommands(root, baseImage, installDir, sqfs, httpURL, wrapperScript string, pkgs []Package) (*Artefacts, error) {
+func runCommands(
+	root, baseImage, installDir, sqfs, httpURL, wrapperScript string, pkgs []db.Package) (*Artefacts, error) {
 	if err := extractImage(root, baseImage); err != nil {
 		return nil, err
 	}
@@ -108,19 +110,19 @@ func runCommands(root, baseImage, installDir, sqfs, httpURL, wrapperScript strin
 
 	a, err := installPackages(root, pkgs)
 	if err != nil {
-		return nil, err
+		return a, err
 	}
 
 	if err := makeSquashFS(root, sqfs); err != nil {
-		return nil, err
+		return a, err
 	}
 
 	if err := buildContainer(sqfs, installDir); err != nil {
-		return nil, err
+		return a, err
 	}
 
 	if err := addWrappers(installDir, wrapperScript, a.Exes); err != nil {
-		return nil, err
+		return a, err
 	}
 
 	return a, nil
@@ -150,7 +152,7 @@ func setAptRepo(root, httpURL string) error {
 	)
 }
 
-func installPackages(root string, pkgs []Package) (*Artefacts, error) {
+func installPackages(root string, pkgs []db.Package) (*Artefacts, error) {
 	packages := make([]string, len(pkgs))
 
 	for n, pkg := range pkgs {
@@ -198,11 +200,11 @@ func aptWithLog(log *strings.Builder, root string, args ...string) error {
 // log.
 type Artefacts struct {
 	Exes     []string
-	Packages []Package
+	Packages []db.Package
 	Log      string
 }
 
-func getArtefacts(root string, pkgs []Package, log string) (*Artefacts, error) {
+func getArtefacts(root string, pkgs []db.Package, log string) (*Artefacts, error) {
 	f, err := os.Open(filepath.Join(root, "var", "lib", "dpkg", "status"))
 	if err != nil {
 		return nil, err
@@ -222,7 +224,7 @@ func getArtefacts(root string, pkgs []Package, log string) (*Artefacts, error) {
 	}, nil
 }
 
-func getExecutablesAndConcretise(pkgs []Package, installed []control.BinaryIndex) ([]Package, []string) {
+func getExecutablesAndConcretise(pkgs []db.Package, installed []control.BinaryIndex) ([]db.Package, []string) {
 	pkgs = addInterpreters(pkgs)
 	exes := map[string]struct{}{}
 
@@ -233,7 +235,7 @@ func getExecutablesAndConcretise(pkgs []Package, installed []control.BinaryIndex
 			debName = alias
 		}
 
-		idx := slices.IndexFunc(pkgs, func(v Package) bool {
+		idx := slices.IndexFunc(pkgs, func(v db.Package) bool {
 			return v.Name == debName
 		})
 		if idx < 0 {
@@ -255,7 +257,7 @@ func getExecutablesAndConcretise(pkgs []Package, installed []control.BinaryIndex
 	return pkgs, executables
 }
 
-func addInterpreters(pkgs []Package) []Package { //nolint:gocognit,gocyclo,cyclop
+func addInterpreters(pkgs []db.Package) []db.Package { //nolint:gocognit,gocyclo,cyclop
 	var hasPy, hasPython, hasRLib, hasR bool
 
 	for _, pkg := range pkgs {
@@ -277,11 +279,11 @@ func addInterpreters(pkgs []Package) []Package { //nolint:gocognit,gocyclo,cyclo
 	}
 
 	if hasPy && !hasPython {
-		pkgs = append(pkgs, Package{Name: "python", Interpreter: true})
+		pkgs = append(pkgs, db.Package{Name: "python", Interpreter: true})
 	}
 
 	if hasRLib && !hasR {
-		pkgs = append(pkgs, Package{Name: "r", Interpreter: true})
+		pkgs = append(pkgs, db.Package{Name: "r", Interpreter: true})
 	}
 
 	return pkgs

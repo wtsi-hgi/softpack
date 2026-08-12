@@ -11,6 +11,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http/httptest"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,6 +23,8 @@ import (
 	"time"
 
 	"github.com/erikgeiser/ar"
+	"github.com/johannesboyne/gofakes3"
+	"github.com/johannesboyne/gofakes3/backend/s3afero"
 	"github.com/stretchr/testify/assert"
 	"vimagination.zapto.org/rwcount"
 )
@@ -183,6 +186,8 @@ func ExamplePackages() []Deb { //nolint:funlen
 			Version: "1",
 			Metadata: map[string]string{
 				"XB-Executables": "abc", //nolint:goconst
+				"XB-Softpack":    "true",
+				"Description":    "desc1",
 			},
 		},
 		{
@@ -190,6 +195,8 @@ func ExamplePackages() []Deb { //nolint:funlen
 			Version: "2",
 			Metadata: map[string]string{
 				"XB-Executables": "abc, def",
+				"XB-Softpack":    "true",
+				"Description":    "desc1",
 			},
 		},
 		{
@@ -197,13 +204,15 @@ func ExamplePackages() []Deb { //nolint:funlen
 			Version: "3.13",
 			Metadata: map[string]string{
 				"XB-Executables": "python, python3.13",
+				"XB-Softpack":    "true",
 			},
 		},
 		{
 			Name:    "py-xyz",
 			Version: "2.1",
 			Metadata: map[string]string{
-				"Depends": "python",
+				"Depends":     "python",
+				"XB-Softpack": "true",
 			},
 		},
 		{
@@ -213,14 +222,39 @@ func ExamplePackages() []Deb { //nolint:funlen
 				"XB-Executables": "R, Rscript",
 				"Provides":       "r",
 				"XB-Alias":       "r",
+				"XB-Softpack":    "true",
 			},
 		},
 		{
 			Name:    "r-lib",
 			Version: "1.1",
 			Metadata: map[string]string{
-				"Depends": "r",
+				"Depends":     "r",
+				"XB-Softpack": "true",
 			},
 		},
 	}
+}
+
+func MockS3Server(t *testing.T, pkgs []Deb) *httptest.Server {
+	t.Helper()
+
+	root := CreateTestAptRepo(t, pkgs)
+
+	files, err := s3afero.FsPath(root, 0)
+	assert.NoError(t, err)
+
+	bucket, err := s3afero.SingleBucket("apt", files, nil)
+	assert.NoError(t, err)
+
+	s := httptest.NewServer(gofakes3.New(bucket).Server())
+
+	t.Setenv("AWS_ENDPOINT_URL", s.URL)
+	t.Setenv("AWS_DEFAULT_REGION", "eu-west-1")
+	t.Setenv("AWS_REGION", "eu-west-1")
+	t.Setenv("AWS_DEFAULT_OUTPUT", "json")
+	t.Setenv("AWS_ACCESS_KEY_ID", "ACCESS_KEY")
+	t.Setenv("AWS_SECRET_ACCESS_KEY", "SECRET")
+
+	return s
 }

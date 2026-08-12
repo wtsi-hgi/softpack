@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/wtsi-hgi/softpack/build"
+	"github.com/wtsi-hgi/softpack/db"
 )
 
 func TestWriteModuleFile(t *testing.T) {
@@ -15,7 +15,7 @@ func TestWriteModuleFile(t *testing.T) {
 
 	assert.NoError(t, writeModuleFile(&sb, installBase, "groups/myGroup", "myEnv", "1.2", "My Environment",
 		[]string{"xxhsum", "xxh32sum", "xxh64sum", "xxh128sum", "R", "Rscript", "python"},
-		[]build.Package{
+		[]db.Package{
 			{Name: "xxhash", Version: "0.8.1"},
 			{Name: "r-seurat", Version: "4"},
 			{Name: "py-anndata", Version: "3.14"},

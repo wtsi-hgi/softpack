@@ -1,60 +1,72 @@
 package backend
 
 import (
+	"context"
 	"encoding/json"
+	"log/slog"
 	"net/http"
 	"time"
 
-	"github.com/wtsi-hgi/softpack/build"
 	"github.com/wtsi-hgi/softpack/db"
+	"github.com/wtsi-hgi/softpack/install"
 )
 
-// type BuildResponse struct {
-// 	artefacts *build.Artefacts
-// 	err       error
-// buildTime time.Duration
-// }
+var buildComplete = func() {}
 
-type BuildingEnv struct {
-	db.Environment
-	// start time.Time
-}
+func (s *Server) Build(env *db.Environment) { //nolint:funlen
+	s.updateEnvStatus(env, db.Building, nil) //nolint:errcheck
 
-func (s *Server) Build(env db.Environment) error {
-	// ch := make(chan BuildResponse)
 	go func() {
-		// s.buildingEnvs[env.ID] = BuildingEnv{
-		// 	env,
-		// 	time.Now(),
-		// }
+		defer func() {
+			if err := s.buildTimes.AddBuildTime(env.BuildStart, env.BuildEnd); err != nil {
+				slog.Error("Failure adding build times for env", "env", env.ToIndex())
+			}
 
-		// TODO: Surely I should be submitting the environment name to the builder?
-		_, err := build.Build(
-			s.config.BaseImgPath,
-			s.config.TempDir,
-			s.config.InstallDir,
-			s.config.WrapperScript,
-			s.config.AptSrc,
-			toBuildPkg(env.Packages),
-		)
+			if err := s.SendBuildStatusEmail(env); err != nil {
+				slog.Error("Failure sending environment build status email.")
+			}
+
+			buildComplete()
+		}()
+
+		env.BuildStart = time.Now().Unix()
+
+		slog.Debug("starting build", "env", env.Name, "time", env.BuildStart)
+
+		artefacts, err := install.Install(s.config, *env)
 		if err != nil {
+			slog.Error("Install", "error", err)
+			s.updateEnvStatus(env, db.Failed, err) //nolint:errcheck
+
 			return
 		}
 
-		// TODO: Where do I put the artefacts? S3?
+		if err := s.db.Concretise(*env, artefacts.Packages); err != nil {
+			slog.Error("Conretise", "error", err)
+			s.updateEnvStatus(env, db.Failed, err) //nolint:errcheck
 
-		// ch <- BuildResponse{
-		// 	artefacts: artefacts,
-		// 	err:       err,
-		// buildTime: time.Since(start),
-		// }
+			return
+		}
+
+		slog.Debug("build finished", "env", env.Name, "time", env.BuildStart)
+		env.BuildEnd = time.Now().Unix()
+		s.updateEnvStatus(env, db.Concretised, nil) //nolint:errcheck
 	}()
+}
 
-	return nil
+func (s *Server) updateEnvStatus(env *db.Environment, status db.Status, err error) error {
+	if status == db.Failed {
+		env.FailureReason = err.Error()
+	}
+
+	return s.db.UpdateStatus(context.Background(), db.UpdateValue[db.Status]{
+		EnvironmentIndex: env.ToIndex(),
+		Value:            status,
+	})
 }
 
 func (s *Server) GetAverageBuildTime(w http.ResponseWriter, _ *http.Request) error {
-	avrg := 1 * time.Hour // TODO: Calculate based on past build responses
+	avrg := s.buildTimes.GetAverageBuildTime()
 
 	w.Header().Set("Content-Type", "application/json")
 
@@ -63,15 +75,4 @@ func (s *Server) GetAverageBuildTime(w http.ResponseWriter, _ *http.Request) err
 	}
 
 	return nil
-}
-
-func toBuildPkg(pkgs []db.Package) (output []build.Package) {
-	for _, pkg := range pkgs {
-		output = append(output, build.Package{
-			Name:    pkg.Name,
-			Version: pkg.Version,
-		})
-	}
-
-	return output
 }

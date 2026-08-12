@@ -105,6 +105,5 @@ func (s *Server) CheckPackageExists(pkg db.Package) bool {
 
 func CheckPkgEqual(dbpkg db.Package, aptpkg Package) bool {
 	return dbpkg.Name == aptpkg.Name &&
-		slices.Contains(aptpkg.Versions, dbpkg.Version) &&
-		dbpkg.Description == aptpkg.Description
+		slices.Contains(aptpkg.Versions, dbpkg.Version)
 }

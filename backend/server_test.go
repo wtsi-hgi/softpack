@@ -6,70 +6,65 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/wtsi-hgi/softpack/config"
 	"github.com/wtsi-hgi/softpack/db"
+	"github.com/wtsi-hgi/softpack/internal/apt"
 )
-
-func TestServer(t *testing.T) {}
-
-const testPackages = `
-Package: pkg1
-Version: 1
-XB-Softpack: true
-Description: desc1
-
-Package: pkg1
-Version: 2
-XB-Softpack: true
-Description: desc1
-
-Package: pkg2
-Version: 2
-XB-Softpack: true
-Description: desc2
-
-Package: pkg2
-Version: 5
-XB-Softpack: true
-Description: desc2
-
-Package: pkg2
-Version: 8
-XB-Softpack: true
-Description: desc2
-
-Package: pkg3
-Version: 3
-XB-Softpack: true
-Description: desc3
-
-Package: pkg4
-Version: 4
-XB-Softpack: true
-`
 
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 
-	ps := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		io.WriteString(w, testPackages) //nolint:errcheck
-	}))
+	return newServer(t, nil)
+}
 
-	t.Cleanup(ps.Close)
+func newBackend(t *testing.T) *Server {
+	t.Helper()
 
-	config := config.DefaultConf()
-	config.AptSrc = ps.URL
+	root := apt.CreateTestAptRepo(t, apt.ExamplePackages())
+	moduleBase := t.TempDir()
+	installBase := t.TempDir()
+	artefactBase := t.TempDir()
 
-	backend := New(config)
+	backend := New(&config.Config{
+		BaseImgPath:   apt.BuildBase,
+		ModulePath:    moduleBase,
+		TempDir:       "",
+		InstallDir:    installBase,
+		WrapperScript: "a-wrapper-script",
+		AptSrc:        root,
+		AptIndexSrc:   filepath.Join(root, "dists", "resolute", "main", "binary-"+runtime.GOARCH, "Packages"),
+		ArtefactStore: artefactBase,
+		DBConn:        ":memory:",
+		Driver:        "sqlite3",
+	})
+
+	return backend
+}
+
+func newServer(t *testing.T, backend *Server) *httptest.Server {
+	t.Helper()
+
+	if backend == nil {
+		backend = newBackend(t)
+	}
+
 	s := httptest.NewServer(backend.Serve())
 
 	t.Cleanup(s.Close)
 
 	return s
+}
+
+func newHttpServer(t *testing.T, backend *Server) *httptest.Server {
+	t.Helper()
+
+	return newServer(t, backend)
 }
 
 func getResponse(t *testing.T, s *httptest.Server, endpoint string, body ...any) (int, string) {
@@ -153,7 +148,7 @@ func checkAllEqual[T db.Environment | db.RecipeRequest](t *testing.T, s *httptes
 	case db.Environment:
 		assert.Equal(t,
 			expected,
-			zeroEnvKey(any(actual).([]db.Environment)), //nolint:errcheck,forcetypeassert
+			zeroEnv(t, any(actual).([]db.Environment)), //nolint:errcheck,forcetypeassert
 		)
 	default:
 		assert.Equal(t, expected, actual)

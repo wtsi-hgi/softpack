@@ -104,8 +104,6 @@ func TestCheckPkgsExist(t *testing.T) {
 		Version:     "2.0.0",
 	}
 
-	// TODO: This will fail if the expected pkg only has one of the versions, should it?
-
 	assert.True(t, s.CheckPackageExists(expected))
 	assert.True(t, s.CheckPackagesExist([]db.Package{expected}))
 }

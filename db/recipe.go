@@ -54,9 +54,7 @@ func (db *DB) RemoveRequestedRecipe(ctx context.Context, recipe RecipeRequest) e
 	return nil
 }
 
-// TODO: Should these be exported or just defined in backend?
 func CheckPkgEqual(pkg Package, req RecipeRequest) bool {
-	// is this adequate ? could pkg name be pkg@version? should split by @?
 	return pkg.Name == req.Name && pkg.Version == req.Version
 }
 
