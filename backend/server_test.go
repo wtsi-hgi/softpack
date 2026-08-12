@@ -17,42 +17,6 @@ import (
 	"github.com/wtsi-hgi/softpack/internal/apt"
 )
 
-const testPackages = `
-Package: pkg1
-Version: 1
-XB-Softpack: true
-Description: desc1
-
-Package: pkg1
-Version: 2
-XB-Softpack: true
-Description: desc1
-
-Package: pkg2
-Version: 2
-XB-Softpack: true
-Description: desc2
-
-Package: pkg2
-Version: 5
-XB-Softpack: true
-Description: desc2
-
-Package: pkg2
-Version: 8
-XB-Softpack: true
-Description: desc2
-
-Package: pkg3
-Version: 3
-XB-Softpack: true
-Description: desc3
-
-Package: pkg4
-Version: 4
-XB-Softpack: true
-`
-
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 

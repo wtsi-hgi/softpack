@@ -5,7 +5,7 @@ import (
 	"sync"
 )
 
-var ErrInvalidBuildTime = errors.New("Cannot add build time, one or more invalid values passed.")
+var ErrInvalidBuildTime = errors.New("cannot add build time, one or more invalid values passed")
 
 type BuildTimes struct {
 	mu sync.RWMutex
@@ -27,6 +27,7 @@ func (b *BuildTimes) AddBuildTime(start, end int64) error {
 	if start == 0 || end == 0 {
 		return ErrInvalidBuildTime
 	}
+
 	b.items++
 	b.sum += end - start
 
