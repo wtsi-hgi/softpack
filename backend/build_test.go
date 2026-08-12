@@ -37,6 +37,15 @@ func TestGetAverageBuildTime(t *testing.T) {
 
 	t.Cleanup(func() { buildComplete = func() {} })
 
+	code, resp := getResponse(t, s, "/build-status")
+	assert.Equal(t, http.StatusOK, code)
+
+	var avrg int64
+
+	err := json.NewDecoder(strings.NewReader(resp)).Decode(&avrg)
+	assert.NoError(t, err)
+	assert.Equal(t, avrg, int64(0))
+
 	env1 := &db.Environment{
 		Name:    "env1",
 		Path:    "/path/to/env1",
@@ -50,7 +59,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 		},
 	}
 
-	code, resp := getResponse(t, s, "/create-environment", env1)
+	code, resp = getResponse(t, s, "/create-environment", env1)
 	assertEmptyResp(t, code, resp)
 
 	code, resp = getResponse(t, s, "/get-environments")
@@ -58,7 +67,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 
 	var envs []db.Environment
 
-	err := json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
+	err = json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
 	assert.NoError(t, err)
 	assert.Equal(t, 1, len(envs))
 	assert.Equal(t, db.Building, envs[0].Status)
@@ -118,8 +127,6 @@ func TestGetAverageBuildTime(t *testing.T) {
 
 	code, resp = getResponse(t, s, "/build-status")
 	assert.Equal(t, http.StatusOK, code)
-
-	var avrg int64
 
 	err = json.NewDecoder(strings.NewReader(resp)).Decode(&avrg)
 	assert.NoError(t, err)
