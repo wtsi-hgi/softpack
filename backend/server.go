@@ -38,7 +38,6 @@ func (b *Server) Serve() http.Handler {
 
 	m.Handle("/create-environment", handler(b.CreateEnvironment))
 	m.Handle("/get-environments", handler(b.GetEnvironment))
-	// m.Handle("/update-environment", handler(b.UpdateEnvironment))
 	m.Handle("/delete-environment", handler(b.DeleteEnvironment))
 	m.Handle("/add-tag", handler(b.AddEnvironmentTag))
 	m.Handle("/set-hidden", handler(b.SetEnvironmentHidden))
@@ -54,11 +53,6 @@ func (b *Server) Serve() http.Handler {
 	m.Handle("/build-status", handler(b.GetAverageBuildTime))
 
 	return &m
-
-	// todo //nolint:godox
-
-	// /upload - upload artefacts (only needed for tooling).
-	// /update-module - tooling request to update non-Softpack module.
 }
 
 type handler func(w http.ResponseWriter, r *http.Request) error

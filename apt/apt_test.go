@@ -6,10 +6,13 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"os"
+	"path"
 	"path/filepath"
+	"runtime"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/wtsi-hgi/softpack/internal/apt"
 )
 
 const testPackages = `
@@ -90,12 +93,48 @@ func TestReadIndex(t *testing.T) {
 }
 
 func TestReadS3(t *testing.T) {
-	url := os.Getenv("S3URL")
-	if url == "" {
-		t.Skip("set S3URL to enable S3 test")
+	packages := []apt.Deb{
+		{
+			Name:    "package",
+			Version: "1",
+			Metadata: map[string]string{
+				"Description": "desc1",
+				"XB-Softpack": "true",
+			},
+		},
+		{
+			Name:    "package2",
+			Version: "7",
+			Metadata: map[string]string{
+				"XB-Softpack": "true",
+			},
+		},
+		{
+			Name:    "package",
+			Version: "6",
+			Metadata: map[string]string{
+				"Description": "desc1",
+				"XB-Softpack": "true",
+			},
+		},
 	}
 
-	pkgs, err := readS3Index(url)
+	s := apt.MockS3Server(t, packages)
+	defer s.Close()
+
+	dists := path.Join("s3://apt", "dists", "resolute", "main", "binary-"+runtime.GOARCH, "Packages")
+
+	pkgs, err := readS3Index(dists)
 	assert.NoError(t, err)
-	assert.Nil(t, pkgs)
+	assert.Equal(t, []Package{
+		Package{
+			Name:        "package",
+			Description: "desc1",
+			Versions:    []string{"1", "6"},
+		},
+		Package{
+			Name:        "package2",
+			Description: "",
+			Versions:    []string{"7"},
+		}}, pkgs)
 }

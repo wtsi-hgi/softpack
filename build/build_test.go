@@ -7,8 +7,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/johannesboyne/gofakes3"
-	"github.com/johannesboyne/gofakes3/backend/s3afero"
 	"github.com/stretchr/testify/assert"
 	"github.com/wtsi-hgi/softpack/db"
 	"github.com/wtsi-hgi/softpack/internal/apt"
@@ -57,21 +55,8 @@ func TestBuild(t *testing.T) {
 
 	t.Log("Build using S3 source")
 
-	files, err := s3afero.FsPath(root, 0)
-	assert.NoError(t, err)
-
-	bucket, err := s3afero.SingleBucket("apt", files, nil)
-	assert.NoError(t, err)
-
-	srv = httptest.NewServer(gofakes3.New(bucket).Server())
-	defer srv.Close()
-
-	t.Setenv("AWS_ENDPOINT_URL", srv.URL)
-	t.Setenv("AWS_DEFAULT_REGION", "eu-west-1")
-	t.Setenv("AWS_REGION", "eu-west-1")
-	t.Setenv("AWS_DEFAULT_OUTPUT", "json")
-	t.Setenv("AWS_ACCESS_KEY_ID", "ACCESS_KEY")
-	t.Setenv("AWS_SECRET_ACCESS_KEY", "SECRET")
+	s := apt.MockS3Server(t, apt.ExamplePackages())
+	defer s.Close()
 
 	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", "s3://apt", []db.Package{
 		{Name: "py-xyz"},
