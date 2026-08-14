@@ -81,6 +81,10 @@ func responseCode(err error) int {
 		return http.StatusBadRequest
 	}
 
+	if _, ok := errors.AsType[*json.SyntaxError](err); ok {
+		return http.StatusBadRequest
+	}
+
 	if _, ok := errors.AsType[*json.SyntaxError](err); ok { //nolint:errcheck
 		return http.StatusBadRequest
 	}
@@ -119,7 +123,12 @@ func New(config *config.Config) *Server {
 		return nil
 	}
 
-	database, _ := db.Connect(config.Driver, config.DBConn) //nolint:errcheck
+	database, err := db.Connect(config.Driver, config.DBConn)
+	if err != nil {
+		slog.Error("Failed to connect to database", "driver", config.Driver, "dbconn", config.DBConn)
+
+		return nil
+	}
 
 	s := &Server{
 		db:     database,

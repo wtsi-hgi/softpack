@@ -71,6 +71,10 @@ func Build(baseImage, tempDir, installDir, wrapperScript, aptSrc string, pkgs []
 		tempDir = installDir
 	}
 
+	if err := os.MkdirAll(tempDir, 0755); err != nil {
+		return nil, err
+	}
+
 	root, err := os.MkdirTemp(tempDir, "")
 	if err != nil {
 		return nil, err

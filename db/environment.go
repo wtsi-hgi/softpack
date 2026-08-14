@@ -80,6 +80,7 @@ func (db *DB) CreateEnvironment(ctx context.Context, env *Environment) error {
 
 		env.Created = int(time.Now().Unix())
 		env.Version = version
+		env.Type = Softpack
 
 		if err := tx.WithContext(ctx).Create(env).Error; err != nil {
 			return err
