@@ -87,9 +87,9 @@ func TestUpdateEnvironment(t *testing.T) {
 func TestAddAndDeleteTags(t *testing.T) {
 	s, env := setupWithEnv(t)
 
-	tag := db.Tag{Name: "new tag"}
+	tag := "new tag"
 
-	u := db.UpdateValue[db.Tag]{
+	u := db.UpdateValue[string]{
 		EnvironmentIndex: env.ToIndex(),
 		Value:            tag,
 	}
@@ -103,7 +103,7 @@ func TestAddAndDeleteTags(t *testing.T) {
 	code, resp = getResponse(t, s, "/add-tag", u)
 	assertBadRequest(t, code, resp, ErrDuplicateItem)
 
-	env.Tags = []db.Tag{tag}
+	env.Tags = []db.Tag{db.Tag{Name: tag}}
 
 	checkAllEqual(t, s, zeroEnv(t, []db.Environment{env}))
 
@@ -114,7 +114,7 @@ func TestAddAndDeleteTags(t *testing.T) {
 
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&tags)
 	assert.NoError(t, err)
-	assert.Equal(t, []db.Tag{tag}, zeroTagKey(t, tags))
+	assert.Equal(t, []db.Tag{db.Tag{Name: tag}}, zeroTagKey(t, tags))
 }
 
 func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {

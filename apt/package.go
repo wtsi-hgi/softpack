@@ -14,9 +14,9 @@ import (
 var ErrInvalidPackage = errors.New("package matching index not found")
 
 type Package struct {
-	Name        string
-	Description string `json:"-"`
-	Versions    []string
+	Name        string   `json:"name"`
+	Description string   `json:"-"`
+	Versions    []string `json:"versions"`
 }
 
 type Server struct {

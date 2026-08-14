@@ -145,18 +145,52 @@ func TestAddAndDeleteTags(t *testing.T) {
 	ctx, db, env := setupWithEnv1(t)
 	idx := env.ToIndex()
 
-	tag := Tag{Name: "newtag"}
+	env2 := Environment{
+		Name:        "name",        //nolint:goconst
+		Path:        "path/to/env", //nolint:goconst
+		Description: "description", //nolint:goconst
+		Created:     248933,
+		Hidden:      false,
+		Tags:        []Tag{},
+		Packages: []Package{
+			{
+				Name: "pkg1", //nolint:goconst
+			},
+			{
+				Name: "pkg2",
+			},
+		},
+	}
 
-	err := db.AddEnvironmentTag(ctx, UpdateValue[Tag]{
+	err := db.CreateEnvironment(ctx, &env2)
+	assert.NoError(t, err)
+
+	tag := Tag{Name: "newtag"}
+	tag2 := Tag{Name: "capy"}
+
+	err = db.AddEnvironmentTag(ctx, UpdateValue[Tag]{
 		EnvironmentIndex: idx,
 		Value:            tag,
 	})
 	assert.NoError(t, err)
 
+	err = db.AddEnvironmentTag(ctx, UpdateValue[Tag]{
+		EnvironmentIndex: idx,
+		Value:            tag2,
+	})
+	assert.NoError(t, err)
+
+	err = db.AddEnvironmentTag(ctx, UpdateValue[Tag]{
+		EnvironmentIndex: env2.ToIndex(),
+		Value:            tag2,
+	})
+	assert.NoError(t, err)
+
 	envs, err := db.GetEnvironments(ctx)
 	assert.NoError(t, err)
-	assert.Equal(t, len(envs), 1)
-	assert.Equal(t, []Tag{tag}, zeroTagKey(envs[0].Tags))
+	assert.Equal(t, len(envs), 2)
+	assert.Equal(t, []Tag{tag, tag2}, zeroTagKey(envs[0].Tags))
+	assert.Equal(t, []Tag{tag2}, zeroTagKey(envs[1].Tags))
 
 	err = db.DeleteEnvironmentTag(ctx, UpdateValue[Tag]{
 		EnvironmentIndex: idx,
@@ -166,7 +200,9 @@ func TestAddAndDeleteTags(t *testing.T) {
 
 	envs, err = db.GetEnvironments(ctx)
 	assert.NoError(t, err)
-	assert.Equal(t, []Tag{}, zeroTagKey(envs[0].Tags))
+	assert.Equal(t, 2, len(envs))
+	assert.Equal(t, []Tag{tag2}, zeroTagKey(envs[0].Tags))
+	assert.Equal(t, []Tag{tag2}, zeroTagKey(envs[1].Tags))
 }
 
 func zeroTagKey(tags []Tag) []Tag {

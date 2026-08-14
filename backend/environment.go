@@ -81,7 +81,7 @@ func (s *Server) GetEnvironment(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (s *Server) DeleteEnvironment(w http.ResponseWriter, r *http.Request) error {
+func (s *Server) DeleteEnvironment(_ http.ResponseWriter, r *http.Request) error {
 	idx, err := GetItemFromRequest[db.EnvironmentIndex](r)
 	if err != nil {
 		return err
@@ -91,39 +91,35 @@ func (s *Server) DeleteEnvironment(w http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
 	return nil
 }
 
-func (s *Server) AddEnvironmentTag(w http.ResponseWriter, r *http.Request) error {
-	env, u, err := getUpdateValue[db.Tag](s, r)
+func (s *Server) AddEnvironmentTag(_ http.ResponseWriter, r *http.Request) error {
+	env, u, err := getUpdateValue[string](s, r)
 	if err != nil {
 		return err
 	}
 
 	for _, tag := range env.Tags {
-		if tag.Name == u.Value.Name {
+		if tag.Name == u.Value {
 			return ErrDuplicateItem
 		}
 	}
 
-	env.Tags = append(env.Tags, db.Tag{Name: u.Value.Name})
+	env.Tags = append(env.Tags, db.Tag{Name: u.Value})
 
 	if err := s.db.AddEnvironmentTag(r.Context(), db.UpdateValue[db.Tag]{
 		EnvironmentIndex: u.EnvironmentIndex,
-		Value:            u.Value,
+		Value:            db.Tag{Name: u.Value},
 	}); err != nil {
 		return err
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-
 	return nil
 }
 
-func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) error {
-	env, u, err := getUpdateValue[db.Tag](s, r)
+func (s *Server) DeleteEnvironmentTag(_ http.ResponseWriter, r *http.Request) error {
+	env, u, err := getUpdateValue[string](s, r)
 	if err != nil {
 		return err
 	}
@@ -139,12 +135,10 @@ func (s *Server) DeleteEnvironmentTag(w http.ResponseWriter, r *http.Request) er
 
 	if err := s.db.DeleteEnvironmentTag(r.Context(), db.UpdateValue[db.Tag]{
 		EnvironmentIndex: u.EnvironmentIndex,
-		Value:            u.Value,
+		Value:            db.Tag{Name: u.Value},
 	}); err != nil {
 		return err
 	}
-
-	w.Header().Set("Content-Type", "application/json")
 
 	return nil
 }

@@ -9,6 +9,13 @@ const (
 	Failed
 )
 
+type EnvType int
+
+const (
+	Softpack EnvType = iota
+	Module
+)
+
 type Environment struct {
 	ID            uint      `gorm:"primaryKey"                    json:"-"`
 	Name          string    `gorm:"not null;uniqueIndex:envIndex" json:"name"`
@@ -17,13 +24,14 @@ type Environment struct {
 	Description   string    `gorm:"not null"                      json:"description"`
 	Created       int       `gorm:"not null"                      json:"created"`
 	Hidden        bool      `gorm:"not null"                      json:"hidden"`
-	Tags          []Tag     `gorm:"many2many:environment_tags"`
+	Tags          []Tag     `gorm:"many2many:environment_tags"    json:"tags"`
 	Packages      []Package `gorm:"not null;serializer:json"      json:"packages"`
-	Status        Status
-	BuildStart    int64
-	BuildEnd      int64
-	FailureReason string
-	Requester     string
+	Type          EnvType   `json:"type"`
+	Status        Status    `json:"status"`
+	BuildStart    int64     `json:"buildstart"`
+	BuildEnd      int64     `json:"buildend"`
+	FailureReason string    `json:"failurereason"`
+	Requester     string    `json:"requester"`
 }
 
 type Package struct {
@@ -43,5 +51,5 @@ type RecipeRequest struct {
 
 type Tag struct {
 	ID   uint   `gorm:"primaryKey"`
-	Name string `gorm:"uniqueIndex;not null" json:"tag"`
+	Name string `gorm:"not null" json:"name"`
 }
