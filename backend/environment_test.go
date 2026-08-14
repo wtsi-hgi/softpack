@@ -29,7 +29,6 @@ func TestCreateEnvironment(t *testing.T) {
 		Name:        "test",         //nolint: goconst
 		Path:        "path/to/test", //nolint: goconst
 		Description: "description",  //nolint: goconst
-		Status:      db.Building,
 		Tags:        []db.Tag{},
 		Packages: []db.Package{
 			{
@@ -43,9 +42,40 @@ func TestCreateEnvironment(t *testing.T) {
 	code, resp = getResponse(t, s, "/create-environment", env)
 	assertEmptyResp(t, code, resp)
 
+	env.Status = db.Building
 	env.Version = 1
 	env.Created = 0
 	checkAllEqual(t, s, zeroEnv(t, []db.Environment{env}))
+
+	req := db.RecipeRequest{
+		Name:      "new-pkg",
+		Version:   "1",
+		URL:       "path/to/new-pkg",
+		Details:   "desc",
+		Requester: "sky",
+	}
+
+	code, resp = getResponse(t, s, "/request-recipe", req)
+	assertEmptyResp(t, code, resp)
+
+	waitingEnv := db.Environment{
+		Name:        "waiting",         //nolint: goconst
+		Path:        "path/to/waiting", //nolint: goconst
+		Description: "description",     //nolint: goconst
+		Tags:        []db.Tag{},
+		Packages: []db.Package{
+			{
+				Name: "new-pkg",
+			},
+		},
+	}
+	code, resp = getResponse(t, s, "/create-environment", waitingEnv)
+	assertEmptyResp(t, code, resp)
+
+	waitingEnv.Status = db.Waiting
+	waitingEnv.Version = 1
+	waitingEnv.Created = 0
+	checkAllEqual(t, s, zeroEnv(t, []db.Environment{env, waitingEnv}))
 }
 
 func TestDeleteEnvironment(t *testing.T) {
