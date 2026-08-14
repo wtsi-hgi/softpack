@@ -14,21 +14,13 @@ import (
 
 var ErrEnvUsingRecipe = errors.New("an environment is waiting for build with requested recipe")
 
-type RecipeDescriptionResponse struct {
-	Description string `json:"description"`
-}
-
 func (s *Server) RequestRecipe(_ http.ResponseWriter, r *http.Request) error {
 	req, err := GetItemFromRequest[db.RecipeRequest](r)
 	if err != nil {
 		return err
 	}
 
-	if err = s.db.RequestRecipe(r.Context(), req); err != nil {
-		return err
-	}
-
-	return nil
+	return s.db.RequestRecipe(r.Context(), req)
 }
 
 func (s *Server) GetRequestedRecipes(w http.ResponseWriter, r *http.Request) error {
@@ -39,11 +31,7 @@ func (s *Server) GetRequestedRecipes(w http.ResponseWriter, r *http.Request) err
 
 	w.Header().Set("Content-Type", "application/json")
 
-	if err := json.NewEncoder(w).Encode(reqs); err != nil {
-		return err
-	}
-
-	return nil
+	return json.NewEncoder(w).Encode(reqs)
 }
 
 func (s *Server) GetRecipeDescription(w http.ResponseWriter, r *http.Request) error {
@@ -52,24 +40,39 @@ func (s *Server) GetRecipeDescription(w http.ResponseWriter, r *http.Request) er
 		return err
 	}
 
-	idx := s.getPackageIndex(name)
+	var desc string
 
-	desc, err := s.apt.GetRecipeDescription(idx.Name)
+	if strings.HasPrefix(name, "*") {
+		desc, err = s.getRequestedRecipeDesc(r.Context(), name)
+	} else {
+		idx := s.getPackageIndex(name)
+		desc, err = s.apt.GetRecipeDescription(idx.Name)
+	}
+
 	if err != nil {
 		return err
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 
-	response := RecipeDescriptionResponse{
-		Description: desc,
+	return json.NewEncoder(w).Encode(desc)
+}
+
+func (s *Server) getRequestedRecipeDesc(ctx context.Context, name string) (string, error) {
+	reqs, err := s.db.GetRequestedRecipes(ctx)
+	if err != nil {
+		return "", err
 	}
 
-	if err := json.NewEncoder(w).Encode(response); err != nil {
-		return err
+	pkgName := strings.TrimPrefix(name, "*")
+
+	for _, req := range reqs {
+		if req.Name == pkgName {
+			return req.Details, nil
+		}
 	}
 
-	return nil
+	return "", apt.ErrInvalidPackage
 }
 
 func (s *Server) getPackageIndex(name string) (idx db.PackageIndex) {
@@ -91,11 +94,7 @@ func (s *Server) GetAllPackages(w http.ResponseWriter, _ *http.Request) error {
 
 	w.Header().Set("Content-Type", "application/json")
 
-	if err := json.NewEncoder(w).Encode(pkgs); err != nil {
-		return err
-	}
-
-	return nil
+	return json.NewEncoder(w).Encode(pkgs)
 }
 
 func (s *Server) RemoveRequestedRecipe(_ http.ResponseWriter, r *http.Request) error {
@@ -108,11 +107,7 @@ func (s *Server) RemoveRequestedRecipe(_ http.ResponseWriter, r *http.Request) e
 		return ErrEnvUsingRecipe
 	}
 
-	if err := s.db.RemoveRequestedRecipe(r.Context(), toDelete); err != nil {
-		return err
-	}
-
-	return nil
+	return s.db.RemoveRequestedRecipe(r.Context(), toDelete)
 }
 
 func (s *Server) FulfilRequestedRecipe(_ http.ResponseWriter, r *http.Request) error {

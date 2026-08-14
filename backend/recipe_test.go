@@ -2,6 +2,7 @@ package backend
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -39,11 +40,31 @@ func TestGetRecipeDescription(t *testing.T) {
 	code, resp = getResponse(t, s, "/get-recipe-description", "abc")
 	assert.Equal(t, http.StatusOK, code)
 
-	var desc RecipeDescriptionResponse
+	var desc string
 
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&desc)
 	assert.NoError(t, err)
-	assert.Equal(t, "desc1", desc.Description)
+	assert.Equal(t, "desc1", desc)
+
+	reqPkgDesc := "description of requested package"
+
+	req := db.RecipeRequest{
+		Name:      "requested-pkg",
+		Version:   "1",
+		URL:       "path/to/requested-pkg",
+		Details:   reqPkgDesc,
+		Requester: "sky",
+	}
+
+	code, resp = getResponse(t, s, "/request-recipe", req)
+	assertEmptyResp(t, code, resp)
+
+	code, resp = getResponse(t, s, "/get-recipe-description", "*requested-pkg")
+	fmt.Printf("response: %q\n", resp)
+	assert.NoError(t, err)
+	err = json.NewDecoder(strings.NewReader(resp)).Decode(&desc)
+	assert.NoError(t, err)
+	assert.Equal(t, reqPkgDesc, desc)
 }
 
 func TestGetAllPackages(t *testing.T) {
