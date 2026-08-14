@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"strings"
 
 	"gorm.io/gorm"
 )
@@ -55,7 +56,7 @@ func (db *DB) RemoveRequestedRecipe(ctx context.Context, recipe RecipeRequest) e
 }
 
 func CheckPkgEqual(pkg Package, req RecipeRequest) bool {
-	return pkg.Name == req.Name && (pkg.Version == "" || pkg.Version == req.Version)
+	return strings.TrimPrefix(pkg.Name, "*") == req.Name && (pkg.Version == "" || pkg.Version == req.Version)
 }
 
 func CheckRecipeEqual(a, b RecipeRequest) bool {
