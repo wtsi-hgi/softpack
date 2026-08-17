@@ -1,0 +1,113 @@
+Bootstrap: docker
+From: ubuntu:resolute
+Stage: final
+
+%post
+	export DEBIAN_FRONTEND=noninteractive;
+
+	apt-get update;
+	#apt install -y --no-install-recommends software-properties-common ca-certificates;
+	#add-apt-repository -y ppa:deadsnakes/ppa;
+	#apt update;
+	#apt remove -y software-properties-common;
+	#apt autoremove -y;
+	apt install -y ca-certificates vim emacs nano file equivs curl wget fuse git s3fs $(apt list 2> /dev/null | grep "^python3\.[^-/]*/" | cut -d'/' -f1 | while read ver; do echo "${ver}-dev";done) python3-pip libfuse3-dev build-essential pkg-config libcurl4-openssl-dev libxml2-dev libssl-dev media-types apt-utils xz-utils zstd libdb-dev meson ninja-build libdb5.3++-dev dose-distcheck jq;
+
+	git clone https://github.com/s3fs-fuse/s3fs-fuse;
+	cd s3fs-fuse;
+	git checkout v1.97;
+	cat > p <<HEREDOC
+diff --git a/src/s3fs.cpp b/src/s3fs.cpp
+index 45a2052..5407a06 100644
+--- a/src/s3fs.cpp
++++ b/src/s3fs.cpp
+@@ -4821,30 +4821,7 @@ static bool set_mountpoint_attribute(struct stat& mpst)
+     mp_gid  = getegid();
+     mp_mode = S_IFDIR | (allow_other ? (is_mp_umask ? (~mp_umask & (S_IRWXU | S_IRWXG | S_IRWXO)) : (S_IRWXU | S_IRWXG | S_IRWXO)) : S_IRWXU);
+ 
+-// In MSYS2 environment with WinFsp, it is not supported to change mode of mount point.
+-// Doing that forcibly will create a permission problem, so disabling it.
+-#ifdef __MSYS__
+     return true;
+-#else
+-    S3FS_PRN_INFO2("PROC(uid=%u, gid=%u) - MountPoint(uid=%u, gid=%u, mode=%04o)",
+-           (unsigned int)mp_uid, (unsigned int)mp_gid, (unsigned int)(mpst.st_uid), (unsigned int)(mpst.st_gid), mpst.st_mode);
+-
+-    // check owner
+-    if(0 == mp_uid || mpst.st_uid == mp_uid){
+-        return true;
+-    }
+-    // check group permission
+-    if(mpst.st_gid == mp_gid || 1 == is_uid_include_group(mp_uid, mpst.st_gid)){
+-        if(S_IRWXG == (mpst.st_mode & S_IRWXG)){
+-            return true;
+-        }
+-    }
+-    // check other permission
+-    if(S_IRWXO == (mpst.st_mode & S_IRWXO)){
+-        return true;
+-    }
+-    return false;
+-#endif
+ }
+ 
+ //
+@@ -5045,10 +5022,6 @@ static int my_fuse_opt_proc(void* data, const char* arg, int key, struct fuse_ar
+                 }
+                 return -1;
+             }
+-            if(!(S_ISDIR(stbuf.st_mode))){
+-                S3FS_PRN_EXIT("MOUNTPOINT: %s is not a directory.", mountpoint.c_str());
+-                return -1;
+-            }
+             if(!set_mountpoint_attribute(stbuf)){
+                 S3FS_PRN_EXIT("MOUNTPOINT: %s permission denied.", mountpoint.c_str());
+                 return -1;
+@@ -5895,8 +5868,6 @@ int main(int argc, char* argv[])
+                 exit(EXIT_FAILURE);
+         }
+     }
+-    // print launch message
+-    print_launch_message(argc, argv);
+ 
+     // Load SSE environment
+     if(!S3fsCurl::LoadEnvSse()){
+HEREDOC
+
+	cat p;
+	git apply p;
+	./autogen.sh;
+	./configure;
+	make;
+	make install;
+	cd ..;
+	rm -rf s3fs-fuse;
+
+	git clone https://codeberg.org/scip/dbtool.git;
+	cd dbtool;
+	meson setup build;
+	ninja -C build;
+	meson install -C build;
+	cd ..;
+	rm -rf dbtool;
+
+	if false; then
+
+	tmpDir="$(mktemp -d)";
+
+	trap "rm -rf '$tmpDir'" EXIT;
+
+	for ver in 4.4.3 4.3.3 4.2.3 4.1.3; do
+		wget "https://cdn.posit.co/r/ubuntu-2604/pkgs/r-${ver}_1_amd64.deb"
+		apt install -y ./r-${ver}_1_amd64.deb;
+		/opt/R/$ver/bin/Rscript -e 'options(repos = c(CRAN = sprintf("https://packagemanager.posit.co/cran/latest/bin/linux/resolute-%s/%s", R.version["arch"], substr(getRversion(), 1, 3)))); install.packages("pak")';
+	done;
+	fi;
+
+	apt-get clean;
+
+%environment
+	CFLAGS="-march=x86-64-v3 -O3"
+	CXXFLAGS="-march=x86-64-v3 -O3"
+	EXTRA_CFLAGS="-march=x86-64-v3"
+	LDFLAGS="-Wl,-z,relro"

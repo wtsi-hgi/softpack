@@ -1,0 +1,46 @@
+# Add an older R version from the posit packages: Check https://cran.r-project.org/bin/windows/base/old/ for supported versions.
+: --version string # Version of R to download deb for.
+
+declare tmpDir="$(mktemp -d)/";
+trap "rm -rf $tmpDir" EXIT;
+
+declare file="r-base-core_${version}_1_amd64.deb";
+
+mkdir "$tmpDir/deb";
+
+wget "https://cdn.posit.co/r/ubuntu-2604/pkgs/r-${version}_1_amd64.deb" -O "$tmpDir/deb/$file";
+
+mkdir "$tmpDir/root";
+dpkg-deb -R "$tmpDir/deb/$file" "$tmpDir/root/";
+
+mkdir -p "$tmpDir/root/usr/local/bin/";
+ln -sf "/opt/R/$version/bin/R" "$tmpDir/root/usr/local/bin/R";
+ln -sf "/opt/R/$version/bin/Rscript" "$tmpDir/root/usr/local/bin/Rscript";
+
+mkdir -p "$tmpDir/root/usr/lib/R/";
+ln -sf "/opt/R/$version/lib/R/library" "$tmpDir/root/usr/lib/R/library";
+
+mkdir -p "$tmpDir/root/usr/share/R/";
+ln -sf "/opt/R/$version/lib/R/share" "$tmpDir/root/usr/share/R/share";
+
+mkdir -p "$tmpDir/root/usr/share/man/man1/";
+ln -sf "/opt/R/$version/share/man/man1/R.1" "$tmpDir/root/usr/share/man/man1/R.1"
+ln -sf "/opt/R/$version/share/man/man1/Rscript.1" "$tmpDir/root/usr/share/man/man1/Rscript.1"
+
+mkdir -p "$tmpDir/root/usr/lib/pkgconfig/";
+ln -sf "/opt/R/$version/lib/pkgconfig/libR.pc" "$tmpDir/root/usr/lib/pkgconfig/libR.pc"
+
+mkdir -p "$tmpDir/root/etc/R/";
+ln -sf "/opt/R/$version/lib/R/etc/Makeconf" "$tmpDir/root/etc/R/Makeconf";
+ln -sf "/opt/R/$version/lib/R/etc/Renviron" "$tmpDir/root/etc/R/Renviron";
+ln -sf "/opt/R/$version/lib/R/etc/javaconf" "$tmpDir/root/etc/R/javaconf";
+ln -sf "/opt/R/$version/lib/R/etc/ldpaths" "$tmpDir/root/etc/R/ldpaths";
+ln -sf "/opt/R/$version/lib/R/etc/repositories" "$tmpDir/root/etc/R/repositories";
+sed -i 's@^R_LIBS_SITE=.*@R_LIBS_SITE=${R_LIBS_SITE:-'"'"'/usr/local/lib/R/site-library:%S'"'"'}@' "$tmpDir/root/opt/R/$version/lib/R/etc/Renviron";
+
+dpkg-deb --root-owner-group -b "$tmpDir/root/" "$tmpDir/deb/$file";
+
+setMetadata "$tmpDir/deb/$file" "Package" "r-base-core" "Version" "$version";
+installDebs "$tmpDir/deb/";
+
+# vim: set filetype=sh :
