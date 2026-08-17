@@ -1,0 +1,7 @@
+# Download an R package from a git repo or a tarball.
+: --name string    # Package Name
+: --version string # Package Version
+: --url string     # Package URL
+: --R string       # R Version
+
+# vim: set filetype=sh :
