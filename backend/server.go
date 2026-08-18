@@ -5,9 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"log/slog"
+	"net"
 	"net/http"
 	"slices"
 	"time"
@@ -31,6 +33,33 @@ type Server struct {
 	db     *db.DB
 	apt    *apt.Server
 	config *config.Config
+
+	listen net.Listener
+}
+
+func (b *Server) Close() error {
+	if err := b.listen.Close(); err != nil {
+		return err
+	}
+
+	for {
+		envs, err := b.db.BuildingEnvs(context.Background())
+		if err != nil {
+			return err
+		}
+
+		count := len(envs)
+
+		if count == 0 {
+			break
+		}
+
+		slog.Info("Waiting for environments to finish building", "count", count)
+
+		time.Sleep(10 * time.Second) //nolint:mnd
+	}
+
+	return nil
 }
 
 func (b *Server) Serve() http.Handler {
@@ -81,10 +110,6 @@ func responseCode(err error) int {
 		return http.StatusBadRequest
 	}
 
-	if _, ok := errors.AsType[*json.SyntaxError](err); ok {
-		return http.StatusBadRequest
-	}
-
 	if _, ok := errors.AsType[*json.SyntaxError](err); ok { //nolint:errcheck
 		return http.StatusBadRequest
 	}
@@ -115,19 +140,19 @@ func GetItemFromRequest[T any](r *http.Request) (T, error) {
 	return item, nil
 }
 
-func New(config *config.Config) *Server {
+func New(config *config.Config) (*Server, error) { //nolint:funlen
 	apt, err := apt.New(config.AptIndexSrc, 5*time.Minute) //nolint:mnd
 	if err != nil {
 		slog.Error("Invalid apt index", "index", config.AptIndexSrc)
 
-		return nil
+		return nil, err
 	}
 
 	database, err := db.Connect(config.Driver, config.DBConn)
 	if err != nil {
 		slog.Error("Failed to connect to database", "driver", config.Driver, "dbconn", config.DBConn)
 
-		return nil
+		return nil, err
 	}
 
 	s := &Server{
@@ -140,11 +165,44 @@ func New(config *config.Config) *Server {
 
 	s.populateServerCaches()
 
-	return s
+	l, err := net.Listen("tcp", config.ListenAddr)
+	if err != nil {
+		slog.Error("Failed to create listener", "err", err)
+
+		return nil, err
+	}
+
+	s.listen = l
+
+	return s, nil
 }
 
 func (b *Server) Run() error {
-	return http.ListenAndServe(b.config.ListenAddr, b.Serve()) //nolint:gosec
+	if err := b.reBuildEnvs(); err != nil {
+		return err
+	}
+
+	return http.Serve(b.listen, b.Serve()) //nolint:gosec
+}
+
+func (b *Server) reBuildEnvs() error {
+	envs, err := b.db.BuildingEnvs(context.Background())
+	if err != nil {
+		return err
+	}
+
+	count := len(envs)
+
+	if count > 0 {
+		slog.Info("environments left in building state, rebuilding...")
+	}
+
+	for i, env := range envs {
+		slog.Info(fmt.Sprintf("Building environment %d of %d", i, count))
+		b.Build(&env)
+	}
+
+	return nil
 }
 
 func (b *Server) populateServerCaches() { //nolint:gocognit

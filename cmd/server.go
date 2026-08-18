@@ -1,8 +1,11 @@
 package cmd
 
 import (
+	"context"
 	"log/slog"
 	"os"
+	"os/signal"
+	"syscall"
 
 	"github.com/spf13/cobra"
 	"github.com/wtsi-hgi/softpack/backend"
@@ -37,6 +40,30 @@ var serverCmd = &cobra.Command{
 			return err
 		}
 
-		return backend.New(conf).Run()
+		b, err := backend.New(conf)
+		if err != nil {
+			return err
+		}
+
+		go b.Run()
+
+		return handleShutdown(b)
 	},
+}
+
+func handleShutdown(b *backend.Server) error {
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	<-ctx.Done()
+
+	slog.Info("Received termination signal, shutting down...")
+
+	if err := b.Close(); err != nil {
+		slog.Error("Failure closing server", "err", err)
+
+		return err
+	}
+
+	return nil
 }

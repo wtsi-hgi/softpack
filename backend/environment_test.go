@@ -192,6 +192,7 @@ func zeroEnv(t *testing.T, envs []db.Environment) []db.Environment {
 	for n, env := range envs {
 		envs[n].ID = 0
 		envs[n].Created = 0
+		envs[n].BuildStart = 0
 
 		for t := range env.Tags {
 			env.Tags[t].ID = 0

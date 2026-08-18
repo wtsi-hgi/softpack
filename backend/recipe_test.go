@@ -2,7 +2,6 @@ package backend
 
 import (
 	"encoding/json"
-	"fmt"
 	"net/http"
 	"strings"
 	"testing"
@@ -60,8 +59,8 @@ func TestGetRecipeDescription(t *testing.T) {
 	assertEmptyResp(t, code, resp)
 
 	code, resp = getResponse(t, s, "/get-recipe-description", "*requested-pkg")
-	fmt.Printf("response: %q\n", resp)
-	assert.NoError(t, err)
+	assert.Equal(t, http.StatusOK, code)
+
 	err = json.NewDecoder(strings.NewReader(resp)).Decode(&desc)
 	assert.NoError(t, err)
 	assert.Equal(t, reqPkgDesc, desc)

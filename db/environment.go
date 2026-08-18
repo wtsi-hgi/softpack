@@ -3,6 +3,7 @@ package db
 import (
 	"context"
 	"errors"
+	"log/slog"
 	"time"
 
 	"gorm.io/gorm"
@@ -111,7 +112,7 @@ func (db *DB) UpdateStatusWithFailureReason(ctx context.Context, u UpdateValue[s
 		Name:    u.Name,
 		Path:    u.Path,
 		Version: u.Version,
-	}).Updates(map[string]interface{}{
+	}).Updates(map[string]any{
 		"Status":        Failed,
 		"FailureReason": u.Value,
 	}).Error
@@ -259,4 +260,32 @@ func getNextEnvVersion(ctx context.Context, tx *gorm.DB, name, path string) (int
 	}
 
 	return highest + 1, nil
+}
+
+func (db *DB) SetEnvBuildTime(ctx context.Context, u UpdateValue[int64], start bool) error {
+	var updateField string
+
+	if start {
+		updateField = "BuildStart"
+	} else {
+		updateField = "BuildEnd"
+	}
+
+	return db.WithContext(ctx).Model(&Environment{}).Where(&Environment{
+		Name:    u.Name,
+		Path:    u.Path,
+		Version: u.Version,
+	}).Update(updateField, u.Value).Error
+}
+
+func (db *DB) BuildingEnvs(ctx context.Context) (envs []Environment, err error) {
+	if err := db.WithContext(ctx).Model(&Environment{}).Where(Environment{
+		Status: Building,
+	}).Find(&envs).Error; err != nil {
+		slog.Error("Failure retrieving building envs", "err", err)
+
+		return []Environment{}, err
+	}
+
+	return envs, nil
 }

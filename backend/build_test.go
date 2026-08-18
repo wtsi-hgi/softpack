@@ -19,7 +19,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 
 	src := apt.CreateTestAptRepo(t, apt.ExamplePackages())
 
-	backend := New(&config.Config{
+	backend, err := New(&config.Config{
 		AptSrc:        src,
 		AptIndexSrc:   filepath.Join(src, "dists", "resolute", "main", "binary-"+runtime.GOARCH, "Packages"),
 		BaseImgPath:   apt.BuildBase,
@@ -30,6 +30,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 		Driver:        "sqlite3",
 		DBConn:        ":memory:",
 	})
+	assert.NoError(t, err)
 	s := newHttpServer(t, backend)
 
 	ch := make(chan bool)
@@ -42,7 +43,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 
 	var avrg int64
 
-	err := json.NewDecoder(strings.NewReader(resp)).Decode(&avrg)
+	err = json.NewDecoder(strings.NewReader(resp)).Decode(&avrg)
 	assert.NoError(t, err)
 	assert.Equal(t, avrg, int64(0))
 
