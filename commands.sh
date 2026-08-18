@@ -5,40 +5,60 @@ __args=( "$@" );
 sections() {
 	declare start="${1:?Start string required}";
 
-	__handleParts "grep '^$start' ${0@Q} | cut -b'$(( ${#start} + 1 ))-' | grep -v '^$'" "sed -n -e '/^$start'\${part:-}'$/,/^--/{//!p}' ${0@Q}";
+	declare partsFn="grep '^$start' ${0@Q} | cut -b'$(( ${#start} + 1 ))-' | grep -v '^$'";
+	declare sectionFn="sed -n -e '/^$start'\${part:-}'$/,/^--/{//!p}' ${0@Q}";
+
+	__handle_parts;
 }
 
 files() {
 	declare general="${1:-}";
 	shift;
-	declare -a sections=( "$@" );
 	declare base="$(dirname "$0")/";
+	declare -A sections=();
 
-	printf -v list "%s\n" "${sections[@]}";
-	printf -v in "|%q" "${sections[@]}";
+	for section; do
+		sections["$(basename "$section")"]="$section";
+	done;
 
-	__handleParts "echo -en ${list@Q}" "case \${part:-} in \"\") $(
+	printf -v list "%s\n" "${!sections[@]}";
+
+	declare partsFn="echo -en ${list@Q}";
+	declare sectionFn="(cd ${base@Q};case \${part:-} in \"\")$(
 		if [ -n "$general" ]; then
-			echo "(cd ${base@Q};cat ${general@Q})";
+			echo -n "cat ${general@Q}";
 		fi;
-	);;${in:1}) cd ${base@Q};cat \$part;;esac";
+	);;$(
+		for part in "${!sections[@]}"; do
+			echo -n "${part@Q})cat ${sections[$part]@Q};;";
+		done;
+	)esac)";
+
+	__handle_parts;
+}
+
+__parts() {
+	eval "$partsFn";
+}
+
+__sections() {
+	eval "$sectionFn";
 }
 
 __description() {
-	sed -n '/^#/!q; p' | sed -e '1{/^#!/d}' -e 's/^# *//';
+	__sections | sed -n '/^#/!q; p' | sed -e '1{/^#!/d}' -e 's/^# *//';
 }
 
 __flags() {
 	while read line; do
 		printf "%s\0%s\0%s\0" "$(sed -e 's/  +/ /g' <<< "$line" | cut -d' ' -f2)" "$(sed -e 's/  +/ /g' <<< "$line" | cut -d'#' -f1 | cut -d' ' -f3)" "$(cut -s -d'#' -f2- <<< "$line" | sed -e 's/^ *//')";
-	done < <(sed -n '1,/^[^#:]/p' | grep "^: ");
+	done < <(__sections | sed -n '1,/^[^#:]/p' | grep "^: ");
 }
 
 __print_flags() {
-	declare sectionFn="$1";
-	declare part="${2:-}";
+	declare part="${1:-}";
 	declare maxLength="$(
-		eval "$sectionFn" | __flags | while read -r -d '' flag && read -r -d '' && read -r -d ''; do
+		__flags | while read -r -d '' flag && read -r -d '' && read -r -d ''; do
 			printf "%s\n" "$flag";
 		done | wc -L;
 	)";
@@ -50,17 +70,16 @@ __print_flags() {
 			echo -e "\nFlags:";
 		fi;
 
-		while read -r -d '' flag && read -r -d '' type && read -r -d '' desc; do
+		__flags | while read -r -d '' flag && read -r -d '' type && read -r -d '' desc; do
 			if [ -n "$desc" -a "$flag" != "..." ]; then
 				printf "  %-${maxLength}s  %s\n" "$flag" "$desc";
 			fi;
-		done < <(eval "$sectionFn" | __flags);
+		done;
 	fi;
 }
 
 __usage() {
-	declare sectionFn="$1";
-	declare part="${2:-}";
+	declare part="${1:-}";
 	declare additional=false;
 	declare additionalDesc="";
 
@@ -79,10 +98,10 @@ __usage() {
 		fi;
 	done < <(
 		if [ -n "$part" ]; then
-			part="" eval "$sectionFn" | __flags;
+			part="" __flags;
 		fi;
 
-		eval "$sectionFn" | __flags;
+		__flags;
 	);
 
 	if $additional; then
@@ -91,7 +110,7 @@ __usage() {
 		echo;
 	fi;
 
-	eval "$sectionFn" | __description;
+	__description;
 
 	if [ -n "$additionalDesc" ]; then
 		echo -e "\nArgs:\n$(sed -e 's/^/  /' <<< "$additionalDesc")";
@@ -99,9 +118,7 @@ __usage() {
 }
 
 __help() {
-	declare partsFn="$1";
-	declare sectionFn="$2";
-	declare maxLength="$(eval "$partsFn" | wc -L)";
+	declare maxLength="$(__parts | wc -L)";
 
 	if [ "$maxLength" -eq 0 ]; then
 		echo "No subcommands defined.";
@@ -109,14 +126,14 @@ __help() {
 		exit 127;
 	fi;
 
-	__usage "$sectionFn";
+	__usage;
 	echo -e "\nSubcommands:";
 
 	while read part; do
-		printf "  %-${maxLength}s  %s\n" "$part" "$(eval "$sectionFn" | __description)";
-	done < <(eval "$partsFn");
+		printf "  %-${maxLength}s  %s\n" "$part" "$(__description)";
+	done < <(__parts);
 
-	__print_flags "$sectionFn";
+	__print_flags;
 }
 
 __flag_type() {
@@ -128,22 +145,26 @@ __flag_type() {
 }
 
 __section_help() {
-	declare sectionFn="$1";
-	declare part="$2";
-
-	__usage "$sectionFn" "$part";
-	__print_flags "$sectionFn" "$part";
-	__print_flags "$sectionFn";
+	__usage "$part";
+	__print_flags "$part";
+	__print_flags;
 }
 
-__handleParts() {
-	declare partsFn="$1";
-	declare sectionFn="$2";
+__script() {
+	part="" __sections;
 
+	for flag in "${!setFlags[@]}"; do
+		echo "declare $(tr -d '-' <<< "$flag")=${setFlags[$flag]@Q}";
+	done;
+
+	__sections;
+}
+
+__handle_parts() {
 	set -- "${__args[@]}";
 
 	if [ "${1:-}" = "--help" ]; then
-		__help "$partsFn" "$sectionFn";
+		__help;
 
 		exit 0;
 	fi;
@@ -151,16 +172,16 @@ __handleParts() {
 	if [ -z "${1:-}" ]; then
 		{
 			echo -e "Error: Subcommand required\n";
-			__help "$partsFn" "$sectionFn";
+			__help;
 
 			exit 127;
 		} >&2;
 	fi;
 
-	if [ -z "$(eval "$partsFn" | grep "^$1$")" ]; then
+	if [ -z "$(__parts | grep "^$1$")" ]; then
 		{
 			echo -e "Error: Unknown subcommand $1\n";
-			__help "$partsFn" "$sectionFn";
+			__help;
 
 			exit 127;
 		} >&2;
@@ -195,8 +216,8 @@ __handleParts() {
 			flags[$flag]="$type";
 		fi;
 	done < <(
-		part="" eval "$sectionFn" | __flags;
-		eval "$sectionFn" | __flags;
+		part="" __flags;
+		__flags;
 	);
 
 	while [ $# -gt 0 ]; do
@@ -208,7 +229,7 @@ __handleParts() {
 		fi;
 
 		if [ "$flag" = "--help" ]; then
-			__section_help "$sectionFn" "$part";
+			__section_help;
 
 			exit 0;
 		elif [ ! -v flags[$flag] ]; then
@@ -219,7 +240,7 @@ __handleParts() {
 			else
 				{
 					echo -e "Error: Unknown flag: $flag\n";
-					__section_help "$sectionFn" "$part";
+					__section_help;
 
 					exit 2;
 				} >&2;
@@ -231,14 +252,14 @@ __handleParts() {
 		elif [ $# -eq 0 ]; then
 			{
 				echo -e "Error: Flag requires value: $flag\n";
-				__section_help "$sectionFn" "$part";
+				__section_help;
 
 				exit 2;
 			} >&2;
 		elif [ "${flags[$flag]}" = "number" -a -z "$(grep "^[+-]\?[0-9]*\(\.[0-9]\+\)\?$" <<< "$1")" -o "${flags[$flag]}" = "integer" -a -z "$(grep "^[+-]\?[0-9]\+$" <<< "$1")" ]; then
 			{
 				echo -e "Error: Invalid flag value: $flag "$1"\n";
-				__section_help "$sectionFn" "$part";
+				__section_help;
 
 				exit 2;
 			} >&2;
@@ -253,7 +274,7 @@ __handleParts() {
 		if [ ! -v setFlags[$flag] ]; then
 			{
 				echo -e "Error: Required flag not set: $flag\n";
-				__section_help "$sectionFn" "$part";
+				__section_help;
 
 				exit 2;
 			} >&2;
@@ -262,34 +283,18 @@ __handleParts() {
 
 	mapfile -d '' CMD < <(
 		(
-			eval "$sectionFn" | head -n1;
-			part="" eval "$sectionFn" | head -n1;
+			__sections | head -n1;
+			part="" __sections | head -n1;
 		) | {
 			grep "^#!" | head -n1 | cut -b 3- || echo -n "$BASH";
 		} | xargs printf '%s\0';
 	);
 
 	if declare -F "${CMD[0]:-}" > /dev/null; then
-		"${CMD[@]}" <(
-			part="" eval "$sectionFn";
-
-			for flag in "${!setFlags[@]}"; do
-				echo "declare $(tr -d '-' <<< "$flag")=${setFlags[$flag]@Q}";
-			done;
-
-			eval "$sectionFn";
-		) "${args[@]}";
+		"${CMD[@]}" <(__script) "${args[@]}";
 
 		exit $?;
-	else
-		exec -a "$part" "${CMD[@]}" <(
-			part="" eval "$sectionFn";
-
-			for flag in "${!setFlags[@]}"; do
-				echo "declare $(tr -d '-' <<< "$flag")=${setFlags[$flag]@Q}";
-			done;
-
-			eval "$sectionFn";
-		) "${args[@]}";
 	fi;
+
+	exec -a "$part" "${CMD[@]}" <(__script) "${args[@]}";
 }
