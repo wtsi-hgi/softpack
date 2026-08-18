@@ -14,6 +14,7 @@ import (
 	"runtime"
 	"slices"
 	"strings"
+	"syscall"
 
 	"github.com/wtsi-hgi/softpack/db"
 	"pault.ag/go/debian/control"
@@ -71,7 +72,7 @@ func Build(baseImage, tempDir, installDir, wrapperScript, aptSrc string, pkgs []
 		tempDir = installDir
 	}
 
-	if err := os.MkdirAll(tempDir, 0755); err != nil {
+	if err := os.MkdirAll(tempDir, 0755); err != nil { //nolint:mnd
 		return nil, err
 	}
 
@@ -102,26 +103,37 @@ func cleanup(root, sqfs string) {
 	}
 }
 
-func runCommands(
+func runCommands( //nolint:funlen
 	root, baseImage, installDir, sqfs, httpURL, wrapperScript string, pkgs []db.Package) (*Artefacts, error) {
-	if err := extractImage(root, baseImage); err != nil {
-		return nil, err
+	a := &Artefacts{}
+
+	var log strings.Builder
+
+	defer func() {
+		a.Log = log.String()
+	}()
+
+	if err := extractImage(&log, root, baseImage); err != nil {
+		return a, err
 	}
 
 	if err := setAptRepo(root, httpURL); err != nil {
-		return nil, err
+		return a, err
 	}
 
-	a, err := installPackages(root, pkgs)
+	executables, pkgs, err := installPackages(&log, root, pkgs)
 	if err != nil {
 		return a, err
 	}
 
-	if err := makeSquashFS(root, sqfs); err != nil {
+	a.Exes = executables
+	a.Packages = pkgs
+
+	if err := makeSquashFS(&log, root, sqfs); err != nil {
 		return a, err
 	}
 
-	if err := buildContainer(sqfs, installDir); err != nil {
+	if err := buildContainer(&log, sqfs, installDir); err != nil {
 		return a, err
 	}
 
@@ -132,17 +144,13 @@ func runCommands(
 	return a, nil
 }
 
-func extractImage(root, baseImage string) error {
-	if err := exec.Command( //nolint:noctx
+func extractImage(log *strings.Builder, root, baseImage string) error {
+	return runWithLog(log, execWithPGID( //nolint:noctx
 		"singularity",
 		"build",
 		"--sandbox", root,
 		baseImage,
-	).Run(); err != nil {
-		return fmt.Errorf("error extracting base image: %w", err)
-	}
-
-	return nil
+	))
 }
 
 func setAptRepo(root, httpURL string) error {
@@ -156,7 +164,7 @@ func setAptRepo(root, httpURL string) error {
 	)
 }
 
-func installPackages(root string, pkgs []db.Package) (*Artefacts, error) {
+func installPackages(log *strings.Builder, root string, pkgs []db.Package) ([]string, []db.Package, error) {
 	packages := make([]string, len(pkgs))
 
 	for n, pkg := range pkgs {
@@ -167,34 +175,47 @@ func installPackages(root string, pkgs []db.Package) (*Artefacts, error) {
 		}
 	}
 
-	var log strings.Builder
-
 	if err := cmp.Or(
-		aptWithLog(&log, root, "update"),
-		aptWithLog(&log, root, append(
+		aptWithLog(log, root, "update"),
+		aptWithLog(log, root, append(
 			[]string{"-y", "-o", "DPkg::Options::=--force-not-root", "install"},
 			packages...,
 		)...),
 		os.RemoveAll(filepath.Join(root, "var", "cache", "apt")),
 		os.RemoveAll(filepath.Join(root, "var", "lib", "apt")),
 	); err != nil {
-		return &Artefacts{Log: log.String()}, err
+		return nil, nil, err
 	}
 
-	return getArtefacts(root, pkgs, log.String())
+	return getArtefacts(root, pkgs)
 }
 
 func aptWithLog(log *strings.Builder, root string, args ...string) error {
-	cmd := exec.Command( //nolint:noctx,gosec
+	cmd := execWithPGID(
 		"singularity",
 		append([]string{
 			"exec", "--writable", "--no-home", root, "apt",
 		}, args...)...,
 	)
-	cmd.Stdout = log
-	cmd.Stderr = log
 
 	cmd.Env = append(os.Environ(), "DEBIAN_FRONTEND=noninteractive")
+
+	return runWithLog(log, cmd)
+}
+
+func execWithPGID(name string, arg ...string) *exec.Cmd {
+	cmd := exec.Command(name, arg...)
+	cmd.SysProcAttr = &syscall.SysProcAttr{
+		Setpgid: true,
+		Pgid:    0,
+	}
+
+	return cmd
+}
+
+func runWithLog(log *strings.Builder, cmd *exec.Cmd) error {
+	cmd.Stdout = log
+	cmd.Stderr = log
 
 	return cmd.Run()
 }
@@ -208,24 +229,20 @@ type Artefacts struct {
 	Log      string
 }
 
-func getArtefacts(root string, pkgs []db.Package, log string) (*Artefacts, error) {
+func getArtefacts(root string, pkgs []db.Package) ([]string, []db.Package, error) {
 	f, err := os.Open(filepath.Join(root, "var", "lib", "dpkg", "status"))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	installed, err := control.ParseBinaryIndex(bufio.NewReader(f))
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	ps, executables := getExecutablesAndConcretise(pkgs, installed)
 
-	return &Artefacts{
-		Exes:     executables,
-		Packages: ps,
-		Log:      log,
-	}, nil
+	return executables, ps, nil
 }
 
 func getExecutablesAndConcretise(pkgs []db.Package, installed []control.BinaryIndex) ([]db.Package, []string) {
@@ -293,21 +310,21 @@ func addInterpreters(pkgs []db.Package) []db.Package { //nolint:gocognit,gocyclo
 	return pkgs
 }
 
-func makeSquashFS(root, sqfs string) error {
-	return exec.Command( //nolint:noctx
+func makeSquashFS(log *strings.Builder, root, sqfs string) error {
+	return runWithLog(log, execWithPGID( //nolint:noctx
 		"mksquashfs",
 		root,
 		sqfs,
 		"-all-root",
-	).Run()
+	))
 }
 
-func buildContainer(sqfs, installDir string) error {
+func buildContainer(log *strings.Builder, sqfs, installDir string) error {
 	sif := SingularityPath(installDir)
 
 	return cmp.Or(
-		exec.Command("singularity", "sif", "new", sif).Run(), //nolint:noctx
-		exec.Command( //nolint:noctx,gosec
+		runWithLog(log, execWithPGID("singularity", "sif", "new", sif)), //nolint:noctx
+		runWithLog(log, execWithPGID( //nolint:noctx,gosec
 			"singularity",
 			"sif",
 			"add",
@@ -316,8 +333,8 @@ func buildContainer(sqfs, installDir string) error {
 			"--partfs", "1",
 			"--partarch", arch[runtime.GOARCH],
 			SingularityPath(installDir), sqfs,
-		).Run(),
-		exec.Command("singularity", "sif", "setprim", "1", sif).Run(), //nolint:noctx
+		)),
+		runWithLog(log, execWithPGID("singularity", "sif", "setprim", "1", sif)), //nolint:noctx
 	)
 }
 

@@ -31,7 +31,7 @@ func newBackend(t *testing.T) *Server {
 	installBase := t.TempDir()
 	artefactBase := t.TempDir()
 
-	backend := New(&config.Config{
+	backend, err := New(&config.Config{
 		BaseImgPath:   apt.BuildBase,
 		ModulePath:    moduleBase,
 		TempDir:       "",
@@ -43,6 +43,8 @@ func newBackend(t *testing.T) *Server {
 		DBConn:        ":memory:",
 		Driver:        "sqlite3",
 	})
+
+	assert.NoError(t, err)
 
 	return backend
 }
