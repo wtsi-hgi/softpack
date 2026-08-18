@@ -58,6 +58,6 @@ runShell() {
 
 . commands.sh;
 
-declare parts=( $(ls -I "*.sh" -I "*.sif") );
+declare parts=( $(ls -I "*.sh" -I "*.sif" -I "*.def") );
 
 files global.sh "${parts[@]}";
