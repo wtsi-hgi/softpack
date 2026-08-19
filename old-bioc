@@ -1,7 +1,0 @@
-# Download an older Bioconductor package from the P3M repo.
-: --name string    # Package Name
-: --version string # Package Version
-: --bioc string    # Bioc Version
-: --R string       # R Version
-
-# vim: set filetype=sh :
