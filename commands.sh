@@ -18,7 +18,7 @@ files() {
 	declare -A sections=();
 
 	for section; do
-		sections["$(basename "$section")"]="$section";
+		sections["${section##*/}"]="$section";
 	done;
 
 	printf -v list "%s\n" "${!sections[@]}";
@@ -71,8 +71,8 @@ __print_flags() {
 		fi;
 
 		__flags | while read -r -d '' flag && read -r -d '' type && read -r -d '' desc; do
-			if [ -n "$desc" -a "$flag" != "..." ]; then
-				printf "  %-${maxLength}s  %s\n" "$flag" "$desc";
+			if [ -n "$desc" -a "$flag" != "..." -a "$flag" != "…" ]; then
+				printf "  %-${maxLength}s${desc:+  }%s\n" "$flag" "$desc";
 			fi;
 		done;
 	fi;
@@ -88,10 +88,10 @@ __usage() {
 	while read -r -d '' flag && read -r -d '' type && read -r -d '' desc; do
 		flag="${flag%,*}";
 
-		if [ "$flag" = "..." ]; then
+		if [ "$flag" = "..." -o "$flag" = "…" ]; then
 			additional=true;
 			additionalDesc="$desc";
-		elif [ "${type:0:1}" = "[" ]; then
+		elif [ "${type:0:1}" = "[" -o "$type" = "boolean" ]; then
 			echo -n " [$flag$(__flag_type "${type:-value}")]";
 		else
 			printf " %s%s" "$flag" "$(__flag_type "${type:-value}")";
@@ -130,7 +130,8 @@ __help() {
 	echo -e "\nSubcommands:";
 
 	while read part; do
-		printf "  %-${maxLength}s  %s\n" "$part" "$(__description)";
+		declare desc="$(__description)";
+		printf "  %-${maxLength}s${desc:+  }%s\n" "$part" "$desc";
 	done < <(__parts);
 
 	__print_flags;
@@ -209,6 +210,7 @@ __handle_parts() {
 			hasAdditional=true;
 		elif [ "$type" = "boolean" ]; then
 			setFlags[$flag]="false";
+			flags[$flag]="$type";
 		elif [ "${type:0:1}" = "[" -a "${type: -1}" = "]" ]; then
 			flags[$flag]="${type:1:-1}";
 		else
@@ -282,12 +284,11 @@ __handle_parts() {
 	done;
 
 	mapfile -d '' CMD < <(
-		(
+		{
 			__sections | head -n1;
 			part="" __sections | head -n1;
-		) | {
-			grep "^#!" | head -n1 | cut -b 3- || echo -n "$BASH";
-		} | xargs printf '%s\0';
+			echo -n "#!$BASH";
+		} | grep "^#!" | head -n1 | cut -b 3- | xargs printf '%s\0';
 	);
 
 	if declare -F "${CMD[0]:-}" > /dev/null; then
