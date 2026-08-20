@@ -44,14 +44,6 @@ func (e *Environment) ToIndex() EnvironmentIndex {
 	}
 }
 
-func (u *UpdateValue[T]) ToIndex() EnvironmentIndex {
-	return EnvironmentIndex{
-		Name:    u.Name,
-		Path:    u.Path,
-		Version: u.Version,
-	}
-}
-
 // CreateEnvironments will add the given Environments to the database.
 func (db *DB) CreateEnvironments(ctx context.Context, envs []Environment) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
@@ -179,10 +171,13 @@ func (db *DB) DeleteEnvironmentTag(ctx context.Context, u UpdateValue[Tag]) erro
 		return err
 	}
 
-	return db.WithContext(ctx).
-		Model(&env).
-		Association("Tags").
-		Delete(&tag)
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := tx.WithContext(ctx).Model(&env).Association("Tags").Delete(&tag); err != nil {
+			return err
+		}
+
+		return tx.WithContext(ctx).Model(&Tag{}).Where(Tag{ID: tag.ID}).Delete(&Tag{}).Error
+	})
 }
 
 func (db *DB) GetTags(ctx context.Context) ([]Tag, error) {
@@ -278,7 +273,7 @@ func (db *DB) SetEnvBuildTime(ctx context.Context, u UpdateValue[int64], start b
 	}).Update(updateField, u.Value).Error
 }
 
-func (db *DB) BuildingEnvs(ctx context.Context) (envs []Environment, err error) {
+func (db *DB) GetBuildingEnvs(ctx context.Context) (envs []Environment, err error) {
 	if err := db.WithContext(ctx).Model(&Environment{}).Where(Environment{
 		Status: Building,
 	}).Find(&envs).Error; err != nil {

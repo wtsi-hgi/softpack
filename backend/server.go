@@ -18,6 +18,7 @@ import (
 	"github.com/wtsi-hgi/softpack/config"
 	"github.com/wtsi-hgi/softpack/db"
 	"github.com/wtsi-hgi/softpack/utils"
+	"gorm.io/gorm"
 	"vimagination.zapto.org/httpbuffer"
 )
 
@@ -43,7 +44,7 @@ func (b *Server) Close() error {
 	}
 
 	for {
-		envs, err := b.db.BuildingEnvs(context.Background())
+		envs, err := b.db.GetBuildingEnvs(context.Background())
 		if err != nil {
 			return err
 		}
@@ -103,6 +104,7 @@ var httpErrors = []error{
 	db.ErrNoRowsAffected,
 	apt.ErrInvalidPackage,
 	db.ErrMissingField,
+	gorm.ErrRecordNotFound,
 }
 
 func responseCode(err error) int {
@@ -186,7 +188,7 @@ func (b *Server) Run() error {
 }
 
 func (b *Server) reBuildEnvs() error {
-	envs, err := b.db.BuildingEnvs(context.Background())
+	envs, err := b.db.GetBuildingEnvs(context.Background())
 	if err != nil {
 		return err
 	}
@@ -198,7 +200,7 @@ func (b *Server) reBuildEnvs() error {
 	}
 
 	for i, env := range envs {
-		slog.Info(fmt.Sprintf("Building environment %d of %d", i, count))
+		slog.Info(fmt.Sprintf("Building environment %d of %d", i+1, count))
 		b.Build(&env)
 	}
 

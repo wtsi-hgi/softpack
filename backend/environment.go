@@ -36,7 +36,7 @@ func (s *Server) CreateEnvironment(_ http.ResponseWriter, r *http.Request) error
 	}
 
 	if len(reqs) == 0 {
-		s.Build(&env) //nolint:contextcheck
+		s.Build(&env)
 	}
 
 	for _, r := range reqs {
@@ -125,7 +125,7 @@ func (s *Server) DeleteEnvironmentTag(_ http.ResponseWriter, r *http.Request) er
 	}
 
 	i := slices.IndexFunc(env.Tags, func(t db.Tag) bool {
-		return t.Name == u.Name
+		return t.Name == u.Value
 	})
 	if i < 0 {
 		return db.ErrNoRowsAffected

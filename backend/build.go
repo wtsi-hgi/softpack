@@ -35,14 +35,19 @@ func (s *Server) buildEnv(env *db.Environment) {
 
 	artefacts, err = install.Install(s.config, *env)
 	if err != nil {
+		slog.Error("Install failure", "env", env, "error", err, "log", artefacts.Log)
+
 		return
 	}
 
-	if err := s.db.Concretise(*env, artefacts.Packages); err != nil {
+	if err = s.db.Concretise(*env, artefacts.Packages); err != nil {
+		slog.Error("Failure concretising db packages", "env", env, "error", err)
+
 		return
 	}
 
 	slog.Debug("build finished", "env", env.Name, "time", env.BuildStart)
+
 	env.BuildEnd = time.Now().Unix()
 	s.updateEnvStatus(env, db.Concretised)
 	s.setEnvBuildTime(env, env.BuildEnd, false)
@@ -62,7 +67,7 @@ func (s *Server) deferred(env *db.Environment, err *error, a *build.Artefacts) {
 			log = a.Log
 		}
 
-		slog.Error("Build", "error", err)
+		slog.Error("Build", "error", *err)
 		s.setEnvFailed(env, *err, log)
 
 		return
@@ -71,7 +76,6 @@ func (s *Server) deferred(env *db.Environment, err *error, a *build.Artefacts) {
 	if err := s.buildTimes.AddBuildTime(env.BuildStart, env.BuildEnd); err != nil {
 		slog.Error("Failure adding build times for env", "env", env.ToIndex())
 	}
-
 }
 
 func (s *Server) updateEnvStatus(env *db.Environment, status db.Status) {

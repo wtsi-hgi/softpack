@@ -8,7 +8,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-const UniqueConstraintFailed = "UNIQUE constraint failed"
+const (
+	UniqueConstraintFailed = "UNIQUE constraint failed"
+	NonExistentPkg1        = "nonexistentpkg1"
+	NonExistentPkg2        = "nonexistentpkg2"
+)
 
 func setup(t *testing.T) (context.Context, *DB) {
 	t.Helper()
@@ -34,10 +38,10 @@ func setupWithEnv1(t *testing.T) (context.Context, *DB, Environment) {
 		Tags:        []Tag{},
 		Packages: []Package{
 			{
-				Name: "pkg1", //nolint:goconst
+				Name: NonExistentPkg1, //nolint:goconst
 			},
 			{
-				Name: "pkg2",
+				Name: NonExistentPkg2,
 			},
 		},
 	}

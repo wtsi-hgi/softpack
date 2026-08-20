@@ -17,19 +17,118 @@ import (
 	"github.com/wtsi-hgi/softpack/internal/apt"
 )
 
+func TestServer(t *testing.T) {
+	conn := filepath.Join(t.TempDir(), "db")
+
+	backend := newBackend(t, conn)
+	s := newServer(t, backend)
+	backend2 := newBackend(t, conn)
+
+	ch := make(chan bool)
+	buildComplete = func() { ch <- true }
+
+	t.Cleanup(func() { buildComplete = func() {} })
+
+	env := db.Environment{
+		Name:    "env",
+		Path:    "path/to/env",
+		Version: 1,
+		Tags:    []db.Tag{},
+		Packages: []db.Package{
+			{Name: "abc"},
+		},
+	}
+
+	code, resp := getResponse(t, s, "/create-environment", env)
+	assertEmptyResp(t, code, resp)
+
+	<-ch
+
+	env2 := db.Environment{
+		Name:    "complexEnv",
+		Path:    "path/to/complexEnv",
+		Version: 1,
+		Tags:    []db.Tag{},
+		Packages: []db.Package{
+			{
+				Name:    "r-lib",
+				Version: "1.1",
+			},
+			{
+				Name: "python",
+			},
+		},
+	}
+
+	code, resp = getResponse(t, s, "/create-environment", env2)
+	assertEmptyResp(t, code, resp)
+
+	<-ch
+
+	t.Log("Close should not exit until building environments have finished")
+
+	assert.NoError(t, backend.Close())
+	s.Close()
+
+	s2 := newServer(t, backend2)
+
+	code, resp = getResponse(t, s2, "/get-environments")
+	assert.Equal(t, http.StatusOK, code)
+
+	var envs []db.Environment
+
+	err := json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(envs))
+	assert.Equal(t, db.Concretised, envs[0].Status)
+	assert.Equal(t, db.Concretised, envs[1].Status)
+
+	t.Log("Reconnecting to a database with environments in building status should trigger them to build")
+
+	backend3 := newBackend(t, conn)
+
+	s3 := newHttpServer(t, backend3)
+	t.Cleanup(s3.Close)
+
+	assert.NoError(t, backend2.Close())
+	s2.Close()
+
+	backend3.updateEnvStatus(&env, db.Building)
+	backend3.updateEnvStatus(&env2, db.Building)
+
+	err = backend3.reBuildEnvs()
+	assert.NoError(t, err)
+
+	<-ch
+	<-ch
+
+	code, resp = getResponse(t, s3, "/get-environments")
+	assert.Equal(t, http.StatusOK, code)
+
+	err = json.NewDecoder(strings.NewReader(resp)).Decode(&envs)
+	assert.NoError(t, err)
+	assert.Equal(t, 2, len(envs))
+	assert.Equal(t, db.Concretised, envs[0].Status)
+	assert.Equal(t, db.Concretised, envs[1].Status)
+}
+
 func newTestServer(t *testing.T) *httptest.Server {
 	t.Helper()
 
 	return newServer(t, nil)
 }
 
-func newBackend(t *testing.T) *Server {
+func newBackend(t *testing.T, dbConn string) *Server {
 	t.Helper()
 
 	root := apt.CreateTestAptRepo(t, apt.ExamplePackages())
 	moduleBase := t.TempDir()
 	installBase := t.TempDir()
 	artefactBase := t.TempDir()
+
+	if dbConn == "" {
+		dbConn = filepath.Join(t.TempDir(), "db")
+	}
 
 	backend, err := New(&config.Config{
 		BaseImgPath:   apt.BuildBase,
@@ -40,7 +139,7 @@ func newBackend(t *testing.T) *Server {
 		AptSrc:        root,
 		AptIndexSrc:   filepath.Join(root, "dists", "resolute", "main", "binary-"+runtime.GOARCH, "Packages"),
 		ArtefactStore: artefactBase,
-		DBConn:        ":memory:",
+		DBConn:        dbConn,
 		Driver:        "sqlite3",
 	})
 
@@ -53,12 +152,13 @@ func newServer(t *testing.T, backend *Server) *httptest.Server {
 	t.Helper()
 
 	if backend == nil {
-		backend = newBackend(t)
+		backend = newBackend(t, "")
 	}
 
 	s := httptest.NewServer(backend.Serve())
 
 	t.Cleanup(s.Close)
+	t.Cleanup(func() { backend.Close() })
 
 	return s
 }
