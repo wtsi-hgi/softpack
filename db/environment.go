@@ -207,9 +207,9 @@ type FulfilRequestBody struct {
 	CanonicalVersion string
 }
 
-// UpdateEnvPackage will update an environment's package information to match a newly
+// FulfilEnvPackage will update an environment's package information to match a newly
 // fulfilled request for a package that it relies on.
-func (db *DB) UpdateEnvPackage(ctx context.Context, u UpdateValue[FulfilRequestBody]) error {
+func (db *DB) FulfilEnvPackage(ctx context.Context, u UpdateValue[FulfilRequestBody]) error {
 	var env Environment
 
 	if err := db.WithContext(ctx).Where(&Environment{

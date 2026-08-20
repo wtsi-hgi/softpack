@@ -136,7 +136,7 @@ func (s *Server) FulfilRequestedRecipe(_ http.ResponseWriter, r *http.Request) e
 
 func (s *Server) updateAndBuildEnvs(ctx context.Context, envs []db.Environment, recipie db.FulfilRequestBody) error {
 	for _, env := range envs {
-		if err := s.db.UpdateEnvPackage(ctx, db.UpdateValue[db.FulfilRequestBody]{
+		if err := s.db.FulfilEnvPackage(ctx, db.UpdateValue[db.FulfilRequestBody]{
 			EnvironmentIndex: env.ToIndex(),
 			Value:            recipie,
 		}); err != nil {
