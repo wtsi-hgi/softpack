@@ -11,7 +11,7 @@ Stage: final
 	#apt update;
 	#apt remove -y software-properties-common;
 	#apt autoremove -y;
-	apt install -y ca-certificates vim emacs nano file equivs curl wget fuse git s3fs $(apt list 2> /dev/null | grep "^python3\.[^-/]*/" | cut -d'/' -f1 | while read ver; do echo "${ver}-dev";done) python3-pip libfuse3-dev build-essential pkg-config libcurl4-openssl-dev libxml2-dev libssl-dev media-types apt-utils xz-utils zstd libdb-dev meson ninja-build libdb5.3++-dev dose-distcheck jq;
+	apt install -y ca-certificates vim emacs nano file equivs curl wget fuse git s3fs $(apt list 2> /dev/null | grep "^python3\.[^-/]*/" | cut -d'/' -f1 | while read ver; do echo "${ver}-dev";done) python3-pip libfuse3-dev build-essential pkg-config libcurl4-openssl-dev libxml2-dev libssl-dev media-types apt-utils xz-utils zstd libdb-dev meson ninja-build libdb5.3++-dev dose-distcheck jq libmagick++-dev libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libsqlite3-dev libpq-dev libhdf5-dev libgdal-dev libproj-dev libgeos-dev libudunits2-dev libgsl-dev libgmp3-dev libmpfr-dev libcairo2-dev libxt-dev libpng-dev libjpeg-dev libtiff-dev xvfb default-jdk libglpk-dev libgl1-mesa-dev libglu1-mesa-dev texlive;
 
 	git clone https://github.com/s3fs-fuse/s3fs-fuse;
 	cd s3fs-fuse;
@@ -91,18 +91,16 @@ HEREDOC
 	cd ..;
 	rm -rf dbtool;
 
-	if false; then
-
 	tmpDir="$(mktemp -d)";
 
 	trap "rm -rf '$tmpDir'" EXIT;
 
 	for ver in 4.4.3 4.3.3 4.2.3 4.1.3; do
 		wget "https://cdn.posit.co/r/ubuntu-2604/pkgs/r-${ver}_1_amd64.deb"
+		chmod 644 ./r-${ver}_1_amd64.deb;
 		apt install -y ./r-${ver}_1_amd64.deb;
-		/opt/R/$ver/bin/Rscript -e 'options(repos = c(CRAN = sprintf("https://packagemanager.posit.co/cran/latest/bin/linux/resolute-%s/%s", R.version["arch"], substr(getRversion(), 1, 3)))); install.packages("pak")';
+		/opt/R/$ver/bin/Rscript -e 'options(repos = c(CRAN = sprintf("https://packagemanager.posit.co/cran/latest/bin/linux/resolute-%s/%s", R.version["arch"], substr(getRversion(), 1, 3)))); install.packages("pak"); cmds <- pak::pkg_sysreqs("devtools")$install_scripts; ccmds <- gsub("r-(cran|bioc)-.*", "", cmds); system(ccmds); pak::pkg_install(c("devtools", "remotes", "jsonlite"))';
 	done;
-	fi;
 
 	apt-get clean;
 

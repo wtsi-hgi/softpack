@@ -41,18 +41,24 @@ runContainer() {
 	declare script="$1";
 	shift;
 
+	declare slTemp="$(mktemp -d)";
+	trap "rm -rf ${slTemp@Q}" EXIT;
+
 	cat "$script" | if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity shell --fusemount "$(aptMount)" softpack.sif -- "$@";
+		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/" softpack.sif -- "$@";
 	else
-		singularity shell --bind "$aptRepo:/repo" softpack.sif -- "$@";
+		singularity shell --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/" softpack.sif -- "$@";
 	fi;
 }
 
 runShell() {
+	declare slTemp="$(mktemp -d)";
+	trap "rm -rf ${slTemp@Q}" EXIT;
+
 	if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity shell --fusemount "$(aptMount)" softpack.sif;
+		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/" softpack.sif;
 	else
-		singularity shell --bind "$aptRepo:/repo" softpack.sif;
+		singularity shell --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/" softpack.sif;
 	fi;
 }
 
