@@ -1,7 +1,108 @@
 # Download an R package from a git repo or a tarball.
 : --name string    # Package Name
 : --version string # Package Version
-: --url string     # Package URL
 : --R string       # R Version
+
+declare json="$(xvfb-run -a /opt/R/$R/bin/Rscript <(
+	cat <<HEREDOC
+options(repos = c(CRAN = sprintf("https://packagemanager.posit.co/cran/latest/bin/linux/resolute-%s/%s", R.version["arch"], substr(getRversion(), 1, 3))));
+pak::pkg_install("$name@$version", lib = "/usr/lib/R/site-library", dependencies = NA, upgrade = TRUE);
+installed_pkgs <- pak::pkg_list(lib = "/usr/lib/R/site-library");
+
+packages <- list();
+
+for (inst in 1:nrow(installed_pkgs)) {
+	name <- installed_pkgs[inst, "package"];
+	ver <- installed_pkgs[inst, "version"];
+	pkg <- paste0(name, "@", ver);
+	reqs <- list("r-base-core (=$R)");
+
+	sr <- pak::pkg_sysreqs(pkg);
+	reqs <- c(reqs, unlist(sr\$packages[vapply(sr\$packages\$packages, function(x) name %in% x, logical(1)), ]\$system_packages));
+
+	pkg_deps <- pak::pkg_deps(pkg);
+	deps <- pkg_deps[pkg_deps["ref"] == pkg,]\$deps;
+	direct_deps <- deps[[1]];
+	required <- direct_deps[tolower(direct_deps\$type) == "imports" | tolower(direct_deps\$type) == "depends" ,];
+
+	for (i in 1:nrow(required)) {
+		dep <- pkg_deps[pkg_deps["ref"] == required\$package[i],];
+		if (nrow(dep) == 0 || is.na(dep[,"ref"])) {
+			next;
+		}
+
+		if (length(dep\$repotype) > 0) {
+			line <- "r-";
+
+			if (dep\$repotype == "cran" | dep\$repotype == "bioc") {
+				line <- paste0(line, dep\$repotype, "-");
+			} else {
+				line <- paste0(line, "misc-");
+			}
+
+			line <- paste0(line, tolower(required\$package[i]));
+
+			if (nchar(required\$op[i]) > 0) {
+				line <- paste0(line, " (", required\$op[i], required\$version[i], ")");
+			}
+
+			reqs[length(reqs)+1] <- line;
+		}
+	}
+
+	packages[[name]] = list("version" = ver, "depends" = paste(reqs, collapse = ', '), "description" = installed_pkgs[inst, "title"], "repository" = installed_pkgs[inst, "repository"], "remoterepos" = installed_pkgs[inst, "remoterepos"]);
+}
+
+cat(paste0("----------\n", jsonlite::toJSON(packages, auto_unbox = TRUE), "\n"))
+
+HEREDOC
+) | tee >(sed -n '/^----------$/q; p' > /dev/tty) | sed '0,/^----------$/d')";
+
+declare tempDir="$(mktemp -d)";
+declare debs="$(mktemp -d)";
+
+trap "rm -rf ${tempDir@Q}" EXIT;
+trap "rm -rf ${debs@Q}" EXIT;
+
+mkdir -p "$tempDir/DEBIAN";
+mkdir -p "$tempDir/usr/lib/R/site-library";
+touch "$tempDir/DEBIAN/control";
+chmod 755 "$tempDir/DEBIAN";
+chmod 644 "$tempDir/DEBIAN/control";
+
+while read -r -d '' package && read -r -d '' version && read -r -d '' depends && read -r -d '' description && read -r -d '' repo && read -r -d '' remote; do
+	declare type="misc";
+	
+	case "${repo,,}" in
+	"cran")
+		type="cran";;
+	"bioconductor"*)
+		type="bioc";;
+	*)
+		if grep -q "packagemanager.posit.co/cran/" <<<"$remote"; then
+			type="cran";
+		elif grep -q "bioconductor.posit.co/" <<<"$remote"; then
+			type="bioc";
+		fi;
+	esac;
+
+	mv "/usr/lib/R/site-library/$package" "$tempDir/usr/lib/R/site-library";
+
+	cat <<-HEREDOC > "$tempDir/DEBIAN/control"
+	Package: r-$type-${package,,}
+	Version: $version-r$R
+	Architecture: amd64
+	Maintainer: hgi
+	Depends: $depends
+	Description: $description
+	HEREDOC
+
+	dpkg-deb --root-owner-group --build "$tempDir" "$debs/r-$type-${package,,}_$version-r$R.deb"
+	
+	rm -rf "$tempDir/usr/lib/R/site-library";
+done < <(jq -j 'to_entries[] | (.key, .value.version, .value.depends, .value.description, .value.repository, .value.remoterepos) | "\(.)\u0000"' <<<"$json");
+
+echo $debs;
+sleep 1h;
 
 # vim: set filetype=sh :
