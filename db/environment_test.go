@@ -157,6 +157,120 @@ func TestUpdateEnvironment(t *testing.T) {
 	assert.Equal(t, buildEnd, envs[0].BuildEnd)
 }
 
+func TestFulfilEnvPackage(t *testing.T) {
+	ctx, db := setup(t)
+
+	req := RecipeRequest{
+		Name:      "toBeFulfilled",
+		Version:   "2",
+		URL:       "path/to/toBeFulfilled",
+		Details:   "desc",
+		Requester: "sky",
+	}
+
+	err := db.RequestRecipe(ctx, req)
+	assert.NoError(t, err)
+
+	req2 := RecipeRequest{
+		Name:      "otherToFulfil",
+		Version:   "3",
+		URL:       "path/to/otherToFulfil",
+		Details:   "desc",
+		Requester: "capy",
+	}
+
+	err = db.RequestRecipe(ctx, req2)
+	assert.NoError(t, err)
+
+	pkgs := []Package{
+		{
+			Name: "toBeFulfilled",
+		},
+		{
+			Name:    "otherToFulfil",
+			Version: "3",
+		},
+		{
+			Name: "abc",
+		},
+	}
+
+	env := Environment{
+		Name:     "env",
+		Path:     "path/to/env",
+		Version:  1,
+		Tags:     []Tag{},
+		Packages: pkgs,
+	}
+
+	err = db.CreateEnvironment(ctx, &env)
+	assert.NoError(t, err)
+
+	envs, err := db.GetEnvironments(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(envs))
+
+	f := FulfilRequestBody{
+		RecipeRequest:    req,
+		CanonicalName:    "fulfilled",
+		CanonicalVersion: "1",
+	}
+
+	idx := env.ToIndex()
+
+	err = db.FulfilEnvPackage(ctx, UpdateValue[FulfilRequestBody]{
+		EnvironmentIndex: idx,
+		Value:            f,
+	})
+	assert.NoError(t, err)
+
+	envs, err = db.GetEnvironments(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(envs))
+	assert.Equal(t, []Package{
+		{
+			Name:    "fulfilled",
+			Version: "1",
+		},
+		{
+			Name:    "otherToFulfil",
+			Version: "3",
+		},
+		{
+			Name: "abc",
+		},
+	}, envs[0].Packages)
+
+	f2 := FulfilRequestBody{
+		RecipeRequest:    req2,
+		CanonicalName:    "otherFulfilled",
+		CanonicalVersion: "4",
+	}
+
+	err = db.FulfilEnvPackage(ctx, UpdateValue[FulfilRequestBody]{
+		EnvironmentIndex: idx,
+		Value:            f2,
+	})
+	assert.NoError(t, err)
+
+	envs, err = db.GetEnvironments(ctx)
+	assert.NoError(t, err)
+	assert.Equal(t, 1, len(envs))
+	assert.Equal(t, []Package{
+		{
+			Name:    "fulfilled",
+			Version: "1",
+		},
+		{
+			Name:    "otherFulfilled",
+			Version: "4",
+		},
+		{
+			Name: "abc",
+		},
+	}, envs[0].Packages)
+}
+
 func TestDeleteEnvironment(t *testing.T) {
 	ctx, db, env := setupWithEnv1(t)
 
