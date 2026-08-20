@@ -220,7 +220,7 @@ func ExamplePackages() []Deb { //nolint:funlen
 			Version: "4.4.0",
 			Metadata: map[string]string{
 				"XB-Executables": "R, Rscript",
-				"Provides":       "r",
+				"Provides":       "r (=4.4.0)",
 				"XB-Alias":       "r",
 				"XB-Softpack":    "true",
 			},

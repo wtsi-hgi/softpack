@@ -31,6 +31,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 		DBConn:        ":memory:",
 	})
 	assert.NoError(t, err)
+
 	s := newHttpServer(t, backend)
 
 	ch := make(chan bool)

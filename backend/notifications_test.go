@@ -10,7 +10,7 @@ import (
 )
 
 func TestGenerateStatusEmail(t *testing.T) {
-	backend := newBackend(t)
+	backend := newBackend(t, "")
 
 	contents, err := backend.GenerateEmailContents(BuildStatusTemplate, statusTmpl{
 		Success:  true,
@@ -51,7 +51,7 @@ func TestGenerateStatusEmail(t *testing.T) {
 }
 
 func TestGenerateRequestEmail(t *testing.T) {
-	backend := newBackend(t)
+	backend := newBackend(t, "")
 
 	contents, err := backend.GenerateEmailContents(PackageRequestTemplate, db.RecipeRequest{
 		Name:      "capy",
@@ -66,7 +66,7 @@ func TestGenerateRequestEmail(t *testing.T) {
 }
 
 func TestSendEmail(t *testing.T) {
-	backend := newBackend(t)
+	backend := newBackend(t, "")
 	s, smtp := newMockSMTP(t)
 
 	backend.config.SMTP = smtp

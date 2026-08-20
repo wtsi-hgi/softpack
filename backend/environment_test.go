@@ -9,6 +9,12 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/wtsi-hgi/softpack/db"
+	"gorm.io/gorm"
+)
+
+const (
+	NonExistentPkg1 = "nonexistentpkg1"
+	NonExistentPkg2 = "nonexistentpkg2"
 )
 
 func TestCreateEnvironment(t *testing.T) {
@@ -32,10 +38,10 @@ func TestCreateEnvironment(t *testing.T) {
 		Tags:        []db.Tag{},
 		Packages: []db.Package{
 			{
-				Name: "pkg1",
+				Name: NonExistentPkg1,
 			},
 			{
-				Name: "pkg2",
+				Name: NonExistentPkg2,
 			},
 		},
 	}
@@ -117,14 +123,36 @@ func TestUpdateEnvironment(t *testing.T) {
 func TestAddAndDeleteTags(t *testing.T) {
 	s, env := setupWithEnv(t)
 
+	env2 := db.Environment{
+		Name:        "env2",
+		Path:        "path/to/env2",
+		Version:     1,
+		Description: "desc",
+		Tags:        []db.Tag{},
+		Packages: []db.Package{
+			{
+				Name: NonExistentPkg1,
+			},
+		},
+	}
+
 	tag := "new tag"
+
+	code, resp := getResponse(t, s, "/add-tag", db.UpdateValue[string]{
+		EnvironmentIndex: env2.ToIndex(),
+		Value:            tag,
+	})
+	assertBadRequest(t, code, resp, gorm.ErrRecordNotFound)
+
+	code, resp = getResponse(t, s, "/create-environment", &env2)
+	assertEmptyResp(t, code, resp)
 
 	u := db.UpdateValue[string]{
 		EnvironmentIndex: env.ToIndex(),
 		Value:            tag,
 	}
 
-	code, resp := getResponse(t, s, "/delete-tag", u)
+	code, resp = getResponse(t, s, "/delete-tag", u)
 	assertBadRequest(t, code, resp, db.ErrNoRowsAffected)
 
 	code, resp = getResponse(t, s, "/add-tag", u)
@@ -135,7 +163,8 @@ func TestAddAndDeleteTags(t *testing.T) {
 
 	env.Tags = []db.Tag{db.Tag{Name: tag}}
 
-	checkAllEqual(t, s, zeroEnv(t, []db.Environment{env}))
+	env2.Status = db.Building
+	checkAllEqual(t, s, zeroEnv(t, []db.Environment{env, env2}))
 
 	code, resp = getResponse(t, s, "/tags")
 	assert.Equal(t, http.StatusOK, code)
@@ -145,6 +174,16 @@ func TestAddAndDeleteTags(t *testing.T) {
 	err := json.NewDecoder(strings.NewReader(resp)).Decode(&tags)
 	assert.NoError(t, err)
 	assert.Equal(t, []db.Tag{db.Tag{Name: tag}}, zeroTagKey(t, tags))
+
+	code, resp = getResponse(t, s, "/delete-tag", u)
+	assertEmptyResp(t, code, resp)
+
+	code, resp = getResponse(t, s, "/tags")
+	assert.Equal(t, http.StatusOK, code)
+
+	err = json.NewDecoder(strings.NewReader(resp)).Decode(&tags)
+	assert.NoError(t, err)
+	assert.Equal(t, 0, len(tags))
 }
 
 func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
@@ -160,10 +199,10 @@ func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
 		Status:      db.Building,
 		Packages: []db.Package{
 			{
-				Name: "pkg1",
+				Name: NonExistentPkg1,
 			},
 			{
-				Name: "pkg2",
+				Name: NonExistentPkg2,
 			},
 		},
 	}
