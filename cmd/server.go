@@ -45,7 +45,7 @@ var serverCmd = &cobra.Command{
 			return err
 		}
 
-		go b.Run()
+		go b.Run() //nolint:errcheck
 
 		return handleShutdown(b)
 	},

@@ -324,7 +324,7 @@ func buildContainer(log *strings.Builder, sqfs, installDir string) error {
 
 	return cmp.Or(
 		runWithLog(log, execWithPGID("singularity", "sif", "new", sif)), //nolint:noctx
-		runWithLog(log, execWithPGID( //nolint:noctx,gosec
+		runWithLog(log, execWithPGID( //nolint:noctx
 			"singularity",
 			"sif",
 			"add",
