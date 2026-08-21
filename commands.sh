@@ -5,8 +5,7 @@ __args=( "$@" );
 sections() {
 	declare start="${1:?Start string required}";
 
-	declare partsFn="grep '^$start' ${0@Q} | cut -b'$(( ${#start} + 1 ))-' | grep -v '^$'";
-	declare sectionFn="sed -n -e '/^$start'\${part:-}'$/,/^--/{//!p}' ${0@Q}";
+	eval "__parts() { grep '^$start' ${0@Q} | cut -b'$(( ${#start} + 1 ))-' | grep -v '^$'; }; __sections() { sed -n -e '/^$start'\${part:-}'$/,/^--/{//!p}' ${0@Q}; }";
 
 	__handle_parts;
 }
@@ -23,8 +22,7 @@ files() {
 
 	printf -v list "%s\n" "${!sections[@]}";
 
-	declare partsFn="echo -en ${list@Q}";
-	declare sectionFn="(cd ${base@Q};case \${part:-} in \"\")$(
+	eval "__parts() { echo -en ${list@Q}; }; __sections() { (cd ${base@Q};case \${part:-} in \"\")$(
 		if [ -n "$general" ]; then
 			echo -n "cat ${general@Q}";
 		fi;
@@ -32,17 +30,9 @@ files() {
 		for part in "${!sections[@]}"; do
 			echo -n "${part@Q})cat ${sections[$part]@Q};;";
 		done;
-	)esac)";
+	)esac) }";
 
 	__handle_parts;
-}
-
-__parts() {
-	eval "$partsFn";
-}
-
-__sections() {
-	eval "$sectionFn";
 }
 
 __description() {
@@ -58,8 +48,10 @@ __flags() {
 __print_flags() {
 	declare part="${1:-}";
 	declare maxLength="$(
-		__flags | while read -r -d '' flag && read -r -d '' && read -r -d ''; do
-			printf "%s\n" "$flag";
+		__flags | while read -r -d '' flag && read -r -d '' && read -r -d '' desc; do
+			if [ -n "$desc" -a "$flag" != "..." -a "$flag" != "…" ]; then
+				printf "%s\n" "$flag";
+			fi;
 		done | wc -L;
 	)";
 
@@ -206,7 +198,7 @@ __handle_parts() {
 			done;
 		} < <(tr ',' '\n' <<< "$flag");
 
-		if [ "$flag" = "..." ]; then
+		if [ "$flag" = "..." -o "$flag" = "…" ]; then
 			hasAdditional=true;
 		elif [ "$type" = "boolean" ]; then
 			setFlags[$flag]="false";
@@ -297,5 +289,5 @@ __handle_parts() {
 		exit $?;
 	fi;
 
-	exec -a "$part" "${CMD[@]}" <(__script) "${args[@]}";
+	exec "${CMD[@]}" <(__script) "${args[@]}";
 }
