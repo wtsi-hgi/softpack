@@ -36,7 +36,7 @@ func (s *Server) CreateEnvironment(_ http.ResponseWriter, r *http.Request) error
 	}
 
 	if len(reqs) == 0 {
-		s.Build(&env)
+		s.Build(&env) //nolint:contextcheck
 	}
 
 	for _, r := range reqs {
