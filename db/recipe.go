@@ -58,7 +58,3 @@ func (db *DB) RemoveRequestedRecipe(ctx context.Context, recipe RecipeRequest) e
 func CheckPkgEqual(pkg Package, req RecipeRequest) bool {
 	return strings.TrimPrefix(pkg.Name, "*") == req.Name && (pkg.Version == "" || pkg.Version == req.Version)
 }
-
-func CheckRecipeEqual(a, b RecipeRequest) bool {
-	return a.Name == b.Name && a.Version == b.Version
-}

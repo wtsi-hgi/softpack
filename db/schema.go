@@ -51,5 +51,5 @@ type RecipeRequest struct {
 
 type Tag struct {
 	ID   uint   `gorm:"primaryKey"`
-	Name string `gorm:"not null" json:"name"`
+	Name string `gorm:"not null"   json:"name"`
 }
