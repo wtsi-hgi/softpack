@@ -14,14 +14,13 @@ packages <- list();
 for (inst in 1:nrow(installed_pkgs)) {
 	name <- installed_pkgs[inst, "package"];
 	ver <- installed_pkgs[inst, "version"];
-	pkg <- paste0(name, "@", ver);
 	reqs <- list("r-base-core (=$R)");
 
-	sr <- pak::pkg_sysreqs(pkg);
+	sr <- pak::pkg_sysreqs(installed_pkgs[inst, "remotepkgref"]);
 	reqs <- c(reqs, unlist(sr\$packages[vapply(sr\$packages\$packages, function(x) name %in% x, logical(1)), ]\$system_packages));
 
-	pkg_deps <- pak::pkg_deps(pkg);
-	deps <- pkg_deps[pkg_deps["ref"] == pkg,]\$deps;
+	pkg_deps <- pak::pkg_deps(installed_pkgs[inst, "remotepkgref"]);
+	deps <- pkg_deps[pkg_deps["ref"] == installed_pkgs[inst, "remotepkgref"],]\$deps;
 	direct_deps <- deps[[1]];
 	required <- direct_deps[tolower(direct_deps\$type) == "imports" | tolower(direct_deps\$type) == "depends" ,];
 
@@ -41,9 +40,14 @@ for (inst in 1:nrow(installed_pkgs)) {
 			}
 
 			line <- paste0(line, tolower(required\$package[i]));
+			op <- required\$op[[i]];
 
-			if (nchar(required\$op[i]) > 0) {
-				line <- paste0(line, " (", required\$op[i], required\$version[i], ")");
+			if (nchar(op) > 0) {
+				if (op == "<") {
+					op <- "<<";
+				}
+
+				line <- paste0(line, " (", op, required\$version[i], ")");
 			}
 
 			reqs[length(reqs)+1] <- line;
@@ -86,6 +90,12 @@ while read -r -d '' package && read -r -d '' version && read -r -d '' depends &&
 		fi;
 	esac;
 
+	declare filename="r-$type-${package,,}_$version-r$R.deb";
+
+	if [ -f "$BASE/r/$filename" ]; then
+		continue;
+	fi;
+
 	mv "/usr/lib/R/site-library/$package" "$tempDir/usr/lib/R/site-library";
 
 	cat <<-HEREDOC > "$tempDir/DEBIAN/control"
@@ -97,12 +107,11 @@ while read -r -d '' package && read -r -d '' version && read -r -d '' depends &&
 	Description: $description
 	HEREDOC
 
-	dpkg-deb --root-owner-group --build "$tempDir" "$debs/r-$type-${package,,}_$version-r$R.deb"
+	dpkg-deb --root-owner-group --build "$tempDir" "$debs/$filename"
 	
 	rm -rf "$tempDir/usr/lib/R/site-library";
 done < <(jq -j 'to_entries[] | (.key, .value.version, .value.depends, .value.description, .value.repository, .value.remoterepos) | "\(.)\u0000"' <<<"$json");
 
-echo $debs;
-sleep 1h;
+installDebs "$debs";
 
 # vim: set filetype=sh :
