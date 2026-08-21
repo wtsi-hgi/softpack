@@ -142,18 +142,14 @@ func GetItemFromRequest[T any](r *http.Request) (T, error) {
 	return item, nil
 }
 
-func New(config *config.Config) (*Server, error) { //nolint:funlen
+func New(config *config.Config) (*Server, error) {
 	apt, err := apt.New(config.AptIndexSrc, 5*time.Minute) //nolint:mnd
 	if err != nil {
-		slog.Error("Invalid apt index", "index", config.AptIndexSrc)
-
 		return nil, err
 	}
 
 	database, err := db.Connect(config.Driver, config.DBConn)
 	if err != nil {
-		slog.Error("Failed to connect to database", "driver", config.Driver, "dbconn", config.DBConn)
-
 		return nil, err
 	}
 
@@ -169,8 +165,6 @@ func New(config *config.Config) (*Server, error) { //nolint:funlen
 
 	l, err := net.Listen("tcp", config.ListenAddr)
 	if err != nil {
-		slog.Error("Failed to create listener", "err", err)
-
 		return nil, err
 	}
 
