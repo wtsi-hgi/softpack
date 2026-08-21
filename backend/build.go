@@ -94,7 +94,7 @@ func (s *Server) setEnvFailed(env *db.Environment, err error, log string) {
 		EnvironmentIndex: env.ToIndex(),
 		Value:            log,
 	}); err != nil {
-		slog.Error("Failure setting fail Status for env", "env", env, "failureReason", "")
+		slog.Error("Failure setting fail Status for env", "env", env, "failureReason", err)
 	}
 }
 

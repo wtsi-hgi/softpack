@@ -145,7 +145,7 @@ func runCommands( //nolint:funlen
 }
 
 func extractImage(log *strings.Builder, root, baseImage string) error {
-	return runWithLog(log, execWithPGID( //nolint:noctx
+	return runWithLog(log, exec.Command( //nolint:noctx
 		"singularity",
 		"build",
 		"--sandbox", root,
@@ -191,7 +191,7 @@ func installPackages(log *strings.Builder, root string, pkgs []db.Package) ([]st
 }
 
 func aptWithLog(log *strings.Builder, root string, args ...string) error {
-	cmd := execWithPGID(
+	cmd := exec.Command( //nolint:gosec
 		"singularity",
 		append([]string{
 			"exec", "--writable", "--no-home", root, "apt",
@@ -203,17 +203,11 @@ func aptWithLog(log *strings.Builder, root string, args ...string) error {
 	return runWithLog(log, cmd)
 }
 
-func execWithPGID(name string, arg ...string) *exec.Cmd {
-	cmd := exec.Command(name, arg...)
+func runWithLog(log *strings.Builder, cmd *exec.Cmd) error {
 	cmd.SysProcAttr = &syscall.SysProcAttr{
 		Setpgid: true,
 		Pgid:    0,
 	}
-
-	return cmd
-}
-
-func runWithLog(log *strings.Builder, cmd *exec.Cmd) error {
 	cmd.Stdout = log
 	cmd.Stderr = log
 
@@ -311,7 +305,7 @@ func addInterpreters(pkgs []db.Package) []db.Package { //nolint:gocognit,gocyclo
 }
 
 func makeSquashFS(log *strings.Builder, root, sqfs string) error {
-	return runWithLog(log, execWithPGID( //nolint:noctx
+	return runWithLog(log, exec.Command( //nolint:noctx
 		"mksquashfs",
 		root,
 		sqfs,
@@ -323,8 +317,8 @@ func buildContainer(log *strings.Builder, sqfs, installDir string) error {
 	sif := SingularityPath(installDir)
 
 	return cmp.Or(
-		runWithLog(log, execWithPGID("singularity", "sif", "new", sif)), //nolint:noctx
-		runWithLog(log, execWithPGID( //nolint:noctx
+		runWithLog(log, exec.Command("singularity", "sif", "new", sif)), //nolint:noctx
+		runWithLog(log, exec.Command( //nolint:noctx,gosec
 			"singularity",
 			"sif",
 			"add",
@@ -334,7 +328,7 @@ func buildContainer(log *strings.Builder, sqfs, installDir string) error {
 			"--partarch", arch[runtime.GOARCH],
 			SingularityPath(installDir), sqfs,
 		)),
-		runWithLog(log, execWithPGID("singularity", "sif", "setprim", "1", sif)), //nolint:noctx
+		runWithLog(log, exec.Command("singularity", "sif", "setprim", "1", sif)), //nolint:noctx
 	)
 }
 
