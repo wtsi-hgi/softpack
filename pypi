@@ -1,0 +1,6 @@
+# Download a PyPI wheel and wrap it as a deb.
+: --python string # Python Version
+: --name string # Package Name
+: --version string # Package Version
+
+# vim: set filetype=sh :
