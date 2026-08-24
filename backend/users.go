@@ -9,12 +9,12 @@ import (
 func getUserGroups(username string) []string {
 	u, err := user.Lookup(username)
 	if err != nil {
-		return nil
+		return []string{}
 	}
 
 	gids, err := u.GroupIds()
 	if err != nil {
-		return nil
+		return []string{}
 	}
 
 	gs := make([]string, 0, len(gids))
@@ -22,7 +22,7 @@ func getUserGroups(username string) []string {
 	for _, gid := range gids {
 		grp, err := user.LookupGroupId(gid)
 		if err != nil {
-			return nil
+			return []string{}
 		}
 
 		gs = append(gs, grp.Name)
