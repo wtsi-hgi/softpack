@@ -9,6 +9,7 @@ import (
 	"os/user"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"syscall"
 	"testing"
 	"time"
@@ -94,7 +95,12 @@ func TestCommands(t *testing.T) {
 	err = json.NewDecoder(resp.Body).Decode(&body)
 	assert.NoError(t, err)
 
-	assert.Contains(t, body, "ubuntu")
+	grps, err := os.Getgroups()
+	assert.NoError(t, err)
+	grp, err := user.LookupGroupId(strconv.Itoa(grps[0]))
+	assert.NoError(t, err)
+
+	assert.Contains(t, body, grp.Name)
 
 	err = cmd.Process.Signal(syscall.SIGINT)
 	require.NoError(t, err)
