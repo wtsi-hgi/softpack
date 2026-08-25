@@ -29,7 +29,7 @@ setMetadata() {
 	shift;
 
 	declare tmpDir="$(mktemp -d)";
-	trap "rm -rf $tmpDir" EXIT;
+	trap "rm -rf ${tmpDir@Q}" EXIT;
 
 	dpkg-deb -e "$file" "$tmpDir";
 
@@ -88,7 +88,7 @@ downloadDeps() {
 	shift;
 
 	declare tmpDir="$(mktemp -d)";
-	trap "rm -rf $tmpDir" EXIT;
+	trap "rm -rf ${tmpDir@Q}" EXIT;
 
 	mkdir -p "$tmpDir/etc/apt/preferences.d" "$tmpDir/etc/apt/sources.list.d" "$tmpDir/var/lib/apt/lists/partial" "$tmpDir/var/cache/apt/archives/partial" "$tmpDir/var/lib/dpkg" "/$tmpDir/debs";
 	#cp /var/lib/dpkg/status "$tmpDir/var/lib/dpkg/status";
@@ -135,7 +135,7 @@ patchUCF() {
 	declare ucfDeb="$1";
 
 	declare tmpDir="$(mktemp -d)";
-	trap "rm -rf $tmpDir" EXIT;
+	trap "rm -rf ${tmpDir@Q}" EXIT;
 
 	dpkg-deb -R "$ucfDeb" "$tmpDir";
 	sed -i '2i id() { echo 0; }' "$tmpDir/usr/bin/ucf";
@@ -147,7 +147,7 @@ patchSystemd() {
 	declare deb="$1";
 
 	declare tmpDir="$(mktemp -d)";
-	trap "rm -rf $tmpDir" EXIT;
+	trap "rm -rf ${tmpDir@Q}" EXIT;
 
 	dpkg-deb -R "$deb" "$tmpDir";
 	echo "#!/bin/bash" > "$tmpDir/usr/bin/systemd-sysusers";
@@ -200,7 +200,7 @@ installDebs() {
 		mv -v "$file" "$BASE/$l/";
 	done;
 
-	cd -;
+	cd - &> /dev/null;
 
 	shopt -u nullglob;
 }
