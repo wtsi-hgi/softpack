@@ -2,57 +2,63 @@
 
 __args=( "$@" );
 
-sections() {
-	declare start="${1:?Start string required}";
+commands() {
+	case "$#" in
+	0)
+		declare solo=1;
+		declare part="";
 
-	eval "__parts() { grep '^$start' ${0@Q} | cut -b'$(( ${#start} + 1 ))-' | grep -v '^$'; }; __sections() { sed -n -e '/^$start'\${part:-}'$/,/^--/{//!p}' ${0@Q}; }";
+		__args=( "" "${__args[@]}" );
 
-	__handle_parts;
-}
+		eval "__parts() { [ -n \"\$part\" ] && echo ${part@Q}; }; __sections() { [ -n \"\$part\" ] && cat ${0@Q}; }";;
+	1)
+		declare start="${1:?Start string required}";
 
-files() {
-	declare general="${1:-}";
-	shift;
-	declare base="$(dirname "$0")/";
-	declare -A sections=();
+		eval "__parts() { grep '^$start' ${0@Q} | cut -b'$(( ${#start} + 1 ))-' | grep -v '^$'; }; __sections() { sed -n -e '/^$start'\${part:-}'$/,/^--/{//!p}' ${0@Q}; }";;
+	*)
+		declare general="${1:-}";
+		shift;
+		declare base="$(dirname "$0")/";
+		declare -A sections=();
 
-	for section; do
-		sections["${section##*/}"]="$section";
-	done;
-
-	printf -v list "%s\n" "${!sections[@]}";
-
-	eval "__parts() { echo -en ${list@Q}; }; __sections() { (cd ${base@Q};case \${part:-} in \"\")$(
-		if [ -n "$general" ]; then
-			echo -n "cat ${general@Q}";
-		fi;
-	);;$(
-		for part in "${!sections[@]}"; do
-			echo -n "${part@Q})cat ${sections[$part]@Q};;";
+		for section; do
+			sections["${section##*/}"]="$section";
 		done;
-	)esac) }";
 
-	__handle_parts;
+		printf -v list "%s\n" "${!sections[@]}";
+
+		eval "__parts() { echo -en ${list@Q}; }; __sections() { (cd ${base@Q};case \${part:-} in \"\")$(
+			if [ -n "$general" ]; then
+				echo -n "cat ${general@Q}";
+			fi;
+		);;$(
+			for part in "${!sections[@]}"; do
+				echo -n "${part@Q})cat ${sections[$part]@Q};;";
+			done;
+		)esac) }";;
+	esac;
+
+	__handle_parts "${__args[@]}";
 }
 
 __description() {
-	__sections | sed -n '/^#/!q; p' | sed -e '1{/^#!/d}' -e 's/^# *//';
+	__sections | sed -n '/^#/!q; 1{/^#!/d}; s/^# *//p';
 }
 
 __flags() {
 	while read line; do
-		printf "%s\0%s\0%s\0" "$(sed -e 's/  +/ /g' <<< "$line" | cut -d' ' -f2)" "$(sed -e 's/  +/ /g' <<< "$line" | cut -d'#' -f1 | cut -d' ' -f3)" "$(cut -s -d'#' -f2- <<< "$line" | sed -e 's/^ *//')";
-	done < <(__sections | sed -n '1,/^[^#:]/p' | grep "^: ");
+		printf "%s\0%s\0%s\0" "$(sed -e 's/  \+/ /g; s/^\([^ ]*\).*/\1/' <<< "$line")" "$(sed -e 's/ \+#.*//; s/  +/ /g' <<< "$line" | cut -s -d' ' -f2)" "$(sed -n 's/.* # *//p' <<< "$line")";
+	done < <(__sections | sed -n '/^#/d; /^: /!q; s/^:  *//p');
 }
 
 __print_flags() {
 	declare part="${1:-}";
 	declare maxLength="$(
-		__flags | while read -r -d '' flag && read -r -d '' && read -r -d '' desc; do
+		while read -r -d '' flag && read -r -d '' && read -r -d '' desc; do
 			if [ -n "$desc" -a "$flag" != "..." -a "$flag" != "…" ]; then
 				printf "%s\n" "$flag";
 			fi;
-		done | wc -L;
+		done < <(__flags) | wc -L;
 	)";
 
 	if [ "$maxLength" -gt 0 ]; then
@@ -62,11 +68,17 @@ __print_flags() {
 			echo -e "\nFlags:";
 		fi;
 
-		__flags | while read -r -d '' flag && read -r -d '' type && read -r -d '' desc; do
+		while read -r -d '' flag && read -r -d '' type && read -r -d '' desc; do
 			if [ -n "$desc" -a "$flag" != "..." -a "$flag" != "…" ]; then
-				printf "  %-${maxLength}s${desc:+  }%s\n" "$flag" "$desc";
+				printf "  %-${maxLength}s" "$flag"
+
+				if [ -n "$desc" ]; then
+					echo -n " ";
+					eval "printf ' %s' $desc";
+					echo;
+				fi;
 			fi;
-		done;
+		done < <(__flags);
 	fi;
 }
 
@@ -83,10 +95,14 @@ __usage() {
 		if [ "$flag" = "..." -o "$flag" = "…" ]; then
 			additional=true;
 			additionalDesc="$desc";
-		elif [ "${type:0:1}" = "[" -o "$type" = "boolean" ]; then
-			echo -n " [$flag$(__flag_type "${type:-value}")]";
+		elif [ "${type: -1}" = "]" -o "$type" = "" ]; then
+			echo -n " [$flag$(__flag_type "${type:-}")]";
+
+			if [ "${type: -2}" = "[]" ]; then
+				echo -n "...";
+			fi;
 		else
-			printf " %s%s" "$flag" "$(__flag_type "${type:-value}")";
+			printf " %s%s" "$flag" "$(__flag_type "$type")";
 		fi;
 	done < <(
 		if [ -n "$part" ]; then
@@ -130,9 +146,9 @@ __help() {
 }
 
 __flag_type() {
-	declare type="$(sed -e 's/^\[\(.*\)\]$/\1/' <<< "$1")";
+	declare type="$(sed -e 's/\[\]$//; s/^\[\(.*\)\]$/\1/; s/#*$//' <<< "$1")";
 
-	if [ "$type" != "boolean" ]; then
+	if [ "$type" != "" ]; then
 		printf " %s" "$type";
 	fi;
 }
@@ -143,19 +159,17 @@ __section_help() {
 	__print_flags;
 }
 
-__script() {
-	part="" __sections;
-
+__bind_flags() {
 	for flag in "${!setFlags[@]}"; do
-		echo "declare $(tr -d '-' <<< "$flag")=${setFlags[$flag]@Q}";
+		echo "declare -g $(tr -d '-' <<< "$flag")=${setFlags[$flag]@Q}";
 	done;
 
-	__sections;
+	for flag in "${!arrays[@]}"; do
+		echo "declare -g -a $(tr -d '-' <<< "$flag")=${arrays[$flag]} )";
+	done;
 }
 
 __handle_parts() {
-	set -- "${__args[@]}";
-
 	if [ "${1:-}" = "--help" ]; then
 		__help;
 
@@ -184,6 +198,7 @@ __handle_parts() {
 	shift;
 	declare -A flags=();
 	declare -A required=();
+	declare -A arrays=();
 	declare -A setFlags=();
 	declare -A aliases=();
 	declare -a args=();
@@ -200,9 +215,12 @@ __handle_parts() {
 
 		if [ "$flag" = "..." -o "$flag" = "…" ]; then
 			hasAdditional=true;
-		elif [ "$type" = "boolean" ]; then
+		elif [ "$type" = "" ]; then
 			setFlags[$flag]="false";
 			flags[$flag]="$type";
+		elif [ "${type: -2}" = "[]" ]; then
+			arrays[$flag]="(";
+			flags[$flag]="${type:0:-2}";
 		elif [ "${type:0:1}" = "[" -a "${type: -1}" = "]" ]; then
 			flags[$flag]="${type:1:-1}";
 		else
@@ -227,6 +245,42 @@ __handle_parts() {
 
 			exit 0;
 		elif [ ! -v flags[$flag] ]; then
+			if [ "${flag:0:1}" = "-" -a "${flag:0:2}" != "--" ]; then
+				declare allBinary=true;
+
+				while IFS= read -r -n 1 f; do
+					f="-$f";
+
+					if [ -v aliases["$f"] ]; then
+						f="${aliases[$f]}";
+					fi;
+
+					if [ "${flags["$f"]-!}" != "" ]; then
+						allBinary=false;
+
+						break;
+					fi;
+				done < <(echo -n "${flag:1}");
+
+				if $allBinary; then
+					while IFS= read -r -n 1 f; do
+						declare flag="-$f";
+
+						if [ -v aliases[$flag] ]; then
+							flag="${aliases[$flag]}";
+						fi;
+
+						if [ -v arrays["$flag"] ]; then
+							arrays["$flag"]="${arrays[$flag]} true";
+						else
+							setFlags[$flag]="true";
+						fi;
+					done < <(echo -n "${flag:1}");
+
+					continue;
+				fi;
+			fi;
+
 			if $hasAdditional; then
 				args+=( "$flag" );
 
@@ -241,8 +295,14 @@ __handle_parts() {
 			fi;
 		fi;
 
-		if [ "${flags[$flag]}" = "boolean" ]; then
-			setFlags[$flag]="true";
+		if [ "${flags[$flag]}" = "" ]; then
+			if [ -v arrays["$flag"] ]; then
+				arrays["$flag"]="${arrays[$flag]} true";
+			else
+				setFlags[$flag]="true";
+			fi;
+
+			continue;
 		elif [ $# -eq 0 ]; then
 			{
 				echo -e "Error: Flag requires value: $flag\n";
@@ -250,9 +310,18 @@ __handle_parts() {
 
 				exit 2;
 			} >&2;
-		elif [ "${flags[$flag]}" = "number" -a -z "$(grep "^[+-]\?[0-9]*\(\.[0-9]\+\)\?$" <<< "$1")" -o "${flags[$flag]}" = "integer" -a -z "$(grep "^[+-]\?[0-9]\+$" <<< "$1")" ]; then
+		elif [ "${flags[$flag]: -2}" = "##" -a -z "$(grep "^[+-]\?[0-9]*\(\.[0-9]\+\)\?$" <<< "$1")" -o "${flags[$flag]: -1}" = "#" -a "${flags[$flag]: -2}" != "##" -a -z "$(grep "^[+-]\?[0-9]\+$" <<< "$1")" ]; then
 			{
 				echo -e "Error: Invalid flag value: $flag "$1"\n";
+				__section_help;
+
+				exit 2;
+			} >&2;
+		elif [ -v arrays["$flag"] ]; then
+			arrays["$flag"]="${arrays[$flag]} ${1@Q}";
+		elif [ -v setFlags["$flag"] ]; then
+			{
+				echo -e "Error: Flag already set: $flag\n";
 				__section_help;
 
 				exit 2;
@@ -275,6 +344,23 @@ __handle_parts() {
 		fi;
 	done;
 
+	if [ -n "${solo:-}" ]; then
+		eval "$(__bind_flags)";
+
+		return 0;
+	fi;
+
+	declare script="$(mktemp --tmpdir=/dev/shm 2> /dev/null || mktemp)";
+
+	{
+		__bind_flags;
+		part="" __sections;
+		__sections;
+	} > "$script";
+
+	exec {fd}< "$script";
+	rm -f "$script";
+
 	mapfile -d '' CMD < <(
 		{
 			__sections | head -n1;
@@ -284,10 +370,10 @@ __handle_parts() {
 	);
 
 	if declare -F "${CMD[0]:-}" > /dev/null; then
-		"${CMD[@]}" <(__script) "${args[@]}";
+		"${CMD[@]}" /proc/self/fd/$fd "${args[@]}";
 
 		exit $?;
 	fi;
 
-	exec "${CMD[@]}" <(__script) "${args[@]}";
+	exec "${CMD[@]}" /proc/self/fd/$fd "${args[@]}";
 }
