@@ -23,8 +23,6 @@ import (
 	"testing"
 	"time"
 
-	_ "embed"
-
 	"github.com/erikgeiser/ar"
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3afero"
