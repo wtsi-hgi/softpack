@@ -3,6 +3,7 @@ package backend
 import (
 	"bytes"
 	"context"
+	_ "embed"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -21,8 +22,6 @@ import (
 	"gorm.io/gorm"
 	"vimagination.zapto.org/httpbuffer"
 )
-
-const templatePath = "./backend/templates/"
 
 var (
 	ErrInvalidJSON   = errors.New("invalid json")

@@ -7,14 +7,11 @@ import (
 	"net/smtp"
 	"strings"
 
+	"github.com/wtsi-hgi/softpack/backend/templates"
 	"github.com/wtsi-hgi/softpack/db"
 )
 
-const (
-	VersionConflict        = "The following packages have unmet dependencies"
-	BuildStatusTemplate    = templatePath + "buildStatus.tmpl"
-	PackageRequestTemplate = templatePath + "packageRequest.tmpl"
-)
+const VersionConflict = "The following packages have unmet dependencies"
 
 var ErrMissingAddress = errors.New("to and/or from email address not specified")
 
@@ -25,15 +22,10 @@ type statusTmpl struct {
 	BuildError bool
 }
 
-func (s *Server) GenerateEmailContents(tmpl string, data any) ([]byte, error) {
-	temp, err := template.ParseGlob(tmpl)
-	if err != nil {
-		return nil, err
-	}
-
+func (s *Server) GenerateEmailContents(tmpl *template.Template, data any) ([]byte, error) {
 	var buf bytes.Buffer
 
-	if err := temp.Execute(&buf, data); err != nil {
+	if err := tmpl.Execute(&buf, data); err != nil {
 		return nil, err
 	}
 
@@ -54,7 +46,7 @@ func (s *Server) SendBuildStatusEmail(env *db.Environment) error {
 		buildError = true
 	}
 
-	msg, err := s.GenerateEmailContents(BuildStatusTemplate, statusTmpl{
+	msg, err := s.GenerateEmailContents(templates.BuildStatusTemplate, statusTmpl{
 		Success:    success,
 		Username:   env.Requester,
 		Path:       env.Path,
@@ -74,7 +66,7 @@ func (s *Server) SendBuildStatusEmail(env *db.Environment) error {
 }
 
 func (s *Server) SendPackageRequestEmail(req db.RecipeRequest) error {
-	msg, err := s.GenerateEmailContents(PackageRequestTemplate, req)
+	msg, err := s.GenerateEmailContents(templates.PackageRequestTemplate, req)
 	if err != nil {
 		return err
 	}
