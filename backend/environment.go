@@ -31,6 +31,8 @@ func (s *Server) CreateEnvironment(_ http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
+	env.Readme = s.config.InstallDir
+
 	if err := s.db.CreateEnvironment(ctx, &env); err != nil {
 		return err
 	}
