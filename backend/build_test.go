@@ -28,7 +28,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 		ModulePath:    t.TempDir(),
 		ArtefactStore: t.TempDir(),
 		Driver:        "sqlite3",
-		DBConn:        ":memory:",
+		DBConn:        "file::memory:?cache=shared",
 	})
 	assert.NoError(t, err)
 
