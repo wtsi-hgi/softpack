@@ -12,8 +12,8 @@ import (
 
 const (
 	VersionConflict        = "The following packages have unmet dependencies"
-	BuildStatusTemplate    = "buildStatus.tmpl"
-	PackageRequestTemplate = "packageRequest.tmpl"
+	BuildStatusTemplate    = templatePath + "buildStatus.tmpl"
+	PackageRequestTemplate = templatePath + "packageRequest.tmpl"
 )
 
 var ErrMissingAddress = errors.New("to and/or from email address not specified")

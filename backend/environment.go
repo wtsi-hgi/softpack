@@ -1,14 +1,18 @@
 package backend
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
+	"html/template"
 	"net/http"
 	"slices"
 
 	"github.com/wtsi-hgi/softpack/apt"
 	"github.com/wtsi-hgi/softpack/db"
 )
+
+const ReadMeTemplate = templatePath + "readme.tmpl"
 
 func (s *Server) CreateEnvironment(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	env, err := GetItemFromRequest[db.Environment](r)
@@ -31,7 +35,9 @@ func (s *Server) CreateEnvironment(_ http.ResponseWriter, r *http.Request) error
 		return err
 	}
 
-	env.Readme = s.config.InstallDir
+	if err = s.populateReadme(&env); err != nil {
+		return err
+	}
 
 	if err := s.db.CreateEnvironment(ctx, &env); err != nil {
 		return err
@@ -45,6 +51,30 @@ func (s *Server) CreateEnvironment(_ http.ResponseWriter, r *http.Request) error
 		env.Status = db.Waiting
 		s.waitingEnvs.Append(r, env)
 	}
+
+	return nil
+}
+
+type readmeInput struct {
+	ModulePath, SingularityPath string
+}
+
+func (s *Server) populateReadme(env *db.Environment) error {
+	temp, err := template.ParseGlob(ReadMeTemplate)
+	if err != nil {
+		return err
+	}
+
+	var buf bytes.Buffer
+
+	if err := temp.Execute(&buf, readmeInput{
+		ModulePath:      s.config.ModulePath + env.Path,
+		SingularityPath: s.config.InstallDir + env.Path + "-scripts/singularity.sif",
+	}); err != nil {
+		return err
+	}
+
+	env.Readme = buf.String()
 
 	return nil
 }
