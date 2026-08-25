@@ -6,13 +6,14 @@ import (
 
 	smtpmock "github.com/mocktools/go-smtp-mock/v2"
 	"github.com/stretchr/testify/assert"
+	"github.com/wtsi-hgi/softpack/backend/templates"
 	"github.com/wtsi-hgi/softpack/db"
 )
 
 func TestGenerateStatusEmail(t *testing.T) {
 	backend := newBackend(t, "")
 
-	contents, err := backend.GenerateEmailContents(BuildStatusTemplate, statusTmpl{
+	contents, err := backend.GenerateEmailContents(templates.BuildStatusTemplate, statusTmpl{
 		Success:  true,
 		Username: "capybara",             //nolint:goconst
 		Path:     "/path/to/environment", //nolint:goconst
@@ -23,7 +24,7 @@ func TestGenerateStatusEmail(t *testing.T) {
 		"Hi capybara,\n\nYour environment, /path/to/environment has built successfully.\n"+
 		"SoftPack Team", string(contents))
 
-	contents, err = backend.GenerateEmailContents(BuildStatusTemplate, statusTmpl{
+	contents, err = backend.GenerateEmailContents(templates.BuildStatusTemplate, statusTmpl{
 		Success:    false,
 		Username:   "capybara",
 		Path:       "/path/to/environment",
@@ -36,7 +37,7 @@ func TestGenerateStatusEmail(t *testing.T) {
 		"The error was a version conflict. Try relaxing which versions you've specified.\n"+
 		"\nSoftPack Team", string(contents))
 
-	contents, err = backend.GenerateEmailContents(BuildStatusTemplate, statusTmpl{
+	contents, err = backend.GenerateEmailContents(templates.BuildStatusTemplate, statusTmpl{
 		Success:    false,
 		Username:   "capybara",
 		Path:       "/path/to/environment",
@@ -53,7 +54,7 @@ func TestGenerateStatusEmail(t *testing.T) {
 func TestGenerateRequestEmail(t *testing.T) {
 	backend := newBackend(t, "")
 
-	contents, err := backend.GenerateEmailContents(PackageRequestTemplate, db.RecipeRequest{
+	contents, err := backend.GenerateEmailContents(templates.PackageRequestTemplate, db.RecipeRequest{
 		Name:      "capy",
 		Version:   "2",
 		URL:       "/path/to/capy",

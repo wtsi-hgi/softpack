@@ -4,15 +4,13 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"html/template"
 	"net/http"
 	"slices"
 
 	"github.com/wtsi-hgi/softpack/apt"
+	"github.com/wtsi-hgi/softpack/backend/templates"
 	"github.com/wtsi-hgi/softpack/db"
 )
-
-const ReadMeTemplate = templatePath + "readme.tmpl"
 
 func (s *Server) CreateEnvironment(_ http.ResponseWriter, r *http.Request) error { //nolint:funlen
 	env, err := GetItemFromRequest[db.Environment](r)
@@ -60,14 +58,9 @@ type readmeInput struct {
 }
 
 func (s *Server) populateReadme(env *db.Environment) error {
-	temp, err := template.ParseGlob(ReadMeTemplate)
-	if err != nil {
-		return err
-	}
-
 	var buf bytes.Buffer
 
-	if err := temp.Execute(&buf, readmeInput{
+	if err := templates.ReadmeTemplate.Execute(&buf, readmeInput{
 		ModulePath:      s.config.ModulePath + env.Path,
 		SingularityPath: s.config.InstallDir + env.Path + "-scripts/singularity.sif",
 	}); err != nil {
