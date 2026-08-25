@@ -8,6 +8,7 @@ import (
 	"crypto/sha1" //nolint:gosec
 	"crypto/sha256"
 	"crypto/sha512"
+	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -21,8 +22,6 @@ import (
 	"strings"
 	"testing"
 	"time"
-
-	_ "embed"
 
 	"github.com/erikgeiser/ar"
 	"github.com/johannesboyne/gofakes3"
@@ -40,7 +39,7 @@ func BuildBase(t *testing.T) string {
 
 	p := filepath.Join(t.TempDir(), "test.sif")
 
-	assert.NoError(t, os.WriteFile(p, testSif, 0755))
+	assert.NoError(t, os.WriteFile(p, testSif, 0755)) //nolint:gosec,mnd
 
 	return p
 }
