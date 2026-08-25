@@ -95,11 +95,11 @@ HEREDOC
 
 	trap "rm -rf '$tmpDir'" EXIT;
 
-	for ver in 4.4.3 4.3.3 4.2.3 4.1.3; do
+	for ver in 4.6.1 4.5.3 4.4.3 4.3.3 4.2.3 4.1.3; do
 		wget "https://cdn.posit.co/r/ubuntu-2604/pkgs/r-${ver}_1_amd64.deb"
 		chmod 644 ./r-${ver}_1_amd64.deb;
 		apt install -y ./r-${ver}_1_amd64.deb;
-		/opt/R/$ver/bin/Rscript -e 'options(repos = c(CRAN = sprintf("https://packagemanager.posit.co/cran/latest/bin/linux/resolute-%s/%s", R.version["arch"], substr(getRversion(), 1, 3)))); install.packages("pak"); cmds <- pak::pkg_sysreqs("devtools")$install_scripts; ccmds <- gsub("r-(cran|bioc)-.*", "", cmds); system(ccmds); pak::pkg_install(c("devtools", "remotes", "jsonlite"))';
+		/opt/R/$ver/bin/Rscript -e 'options(repos = c(CRAN = sprintf("https://packagemanager.posit.co/cran/latest/bin/linux/resolute-%s/%s", R.version["arch"], substr(getRversion(), 1, 3)))); install.packages("pak"); cmds <- pak::pkg_sysreqs("devtools")$install_scripts; ccmds <- gsub("r-(cran|bioc)-.*", "", cmds); system(ccmds); pak::pkg_install(c("devtools", "remotes", "jsonlite", "BiocManager"))';
 	done;
 
 	apt-get clean;
