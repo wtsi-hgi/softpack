@@ -14,7 +14,7 @@ import (
 
 // Install builds an environment, installs the module file, and copies the build
 // artefacts to the given artefactBase location.
-func Install(c *config.Config, e db.Environment) (b *build.Artefacts, err error) {
+func Install(c config.Config, e *db.Environment) (b *build.Artefacts, err error) {
 	envVer := strconv.Itoa(e.Version)
 	installPath := filepath.Join(c.InstallDir, e.Path, e.Name, envVer+"-scripts")
 
@@ -43,6 +43,8 @@ func Install(c *config.Config, e db.Environment) (b *build.Artefacts, err error)
 	}); err != nil {
 		return arts, err
 	}
+
+	e.Readme = c.InstallDir
 
 	return arts, nil
 }
