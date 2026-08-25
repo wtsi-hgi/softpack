@@ -22,6 +22,8 @@ import (
 	"vimagination.zapto.org/httpbuffer"
 )
 
+const templatePath = "./backend/templates/"
+
 var (
 	ErrInvalidJSON   = errors.New("invalid json")
 	ErrDuplicateItem = errors.New("item to add already exists")

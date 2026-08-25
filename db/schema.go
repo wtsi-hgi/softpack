@@ -16,8 +16,6 @@ const (
 	Module
 )
 
-// Readme should only be set for non-softpack modules, for softpack modules it will
-// store the installDir so that the frontend can generate the README.md using it.
 type Environment struct {
 	ID            uint      `gorm:"primaryKey"                    json:"-"`
 	Name          string    `gorm:"not null;uniqueIndex:envIndex" json:"name"`
