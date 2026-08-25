@@ -19,7 +19,7 @@ func TestInstall(t *testing.T) {
 	artefactBase := t.TempDir()
 
 	c := &config.Config{
-		BaseImgPath:   apt.BuildBase,
+		BaseImgPath:   apt.BuildBase(t),
 		ModulePath:    moduleBase,
 		TempDir:       "",
 		InstallDir:    installBase,

@@ -44,7 +44,7 @@ func TestCommands(t *testing.T) {
 	dbConn := filepath.Join(t.TempDir(), "db")
 
 	err = yaml.NewEncoder(f).Encode(&config.Config{
-		BaseImgPath:   apt.BuildBase,
+		BaseImgPath:   apt.BuildBase(t),
 		ModulePath:    moduleBase,
 		TempDir:       "",
 		InstallDir:    installBase,
