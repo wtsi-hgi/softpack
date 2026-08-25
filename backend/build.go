@@ -33,7 +33,7 @@ func (s *Server) buildEnv(env *db.Environment) {
 
 	slog.Debug("starting build", "env", env.Name, "time", env.BuildStart)
 
-	artefacts, err = install.Install(s.config, *env)
+	artefacts, err = install.Install(*s.config, env)
 	if err != nil {
 		slog.Error("Install failure", "env", env, "error", err, "log", artefacts.Log)
 

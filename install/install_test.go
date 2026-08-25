@@ -45,7 +45,7 @@ func TestInstall(t *testing.T) {
 		},
 	}
 
-	arts, err := Install(c, e)
+	arts, err := Install(*c, &e)
 	assert.NoError(t, err)
 
 	assert.Equal(t, arts.Exes, []string{"R", "Rscript", "abc"})
