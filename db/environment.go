@@ -155,23 +155,23 @@ func (db *DB) AddEnvironmentTag(ctx context.Context, u UpdateValue[Tag]) error {
 }
 
 func (db *DB) DeleteEnvironmentTag(ctx context.Context, u UpdateValue[Tag]) error {
-	var env Environment
-	if err := db.WithContext(ctx).Where(&Environment{
-		Name:    u.Name,
-		Path:    u.Path,
-		Version: u.Version,
-	}).First(&env).Error; err != nil {
-		return err
-	}
-
-	var tag Tag
-	if err := db.WithContext(ctx).Where(&Tag{
-		Name: u.Value.Name,
-	}).First(&tag).Error; err != nil {
-		return err
-	}
-
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var env Environment
+		if err := tx.WithContext(ctx).Where(&Environment{
+			Name:    u.Name,
+			Path:    u.Path,
+			Version: u.Version,
+		}).First(&env).Error; err != nil {
+			return err
+		}
+
+		var tag Tag
+		if err := tx.WithContext(ctx).Where(&Tag{
+			Name: u.Value.Name,
+		}).First(&tag).Error; err != nil {
+			return err
+		}
+
 		if err := tx.WithContext(ctx).Model(&env).Association("Tags").Delete(&tag); err != nil {
 			return err
 		}
@@ -210,26 +210,28 @@ type FulfilRequestBody struct {
 // FulfilEnvPackage will update an environment's package information to match a newly
 // fulfilled request for a package that it relies on.
 func (db *DB) FulfilEnvPackage(ctx context.Context, u UpdateValue[FulfilRequestBody]) error {
-	var env Environment
+	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var env Environment
 
-	if err := db.WithContext(ctx).Where(&Environment{
-		Name:    u.Name,
-		Path:    u.Path,
-		Version: u.Version,
-	}).First(&env).Error; err != nil {
-		return err
-	}
-
-	for n, pkg := range env.Packages {
-		if CheckPkgEqual(pkg, u.Value.RecipeRequest) {
-			env.Packages[n].Name = u.Value.CanonicalName
-			env.Packages[n].Version = u.Value.CanonicalVersion
-
-			break
+		if err := tx.WithContext(ctx).Where(&Environment{
+			Name:    u.Name,
+			Path:    u.Path,
+			Version: u.Version,
+		}).First(&env).Error; err != nil {
+			return err
 		}
-	}
 
-	return db.WithContext(ctx).Save(&env).Error
+		for n, pkg := range env.Packages {
+			if CheckPkgEqual(pkg, u.Value.RecipeRequest) {
+				env.Packages[n].Name = u.Value.CanonicalName
+				env.Packages[n].Version = u.Value.CanonicalVersion
+
+				break
+			}
+		}
+
+		return tx.WithContext(ctx).Save(&env).Error
+	})
 }
 
 func getNextEnvVersion(ctx context.Context, tx *gorm.DB, name, path string) (int, error) {
