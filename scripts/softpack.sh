@@ -44,10 +44,13 @@ runContainer() {
 	declare slTemp="$(mktemp -d)";
 	trap "rm -rf ${slTemp@Q}" EXIT;
 
+	export TMP="$(mktemp -d)";
+	trap "rm -rf ${TMP@Q}" EXIT;
+
 	cat "$script" | if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/" softpack.sif -- "$@";
+		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" softpack.sif -- "$@";
 	else
-		singularity shell --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/" softpack.sif -- "$@";
+		singularity shell --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" softpack.sif -- "$@";
 	fi;
 }
 
@@ -55,10 +58,13 @@ runShell() {
 	declare slTemp="$(mktemp -d)";
 	trap "rm -rf ${slTemp@Q}" EXIT;
 
+	export TMP="$(mktemp -d)";
+	trap "rm -rf ${TMP@Q}" EXIT;
+
 	if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/" softpack.sif;
+		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" softpack.sif;
 	else
-		singularity shell --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/" softpack.sif;
+		singularity shell --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" softpack.sif;
 	fi;
 }
 
@@ -66,4 +72,4 @@ runShell() {
 
 declare parts=( $(ls -I "*.sh" -I "*.sif" -I "*.def") );
 
-files global.sh "${parts[@]}";
+commands global.sh "${parts[@]}";
