@@ -22,6 +22,8 @@ import (
 	"testing"
 	"time"
 
+	_ "embed"
+
 	"github.com/erikgeiser/ar"
 	"github.com/johannesboyne/gofakes3"
 	"github.com/johannesboyne/gofakes3/backend/s3afero"
@@ -29,8 +31,19 @@ import (
 	"vimagination.zapto.org/rwcount"
 )
 
+//go:embed test.sif
+var testSif []byte
+
 // BuildBase is the ubuntu docker container used for testing.
-const BuildBase = "docker://ubuntu:resolute-20260413"
+func BuildBase(t *testing.T) string {
+	t.Helper()
+
+	p := filepath.Join(t.TempDir(), "test.sif")
+
+	assert.NoError(t, os.WriteFile(p, testSif, 0755))
+
+	return p
+}
 
 // SkipIfBadEnvironment will skip remaining tests if the environment does not
 // contain singularity and mksquashfs.

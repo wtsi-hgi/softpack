@@ -21,7 +21,7 @@ func TestBuild(t *testing.T) {
 
 	t.Log("Build using FS source")
 
-	arts, err := Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", root, []db.Package{
+	arts, err := Build(apt.BuildBase(t), t.TempDir(), install, "some-wrapper", root, []db.Package{
 		{Name: "abc"}, //nolint:goconst
 	})
 	assert.NoError(t, err)
@@ -37,7 +37,7 @@ func TestBuild(t *testing.T) {
 
 	install = t.TempDir()
 
-	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", srv.URL, []db.Package{
+	arts, err = Build(apt.BuildBase(t), t.TempDir(), install, "some-wrapper", srv.URL, []db.Package{
 		{Name: "r-lib"},
 		{Name: "abc", Version: "1"},
 	})
@@ -58,7 +58,7 @@ func TestBuild(t *testing.T) {
 	s := apt.MockS3Server(t, apt.ExamplePackages())
 	defer s.Close()
 
-	arts, err = Build(apt.BuildBase, t.TempDir(), install, "some-wrapper", "s3://apt", []db.Package{
+	arts, err = Build(apt.BuildBase(t), t.TempDir(), install, "some-wrapper", "s3://apt", []db.Package{
 		{Name: "py-xyz"},
 	})
 	assert.NoError(t, err)

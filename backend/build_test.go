@@ -22,7 +22,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 	backend, err := New(&config.Config{
 		AptSrc:        src,
 		AptIndexSrc:   filepath.Join(src, "dists", "resolute", "main", "binary-"+runtime.GOARCH, "Packages"),
-		BaseImgPath:   apt.BuildBase,
+		BaseImgPath:   apt.BuildBase(t),
 		InstallDir:    t.TempDir(),
 		WrapperScript: "capy",
 		ModulePath:    t.TempDir(),

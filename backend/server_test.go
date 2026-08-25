@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"path/filepath"
@@ -16,6 +17,10 @@ import (
 	"github.com/wtsi-hgi/softpack/db"
 	"github.com/wtsi-hgi/softpack/internal/apt"
 )
+
+func init() { //nolint:gochecknoinits
+	slog.SetDefault(slog.New(slog.DiscardHandler))
+}
 
 func TestServer(t *testing.T) {
 	conn := filepath.Join(t.TempDir(), "db")
@@ -131,7 +136,7 @@ func newBackend(t *testing.T, dbConn string) *Server {
 	}
 
 	backend, err := New(&config.Config{
-		BaseImgPath:   apt.BuildBase,
+		BaseImgPath:   apt.BuildBase(t),
 		ModulePath:    moduleBase,
 		TempDir:       "",
 		InstallDir:    installBase,
