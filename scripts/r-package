@@ -5,7 +5,9 @@
 
 declare json="$(xvfb-run -a /opt/R/$R/bin/Rscript <(
 	cat <<HEREDOC
-options(repos = c(CRAN = sprintf("https://packagemanager.posit.co/cran/latest/bin/linux/resolute-%s/%s", R.version["arch"], substr(getRversion(), 1, 3))));
+repos <- BiocManager::repositories()
+repos["CRAN"] = sprintf("https://packagemanager.posit.co/cran/latest/bin/linux/resolute-%s/%s", R.version["arch"], substr(getRversion(), 1, 3));
+options(repos = repos);
 pak::pkg_install("$name@$version", lib = "/usr/lib/R/site-library", dependencies = NA, upgrade = TRUE);
 installed_pkgs <- pak::pkg_list(lib = "/usr/lib/R/site-library");
 
@@ -45,6 +47,9 @@ for (inst in 1:nrow(installed_pkgs)) {
 			if (nchar(op) > 0) {
 				if (op == "<") {
 					op <- "<<";
+				}
+				if (op == ">") {
+					op <- ">>";
 				}
 
 				line <- paste0(line, " (", op, required\$version[i], ")");
