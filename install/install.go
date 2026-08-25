@@ -44,7 +44,5 @@ func Install(c *config.Config, e db.Environment) (b *build.Artefacts, err error)
 		return arts, err
 	}
 
-	e.Readme = c.InstallDir
-
 	return arts, nil
 }
