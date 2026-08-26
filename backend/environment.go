@@ -1,11 +1,11 @@
 package backend
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"net/http"
 	"slices"
+	"strings"
 
 	"github.com/wtsi-hgi/softpack/apt"
 	"github.com/wtsi-hgi/softpack/backend/templates"
@@ -58,7 +58,7 @@ type readmeInput struct {
 }
 
 func (s *Server) populateReadme(env *db.Environment) error {
-	var buf bytes.Buffer
+	var buf strings.Builder
 
 	if err := templates.ReadmeTemplate.Execute(&buf, readmeInput{
 		ModulePath:      s.config.ModulePath + env.Path,
