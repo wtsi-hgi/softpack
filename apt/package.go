@@ -1,0 +1,131 @@
+package apt
+
+import (
+	"errors"
+	"log/slog"
+	"slices"
+	"strings"
+	"sync"
+	"time"
+
+	"github.com/wtsi-hgi/softpack/db"
+)
+
+var ErrInvalidPackage = errors.New("package matching index not found")
+
+type Package struct {
+	Name        string   `json:"name"`
+	Description string   `json:"-"`
+	Versions    []string `json:"versions"`
+}
+
+type Server struct {
+	mu       sync.RWMutex
+	packages []Package
+	aliases  map[string]string
+}
+
+func New(packagesURL string, updateInterval time.Duration) (*Server, error) {
+	pkgs, aliases, err := readIndex(packagesURL)
+	if err != nil {
+		return nil, err
+	}
+
+	s := &Server{
+		packages: pkgs,
+		aliases:  aliases,
+	}
+
+	if updateInterval > 0 {
+		go s.update(packagesURL, updateInterval)
+	}
+
+	return s, nil
+}
+
+func (s *Server) update(packagesURL string, updateInterval time.Duration) {
+	for {
+		time.Sleep(updateInterval)
+
+		pkgs, aliases, err := readIndex(packagesURL)
+		if err != nil {
+			slog.Error("error updating package list", "err", err)
+
+			continue
+		}
+
+		s.mu.Lock()
+		s.packages = pkgs
+		s.aliases = aliases
+		s.mu.Unlock()
+	}
+}
+
+func (s *Server) GetAllPackages() []Package {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	return s.packages
+}
+
+func (s *Server) GetRecipeDescription(pkg string) (string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	pos, ok := slices.BinarySearchFunc(s.packages, Package{Name: pkg}, func(a, b Package) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+
+	if !ok {
+		return "", ErrInvalidPackage
+	}
+
+	return s.packages[pos].Description, nil
+}
+
+func (s *Server) CheckPackagesExist(pkgs []db.Package) bool {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	for _, pkg := range pkgs {
+		pkg.Name = strings.TrimPrefix(pkg.Name, "*")
+
+		if exists := s.CheckPackageExists(pkg); !exists {
+			return exists
+		}
+	}
+
+	return true
+}
+
+func (s *Server) Alias(pkg string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	name, ver, hasVer := strings.Cut(pkg, "@")
+
+	if alias, ok := s.aliases[name]; ok {
+		if hasVer {
+			return alias + "@" + ver
+		}
+
+		return alias
+	}
+
+	return pkg
+}
+
+func (s *Server) CheckPackageExists(pkg db.Package) bool {
+	for _, aptpkg := range s.packages {
+		if CheckPkgEqual(pkg, aptpkg) {
+			return true
+		}
+	}
+
+	return false
+}
+
+func CheckPkgEqual(dbpkg db.Package, aptpkg Package) bool {
+	return dbpkg.Name == aptpkg.Name &&
+		slices.Contains(aptpkg.Versions, dbpkg.Version)
+}

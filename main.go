@@ -1,3 +1,7 @@
 package main
 
-func main() {}
+import "github.com/wtsi-hgi/softpack/cmd"
+
+func main() {
+	cmd.Execute()
+}

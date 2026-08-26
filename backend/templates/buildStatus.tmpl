@@ -1,0 +1,14 @@
+Subject: {{ if .Success }}Your SoftPack environment is ready!{{ else }}Your SoftPack environment failed to build.{{ end }}{{"\r"}}
+{{"\r"}}
+Hi {{ .Username }},
+
+Your environment, {{ .Path }} has{{if .Success}} built successfully.{{ else }} failed to build.{{ end }}
+
+{{- if not .Success }}
+    {{- if .BuildError }}
+The error was a build error. Please contact your SoftPack administrator.
+    {{- else }}
+The error was a version conflict. Try relaxing which versions you've specified.
+    {{- end }}
+{{ end }}
+SoftPack Team
