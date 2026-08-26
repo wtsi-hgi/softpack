@@ -22,7 +22,6 @@ while read file; do
 done < <(ls -f);
 
 declare tmpDir="$(mktemp -d)/";
-trap "rm -rf $tmpDir" EXIT;
 
 cd "$tmpDir";
 
@@ -34,7 +33,7 @@ while read file; do
 done < <(curl "https://r2u.stat.illinois.edu/ubuntu/pool/dists/resolute/main/" 2> /dev/null | grep ".deb" | cut -d'"' -f2 | grep -v "arm64.deb");
 
 if ls -1q * &> /dev/null; then
-	downloadDeps "$tmpDir/apt/" ./*.deb;
+	downloadDeps "$tmpDir/" ./*.deb;
 	installDebs "$tmpDir";
 fi;
 
