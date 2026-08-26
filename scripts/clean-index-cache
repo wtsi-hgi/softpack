@@ -5,7 +5,6 @@ cd /repo/;
 [ ! -f "apt.cache" ] && exit 0;
 
 declare tmpDir="$(mktemp -d)/";
-trap "rm -rf $tmpDir" EXIT;
 
 aptConf "$tmpDir" > "$tmpDir/apt.conf";
 
