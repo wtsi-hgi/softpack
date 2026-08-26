@@ -29,7 +29,6 @@ setMetadata() {
 	shift;
 
 	declare tmpDir="$(mktemp -d)";
-	trap "rm -rf ${tmpDir@Q}" EXIT;
 
 	dpkg-deb -e "$file" "$tmpDir";
 
@@ -39,10 +38,12 @@ setMetadata() {
 
 		shift 2;
 
-		if grep -q "^$key: " "$tmpDir/control"; then
+		if [ -z "$value" ]; then
+			sed -i "/^$key: /d" "$tmpDir/control";
+		elif grep -q "^$key: " "$tmpDir/control"; then
 			sed -i "s/^$key: .*/$key: $value/" "$tmpDir/control";
 		else
-			echo "$key: $value"  >> "$tmpDir/control";
+			echo "$key: $value" >> "$tmpDir/control";
 		fi;
 	done;
 
@@ -70,7 +71,7 @@ packageControl() {
 setExecutables() {
 	declare file="$1";
 
-	declare exes=( $(dpkg -c "$file" | grep "^[^d][^ ]*x" | grep " ./(usr/local/bin/\|usr/bin/\|bin/)" | sed -e 's@.*/\([^ ]*\)\( -> .*\)\?$@\1@' | sort | uniq) );
+	declare exes=( $(dpkg -c "$file" | grep "^[^d][^ ]*x" | grep " ./\(usr/local/bin/\|usr/bin/\|bin/\)" | sed -e 's@.*/\([^ ]*\)\( -> .*\)\?$@\1@' | sort | uniq) );
 
 	if [ ${#exes[@]} -eq 0 ]; then
 		return;
@@ -88,7 +89,6 @@ downloadDeps() {
 	shift;
 
 	declare tmpDir="$(mktemp -d)";
-	trap "rm -rf ${tmpDir@Q}" EXIT;
 
 	mkdir -p "$tmpDir/etc/apt/preferences.d" "$tmpDir/etc/apt/sources.list.d" "$tmpDir/var/lib/apt/lists/partial" "$tmpDir/var/cache/apt/archives/partial" "$tmpDir/var/lib/dpkg" "/$tmpDir/debs";
 	#cp /var/lib/dpkg/status "$tmpDir/var/lib/dpkg/status";
@@ -135,7 +135,6 @@ patchUCF() {
 	declare ucfDeb="$1";
 
 	declare tmpDir="$(mktemp -d)";
-	trap "rm -rf ${tmpDir@Q}" EXIT;
 
 	dpkg-deb -R "$ucfDeb" "$tmpDir";
 	sed -i '2i id() { echo 0; }' "$tmpDir/usr/bin/ucf";
@@ -147,10 +146,27 @@ patchSystemd() {
 	declare deb="$1";
 
 	declare tmpDir="$(mktemp -d)";
-	trap "rm -rf ${tmpDir@Q}" EXIT;
 
 	dpkg-deb -R "$deb" "$tmpDir";
 	echo "#!/bin/bash" > "$tmpDir/usr/bin/systemd-sysusers";
+	dpkg-deb --root-owner-group -b "$tmpDir" "$deb";
+}
+
+addRSymlinkIfOpt() {
+	declare deb="$1";
+
+	declare tmpDir="$(mktemp -d)";
+
+	dpkg-deb -R "$deb" "$tmpDir";
+
+	if [ ! -d "$tmpDir/opt" ]; then
+		return;
+	fi;
+
+	mkdir -p "$tmpDir/usr/local/bin";
+	ln -s "/opt/R/$(basename "$tmpDir/opt/R/"*)/bin/R" "$tmpDir/usr/local/bin/R";
+	ln -s "/opt/R/$(basename "$tmpDir/opt/R/"*)/bin/Rscript" "$tmpDir/usr/local/bin/Rscript";
+
 	dpkg-deb --root-owner-group -b "$tmpDir" "$deb";
 }
 
@@ -158,14 +174,7 @@ fixR() {
 	declare file="$1";
 	declare alias="$2";
 
-	declare provides="$(dpkg-deb -f "$file" Provides)";
-
-	if [ -n "$provides" ]; then
-		provides=", $provides";
-	fi;
-
 	setMetadata "$file" \
-		"Provides" "$alias (=$(dpkg-deb -f "$file" Version))$provides" \
 		"XB-Alias" "$alias" \
 		"XB-Softpack" "true";
 }
@@ -185,17 +194,18 @@ installDebs() {
 		       continue;
 		fi;
 
-		setExecutables "$file";
-
 		if [ "${file:0:4}" = "ucf_" ]; then
 			patchUCF "$file";
 		elif [ "${file:0:8}" = "systemd_" ]; then
 			patchSystemd "$file";
 		elif [ "${file:0:12}" = "r-base-core_" ]; then
+			addRSymlinkIfOpt "$file";
 			fixR "$file" "r";
 		elif [ "${file:0:7}" = "r-cran-" -o "${file:0:7}" = "r-bioc-" ]; then
 			fixR "$file" "$(sed -e 's/^r-\(bioc\|cran\)-\([^_]*\)_.*/r-\2/' -e 's/\./-/g' <<< "$file")";
 		fi;
+
+		setExecutables "$file";
 
 		mv -v "$file" "$BASE/$l/";
 	done;
