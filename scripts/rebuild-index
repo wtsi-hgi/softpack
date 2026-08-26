@@ -4,8 +4,6 @@ cd /repo/;
 
 declare tmpDir="$(mktemp -d)/";
 
-trap "rm -rf $tmpDir" EXIT;
-
 aptConf "$tmpDir" > "$tmpDir/apt.conf";
 
 [ -f "apt.cache" ] && cp apt.cache "$tmpDir";
