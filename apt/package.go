@@ -22,16 +22,18 @@ type Package struct {
 type Server struct {
 	mu       sync.RWMutex
 	packages []Package
+	aliases  map[string]string
 }
 
 func New(packagesURL string, updateInterval time.Duration) (*Server, error) {
-	pkgs, err := readIndex(packagesURL)
+	pkgs, aliases, err := readIndex(packagesURL)
 	if err != nil {
 		return nil, err
 	}
 
 	s := &Server{
 		packages: pkgs,
+		aliases:  aliases,
 	}
 
 	if updateInterval > 0 {
@@ -45,7 +47,7 @@ func (s *Server) update(packagesURL string, updateInterval time.Duration) {
 	for {
 		time.Sleep(updateInterval)
 
-		pkgs, err := readIndex(packagesURL)
+		pkgs, aliases, err := readIndex(packagesURL)
 		if err != nil {
 			slog.Error("error updating package list", "err", err)
 
@@ -54,6 +56,7 @@ func (s *Server) update(packagesURL string, updateInterval time.Duration) {
 
 		s.mu.Lock()
 		s.packages = pkgs
+		s.aliases = aliases
 		s.mu.Unlock()
 	}
 }
@@ -93,6 +96,23 @@ func (s *Server) CheckPackagesExist(pkgs []db.Package) bool {
 	}
 
 	return true
+}
+
+func (s *Server) Alias(pkg string) string {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+
+	name, ver, hasVer := strings.Cut(pkg, "@")
+
+	if alias, ok := s.aliases[name]; ok {
+		if hasVer {
+			return alias + "@" + ver
+		}
+
+		return alias
+	}
+
+	return pkg
 }
 
 func (s *Server) CheckPackageExists(pkg db.Package) bool {

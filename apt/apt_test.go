@@ -30,11 +30,12 @@ Filename: pool/main/r/r-ggplot2-1.2.3.deb
 XB-Softpack: true
 Description: ggplot library
 
-Package: r-ggplot2
+Package: r-cran-ggplot2
 Architecture: amd64
 Version: 1.2.4
 Filename: pool/main/r/r-ggplot2-1.2.4.deb
 XB-Softpack: true
+XB-Alias: r-ggplot2
 Description: ggplot library
 
 Package: system-lib
@@ -65,6 +66,7 @@ func TestReadIndex(t *testing.T) {
 			Versions:    []string{"1.2.3", "1.2.4"},
 		},
 	}
+	aliases := map[string]string{"py-torch": "py-other", "r-ggplot2": "r-cran-ggplot2"}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, testPackages) //nolint:errcheck
@@ -82,14 +84,16 @@ func TestReadIndex(t *testing.T) {
 	assert.NoError(t, g.Close())
 	assert.NoError(t, f.Close())
 
-	httpResult, err := readIndex(srv.URL)
+	httpResult, httpAliases, err := readIndex(srv.URL)
 	assert.NoError(t, err)
 
-	fileResult, err := readIndex(filePath)
+	fileResult, fileAliases, err := readIndex(filePath)
 	assert.NoError(t, err)
 
 	assert.Equal(t, httpResult, expectations)
 	assert.Equal(t, fileResult, expectations)
+	assert.Equal(t, httpAliases, aliases)
+	assert.Equal(t, fileAliases, aliases)
 }
 
 func TestReadS3(t *testing.T) {
@@ -122,17 +126,17 @@ func TestReadS3(t *testing.T) {
 	s := apt.MockS3Server(t, packages)
 	defer s.Close()
 
-	dists := path.Join("s3://apt", "dists", "resolute", "main", "binary-"+runtime.GOARCH, "Packages")
+	dists := "s3://" + path.Join("apt", "dists", "resolute", "main", "binary-"+runtime.GOARCH, "Packages")
 
-	pkgs, err := readS3Index(dists)
+	pkgs, _, err := readIndex(dists)
 	assert.NoError(t, err)
 	assert.Equal(t, []Package{
-		Package{
+		{
 			Name:        "package",
 			Description: "desc1",
 			Versions:    []string{"1", "6"},
 		},
-		Package{
+		{
 			Name:        "package2",
 			Description: "",
 			Versions:    []string{"7"},
