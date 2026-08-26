@@ -107,3 +107,15 @@ func TestCheckPkgsExist(t *testing.T) {
 	assert.True(t, s.CheckPackageExists(expected))
 	assert.True(t, s.CheckPackagesExist([]db.Package{expected}))
 }
+
+func TestAlias(t *testing.T) {
+	s := Server{aliases: map[string]string{
+		"pkg":   "real-package",
+		"other": "other-package",
+	}}
+
+	assert.Equal(t, "real-package", s.Alias("pkg"))
+	assert.Equal(t, "other-package@version", s.Alias("other@version"))
+	assert.Equal(t, "not-a-package", s.Alias("not-a-package"))
+	assert.Equal(t, "not-a-package@version", s.Alias("not-a-package@version"))
+}

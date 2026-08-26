@@ -6,6 +6,7 @@ import (
 	"gorm.io/driver/mysql"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
+	"gorm.io/gorm/logger"
 )
 
 var (
@@ -24,11 +25,15 @@ func Connect(driver, connection string) (*DB, error) {
 		err error
 	)
 
+	config := &gorm.Config{
+		Logger: logger.Default.LogMode(logger.Error),
+	}
+
 	switch driver {
 	case "sqlite", "sqlite3":
-		db, err = gorm.Open(sqlite.Open(connection), &gorm.Config{})
+		db, err = gorm.Open(sqlite.Open(connection), config)
 	case "mysql":
-		db, err = gorm.Open(mysql.Open(connection), &gorm.Config{})
+		db, err = gorm.Open(mysql.Open(connection), config)
 	default:
 		return nil, ErrUnsupportedDriver
 	}

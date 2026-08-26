@@ -8,7 +8,6 @@ import (
 	"crypto/sha1" //nolint:gosec
 	"crypto/sha256"
 	"crypto/sha512"
-	_ "embed"
 	"errors"
 	"fmt"
 	"io"
@@ -29,9 +28,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"vimagination.zapto.org/rwcount"
 )
-
-//go:embed test.sif
-var testSif []byte
 
 // BuildBase is the ubuntu docker container used for testing.
 func BuildBase(t *testing.T) string {

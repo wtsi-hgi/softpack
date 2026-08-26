@@ -28,8 +28,8 @@ func (s *Server) buildEnv(env *db.Environment) {
 
 	defer s.deferred(env, &err, artefacts)
 
-	env.BuildStart = time.Now().Unix()
-	s.setEnvBuildTime(env, env.BuildStart, true)
+	s.setEnvBuildStart(env)
+	s.replacePackageAliases(env.Packages)
 
 	slog.Debug("starting build", "env", env.Name, "time", env.BuildStart)
 
@@ -46,11 +46,14 @@ func (s *Server) buildEnv(env *db.Environment) {
 		return
 	}
 
-	slog.Debug("build finished", "env", env.Name, "time", env.BuildStart)
+	s.setEnvBuildEnd(env)
+	slog.Debug("build finished", "env", env.Name, "start", env.BuildStart, "end", env.BuildEnd)
+}
 
-	env.BuildEnd = time.Now().Unix()
-	s.updateEnvStatus(env, db.Concretised)
-	s.setEnvBuildTime(env, env.BuildEnd, false)
+func (s *Server) replacePackageAliases(pkgs []db.Package) {
+	for pkg := range pkgs {
+		pkgs[pkg].Name = s.apt.Alias(pkgs[pkg].Name)
+	}
 }
 
 func (s *Server) deferred(env *db.Environment, err *error, a *build.Artefacts) {
@@ -98,13 +101,28 @@ func (s *Server) setEnvFailed(env *db.Environment, err error, log string) {
 	}
 }
 
-func (s *Server) setEnvBuildTime(env *db.Environment, time int64, start bool) {
+func (s *Server) setEnvBuildStart(env *db.Environment) {
+	env.BuildStart = time.Now().Unix()
+
 	if err := s.db.SetEnvBuildTime(context.Background(), db.UpdateValue[int64]{
 		EnvironmentIndex: env.ToIndex(),
-		Value:            time,
-	}, start); err != nil {
-		slog.Error("Failure setting BuildEnd time for env", "env", env, "start", start)
+		Value:            env.BuildStart,
+	}, true); err != nil {
+		slog.Error("Failure setting BuildEnd start time for env", "env", env)
 	}
+}
+
+func (s *Server) setEnvBuildEnd(env *db.Environment) {
+	env.BuildEnd = time.Now().Unix()
+
+	if err := s.db.SetEnvBuildTime(context.Background(), db.UpdateValue[int64]{
+		EnvironmentIndex: env.ToIndex(),
+		Value:            env.BuildEnd,
+	}, false); err != nil {
+		slog.Error("Failure setting BuildEnd end time for env", "env", env)
+	}
+
+	s.updateEnvStatus(env, db.Concretised)
 }
 
 func (s *Server) GetAverageBuildTime(w http.ResponseWriter, _ *http.Request) error {
