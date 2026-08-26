@@ -42,10 +42,8 @@ runContainer() {
 	shift;
 
 	declare slTemp="$(mktemp -d)";
-	trap "rm -rf ${slTemp@Q}" EXIT;
-
 	export TMP="$(mktemp -d)";
-	trap "rm -rf ${TMP@Q}" EXIT;
+	trap "rm -rf ${slTemp@Q}; rm -rf ${TMP@Q}" EXIT;
 
 	cat "$script" | if [ "${aptRepo:0:5}" = "s3://" ]; then
 		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" softpack.sif -- "$@";
@@ -56,10 +54,8 @@ runContainer() {
 
 runShell() {
 	declare slTemp="$(mktemp -d)";
-	trap "rm -rf ${slTemp@Q}" EXIT;
-
 	export TMP="$(mktemp -d)";
-	trap "rm -rf ${TMP@Q}" EXIT;
+	trap "rm -rf ${slTemp@Q}; rm -rf ${TMP@Q}" EXIT;
 
 	if [ "${aptRepo:0:5}" = "s3://" ]; then
 		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" softpack.sif;
