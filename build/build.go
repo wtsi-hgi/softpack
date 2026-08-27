@@ -178,7 +178,12 @@ func installPackages(log *strings.Builder, root string, pkgs []db.Package) ([]st
 	if err := cmp.Or(
 		aptWithLog(log, root, "update"),
 		aptWithLog(log, root, append(
-			[]string{"-y", "-o", "DPkg::Options::=--force-not-root", "install"},
+			[]string{
+				"-y",
+				"-o", "DPkg::Options::=--force-not-root",
+				"--allow-downgrades", "--allow-change-held-packages",
+				"--allow-remove-essential", "--no-strict-pinning",
+				"install"},
 			packages...,
 		)...),
 		os.RemoveAll(filepath.Join(root, "var", "cache", "apt")),
@@ -244,17 +249,15 @@ func getExecutablesAndConcretise(pkgs []db.Package, installed []control.BinaryIn
 	exes := map[string]struct{}{}
 
 	for _, deb := range installed {
-		debName := deb.Package
-
-		if alias, ok := deb.Values["XB-Alias"]; ok {
-			debName = alias
-		}
-
 		idx := slices.IndexFunc(pkgs, func(v db.Package) bool {
-			return v.Name == debName
+			return v.Name == deb.Package
 		})
 		if idx < 0 {
 			continue
+		}
+
+		if alias, ok := deb.Values["XB-Alias"]; ok {
+			pkgs[idx].Name = alias
 		}
 
 		pkgs[idx].Version = deb.Version.Version
@@ -294,11 +297,11 @@ func addInterpreters(pkgs []db.Package) []db.Package { //nolint:gocognit,gocyclo
 	}
 
 	if hasPy && !hasPython {
-		pkgs = append(pkgs, db.Package{Name: "python", Interpreter: true})
+		pkgs = append(pkgs, db.Package{Name: "python3", Interpreter: true})
 	}
 
 	if hasRLib && !hasR {
-		pkgs = append(pkgs, db.Package{Name: "r", Interpreter: true})
+		pkgs = append(pkgs, db.Package{Name: "r-base-core", Interpreter: true})
 	}
 
 	return pkgs
