@@ -76,43 +76,31 @@ func generateEnvs(matches []string, root string) ([]db.Environment, error) {
 	return envs, nil
 }
 
-func createEnvFromDir(root, path string) (*db.Environment, error) { //nolint:funlen
-	_, files, err := readDir(path)
+func createEnvFromDir(root, path string) (*db.Environment, error) {
+	files, err := readDir(path)
 	if err != nil {
 		return nil, err
 	}
 
 	env := getEnvIndex(root, path)
+	env.Type = db.Module
 
 	if slices.Contains(files, ".built_by_softpack") {
 		env.Type = db.Softpack
-	} else {
-		env.Type = db.Module
 	}
 
 	populateRequester(env, path)
 
-	if slices.Contains(files, "softpack.yml") {
-		if err := populateEnvFromSoftpackYML(env, path); err != nil {
-			return nil, err
-		}
-	}
-
-	if slices.Contains(files, "meta.yml") {
-		if err := populateEnvFromMetaYML(env, path); err != nil {
-			return nil, err
-		}
-	}
-
-	if slices.Contains(files, "README.md") {
-		if err := populateEnvReadMe(env, path); err != nil {
-			return nil, err
-		}
-	}
-
-	if slices.Contains(files, "spack.lock") {
-		if err := collectInterpreters(env, path); err != nil {
-			return nil, err
+	for file, handler := range map[string]func(*db.Environment, string) error{
+		"softpack.yml": populateEnvFromSoftpackYML,
+		"meta.yml":     populateEnvFromMetaYML,
+		"README.md":    populateEnvReadMe,
+		"spack.lock":   collectInterpreters,
+	} {
+		if slices.Contains(files, file) {
+			if err := handler(env, path); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -121,10 +109,10 @@ func createEnvFromDir(root, path string) (*db.Environment, error) { //nolint:fun
 	return env, nil
 }
 
-func readDir(path string) ([]os.DirEntry, []string, error) {
+func readDir(path string) ([]string, error) {
 	dirEntry, err := os.ReadDir(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	var files []string
@@ -132,13 +120,13 @@ func readDir(path string) ([]os.DirEntry, []string, error) {
 	for _, item := range dirEntry {
 		info, err := item.Info()
 		if err != nil {
-			return nil, nil, err
+			return nil, err
 		}
 
 		files = append(files, info.Name())
 	}
 
-	return dirEntry, files, nil
+	return files, nil
 }
 
 func getEnvIndex(root, path string) *db.Environment {
@@ -203,7 +191,7 @@ func populateStatus(env *db.Environment, files []string) {
 		}
 	}
 
-	env.Status = db.Failed // TODO: I dont like assuming this
+	env.Status = db.Failed
 }
 
 func populateRequester(env *db.Environment, path string) {
@@ -244,10 +232,15 @@ func populateEnvFromSoftpackYML(env *db.Environment, path string) error {
 	}
 
 	env.Description = contents.Description
+	env.Packages = parsePackages(contents.Packages)
 
-	var pkgs []db.Package
+	return nil
+}
 
-	for _, pkg := range contents.Packages {
+func parsePackages(packages []string) []db.Package {
+	pkgs := make([]db.Package, 0, len(packages))
+
+	for _, pkg := range packages {
 		parts := strings.Split(pkg, "@")
 
 		version := ""
@@ -258,13 +251,10 @@ func populateEnvFromSoftpackYML(env *db.Environment, path string) error {
 		pkgs = append(pkgs, db.Package{
 			Name:    parts[0],
 			Version: version,
-			// TODO: Interpreter??
 		})
 	}
 
-	env.Packages = pkgs
-
-	return nil
+	return pkgs
 }
 
 type metaYML struct {
