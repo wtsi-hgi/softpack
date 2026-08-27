@@ -102,7 +102,7 @@ while read -r -d '' package && read -r -d '' version && read -r -d '' depends &&
 
 	cat <<-HEREDOC > "$tempDir/DEBIAN/control"
 	Package: r-$type-${package,,}
-	Version: $version~r$R
+	Version: $version-r$R
 	Architecture: amd64
 	Maintainer: hgi
 	Depends: $depends
@@ -114,7 +114,7 @@ while read -r -d '' package && read -r -d '' version && read -r -d '' depends &&
 	rm -rf "$tempDir/usr/lib/R/site-library";
 done < <(jq -j 'to_entries[] | (.key, .value.version, .value.depends, .value.description, .value.repository, .value.remoterepos) | "\(.)\u0000"' <<<"$json");
 
-downloadDeps "$debs" "$debs"/*.deb;
+downloadDeps "$debs";
 installDebs "$debs";
 
 # vim: set filetype=sh :
