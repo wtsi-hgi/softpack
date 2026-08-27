@@ -18,37 +18,44 @@ import (
 var (
 	ErrArgs           = errors.New("invalid args number")
 	ErrInvalidVersion = errors.New("invalid version")
+
+	ArtifactRootPath string
+	DatabasePath     string
+	Driver           string
 )
 
 var importCmd = &cobra.Command{
-	Use:   "import <artifactRootPath> [databasePath]",
+	Use:   "import <artifactRootPath> [databasePath] [driver]",
 	Short: "Import softpack git repo artefacts to database",
 	Long: `Import softpack git repo artefacts to database.
 	
-Provide the path to the root of the artefacts repo, and optionally a path to a
-database to add the environments to. If none is specified, one called 'import.db'
-will be created.
+artifactRootPath: Path to the root of the artefacts repo.
+[Optional] databasePath: Path to a database to add the environments to. If 
+none is specified, one called 'import.db' will be created.
+[Optional] driver: Driver to connect to the database with. Defaults to 'sqlite3'.
 `,
-	Args: cobra.RangeArgs(1, 2), //nolint:mnd
-	RunE: func(_ *cobra.Command, args []string) error {
-		root := args[0]
-
+	RunE: func(_ *cobra.Command, _ []string) error {
 		dbPath := "import.db"
-		if len(args) == 2 { //nolint:mnd
-			dbPath = args[1]
+		if DatabasePath != "" {
+			dbPath = DatabasePath
 		}
 
-		matches, err := filepath.Glob(root + "/environments/users/*/*")
+		driver := "sqlite3"
+		if Driver != "" {
+			driver = Driver
+		}
+
+		matches, err := filepath.Glob(ArtifactRootPath + "/environments/users/*/*")
 		if err != nil {
 			return err
 		}
 
-		envs, err := generateEnvs(matches, root)
+		envs, err := generateEnvs(matches, ArtifactRootPath)
 		if err != nil {
 			return err
 		}
 
-		db, err := db.Connect("sqlite3", dbPath)
+		db, err := db.Connect(driver, dbPath)
 		if err != nil {
 			return err
 		}
@@ -303,4 +310,10 @@ func getVersionFromName(name string) string {
 
 func init() {
 	RootCmd.AddCommand(importCmd)
+
+	importCmd.Flags().StringVarP(&ArtifactRootPath, "artifactRootPath", "a", "", "Path to the root of the artefacts repo.")
+	importCmd.Flags().StringVarP(&DatabasePath, "databasePath", "t", "", "Path to a database to add the environments to.")
+	importCmd.Flags().StringVarP(&Driver, "driver", "d", "", "Database driver.")
+
+	importCmd.MarkFlagRequired("artifactRootPath") //nolint:errcheck
 }
