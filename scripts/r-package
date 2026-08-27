@@ -37,6 +37,10 @@ for (inst in 1:nrow(installed_pkgs)) {
 
 			if (dep\$repotype == "cran" | dep\$repotype == "bioc") {
 				line <- paste0(line, dep\$repotype, "-");
+			} else if (grepl("packagemanager.posit.co/cran/", dep\$sources, ignore.case = TRUE)) {
+				line <- paste0(line, "cran-");
+			} else if (grepl("bioconductor", dep\$sources, ignore.case = TRUE)) {
+				line <- paste0(line, "bioc-");
 			} else {
 				line <- paste0(line, "misc-");
 			}
@@ -91,7 +95,7 @@ while read -r -d '' package && read -r -d '' version && read -r -d '' depends &&
 	*)
 		if grep -q "packagemanager.posit.co/cran/" <<<"$remote"; then
 			type="cran";
-		elif grep -q "bioconductor.posit.co/" <<<"$remote"; then
+		elif grep -q "bioconductor.posit.co/" <<<"$remote" || grep -q "bioconductor.org" <<<"$remote"; then
 			type="bioc";
 		fi;
 	esac;
