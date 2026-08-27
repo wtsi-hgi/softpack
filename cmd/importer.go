@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -159,14 +158,15 @@ type dependency struct {
 }
 
 func collectInterpreters(env *db.Environment, path string) error {
-	f, err := os.ReadFile(filepath.Join(path, "spack.lock"))
+	f, err := os.Open(filepath.Join(path, "spack.lock"))
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
 	var contents SpackLock
 
-	if err := json.NewDecoder(bytes.NewReader(f)).Decode(&contents); err != nil {
+	if err := json.NewDecoder(f).Decode(&contents); err != nil {
 		return err
 	}
 
@@ -229,12 +229,13 @@ type softpackYML struct {
 func populateEnvFromSoftpackYML(env *db.Environment, path string) error {
 	var contents softpackYML
 
-	f, err := os.ReadFile(filepath.Join(path, "softpack.yml"))
+	f, err := os.Open(filepath.Join(path, "softpack.yml"))
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
-	if err := yaml.NewDecoder(bytes.NewReader(f)).Decode(&contents); err != nil {
+	if err := yaml.NewDecoder(f).Decode(&contents); err != nil {
 		return err
 	}
 
@@ -248,15 +249,10 @@ func parsePackages(packages []string) []db.Package {
 	pkgs := make([]db.Package, 0, len(packages))
 
 	for _, pkg := range packages {
-		parts := strings.Split(pkg, "@")
-
-		version := ""
-		if len(parts) == 2 { //nolint:mnd
-			version = parts[1]
-		}
+		name, version, _ := strings.Cut(pkg, "@")
 
 		pkgs = append(pkgs, db.Package{
-			Name:    parts[0],
+			Name:    name,
 			Version: version,
 		})
 	}
@@ -276,12 +272,13 @@ type metaYML struct {
 func populateEnvFromMetaYML(env *db.Environment, path string) error {
 	var contents metaYML
 
-	f, err := os.ReadFile(filepath.Join(path, "meta.yml"))
+	f, err := os.Open(filepath.Join(path, "meta.yml"))
 	if err != nil {
 		return err
 	}
+	defer f.Close()
 
-	if err := yaml.NewDecoder(bytes.NewReader(f)).Decode(&contents); err != nil {
+	if err := yaml.NewDecoder(f).Decode(&contents); err != nil {
 		return err
 	}
 
