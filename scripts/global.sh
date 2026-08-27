@@ -149,10 +149,7 @@ HEREDOC
 	);
 
 	apt "${OPTS[@]}" update;
-
-	for deb; do
-		apt "${OPTS[@]}" install --download-only -y --allow-downgrades --allow-change-held-packages --allow-remove-essential --no-strict-pinning --reinstall "$deb";
-	done;
+	apt "${OPTS[@]}" install --download-only -y --allow-downgrades --allow-change-held-packages --allow-remove-essential --no-strict-pinning --reinstall "$@";
 }
 
 patchUCF() {
