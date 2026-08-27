@@ -113,6 +113,12 @@ HEREDOC
 		apt-ftparchive -c release.conf release dists/resolute > dists/resolute/Release;
 	)
 
+	declare -a packages=();
+
+	while read pkg && read ver && read; do
+		packages+=( "$pkg=$ver" );
+	done < <(grep-dctrl -s Package,Version . -n "$aptDir/dists/resolute/main/binary-amd64/Packages");
+
 	mkdir -p "$tmpDir/etc/apt/preferences.d" "$tmpDir/etc/apt/sources.list.d" "$tmpDir/var/lib/apt/lists/partial" "$tmpDir/var/cache/apt/archives/partial" "$tmpDir/var/lib/dpkg" "/$tmpDir/debs";
 
 	cp "/etc/apt/sources.list.d/ubuntu.sources" "$tmpDir/etc/apt/sources.list.d/";
@@ -149,7 +155,7 @@ HEREDOC
 	);
 
 	apt "${OPTS[@]}" update;
-	apt "${OPTS[@]}" install --download-only -y --allow-downgrades --allow-change-held-packages --allow-remove-essential --no-strict-pinning --reinstall "$@";
+	apt "${OPTS[@]}" install --download-only -y --allow-downgrades --allow-change-held-packages --allow-remove-essential --no-strict-pinning --reinstall "${packages[@]}";
 }
 
 patchUCF() {
