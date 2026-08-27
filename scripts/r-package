@@ -70,9 +70,6 @@ HEREDOC
 declare tempDir="$(mktemp -d)";
 declare debs="$(mktemp -d)";
 
-trap "rm -rf ${tempDir@Q}" EXIT;
-trap "rm -rf ${debs@Q}" EXIT;
-
 mkdir -p "$tempDir/DEBIAN";
 mkdir -p "$tempDir/usr/lib/R/site-library";
 touch "$tempDir/DEBIAN/control";
@@ -97,15 +94,11 @@ while read -r -d '' package && read -r -d '' version && read -r -d '' depends &&
 
 	declare filename="r-$type-${package,,}_$version-r$R.deb";
 
-	if [ -f "$BASE/r/$filename" ]; then
-		continue;
-	fi;
-
 	mv "/usr/lib/R/site-library/$package" "$tempDir/usr/lib/R/site-library";
 
 	cat <<-HEREDOC > "$tempDir/DEBIAN/control"
 	Package: r-$type-${package,,}
-	Version: $version-r$R
+	Version: $version~r$R
 	Architecture: amd64
 	Maintainer: hgi
 	Depends: $depends
@@ -117,6 +110,7 @@ while read -r -d '' package && read -r -d '' version && read -r -d '' depends &&
 	rm -rf "$tempDir/usr/lib/R/site-library";
 done < <(jq -j 'to_entries[] | (.key, .value.version, .value.depends, .value.description, .value.repository, .value.remoterepos) | "\(.)\u0000"' <<<"$json");
 
+downloadDeps "$debs" "$debs"/*.deb;
 installDebs "$debs";
 
 # vim: set filetype=sh :

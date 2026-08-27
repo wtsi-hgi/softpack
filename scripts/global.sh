@@ -89,9 +89,32 @@ downloadDeps() {
 	shift;
 
 	declare tmpDir="$(mktemp -d)";
+	declare cacheDir="$(mktemp -d)/";
+	declare aptDir="$(mktemp -d)/";
+
+	aptConf "$cacheDir" > "$cacheDir/apt.conf";
+
+	(
+		cd "$aptDir";
+		mkdir -p "dists/resolute/main/binary-amd64";
+		mkdir -p "pool/main/binary-amd64";
+		cp "$downloadDir"/* "./pool/main/binary-amd64/";
+		cat > release.conf <<HEREDOC
+APT::FTPArchive::Release::Origin "HGI";
+APT::FTPArchive::Release::Label "SoftPack";
+APT::FTPArchive::Release::Suite "resolute";
+APT::FTPArchive::Release::Codename "resolute";
+APT::FTPArchive::Release::Architectures "amd64";
+APT::FTPArchive::Release::Components "main";
+APT::FTPArchive::Release::Description "SoftPack APT Repository";
+HEREDOC
+
+		apt-ftparchive generate "$cacheDir"/apt.conf;
+		apt-ftparchive -c release.conf release dists/resolute > dists/resolute/Release;
+	)
 
 	mkdir -p "$tmpDir/etc/apt/preferences.d" "$tmpDir/etc/apt/sources.list.d" "$tmpDir/var/lib/apt/lists/partial" "$tmpDir/var/cache/apt/archives/partial" "$tmpDir/var/lib/dpkg" "/$tmpDir/debs";
-	#cp /var/lib/dpkg/status "$tmpDir/var/lib/dpkg/status";
+
 	cp "/etc/apt/sources.list.d/ubuntu.sources" "$tmpDir/etc/apt/sources.list.d/";
 
 	cat <<HEREDOC > "$tmpDir/etc/apt/preferences.d/99-local-priority"
@@ -108,6 +131,7 @@ HEREDOC
 deb [trusted=yes] http://r2u.stat.illinois.edu/ubuntu resolute main
 deb [trusted=yes] https://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu/ resolute main
 deb [trusted=yes] file:///repo resolute main
+deb [trusted=yes] file://$aptDir resolute main
 HEREDOC
 
 	OPTS=(
@@ -127,7 +151,7 @@ HEREDOC
 	apt "${OPTS[@]}" update;
 
 	for deb; do
-		apt "${OPTS[@]}" install --download-only -y --allow-downgrades --reinstall "$deb";
+		apt "${OPTS[@]}" install --download-only -y --allow-downgrades --allow-change-held-packages --allow-remove-essential --no-strict-pinning --reinstall "$deb";
 	done;
 }
 
