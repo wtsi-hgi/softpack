@@ -99,9 +99,8 @@ func TestCheckPkgsExist(t *testing.T) {
 	assert.NoError(t, err)
 
 	expected := db.Package{
-		Name:        "py-torch",
-		Description: "big lib",
-		Version:     "2.0.0",
+		Name:    "py-torch",
+		Version: "2.0.0",
 	}
 
 	assert.True(t, s.CheckPackageExists(expected))

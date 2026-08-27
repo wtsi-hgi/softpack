@@ -20,7 +20,7 @@ type Environment struct {
 	ID            uint      `gorm:"primaryKey"                    json:"-"`
 	Name          string    `gorm:"not null;uniqueIndex:envIndex" json:"name"`
 	Path          string    `gorm:"not null;uniqueIndex:envIndex" json:"path"`
-	Version       int       `gorm:"not null;uniqueIndex:envIndex" json:"version"`
+	Version       string    `gorm:"not null;uniqueIndex:envIndex" json:"version"`
 	Description   string    `gorm:"not null"                      json:"description"`
 	Created       int       `gorm:"not null"                      json:"created"`
 	Hidden        bool      `gorm:"not null"                      json:"hidden"`
@@ -37,7 +37,6 @@ type Environment struct {
 
 type Package struct {
 	Name        string `json:"name"`
-	Description string `json:"-"`
 	Version     string `json:"version"`
 	Interpreter bool   `json:"interpreter"`
 }

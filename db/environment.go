@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"log/slog"
+	"strconv"
 	"time"
 
 	"gorm.io/gorm"
@@ -15,8 +16,7 @@ var ErrNoRowsAffected = errors.New("no rows affected by query")
 // EnvironmentIndex represents a multiindex used to uniquely identify a record
 // in the Environment table.
 type EnvironmentIndex struct {
-	Name, Path string
-	Version    int
+	Name, Path, Version string
 }
 
 // UpdateValue allows one specific field of an environment record, identified by
@@ -27,7 +27,7 @@ type UpdateValue[T any] struct {
 }
 
 func (e *Environment) BeforeCreate(_ *gorm.DB) error {
-	if e.Name == "" || e.Path == "" || e.Version == 0 {
+	if e.Name == "" || e.Path == "" || e.Version == "" {
 		return ErrMissingField
 	}
 
@@ -48,12 +48,15 @@ func (e *Environment) ToIndex() EnvironmentIndex {
 func (db *DB) CreateEnvironments(ctx context.Context, envs []Environment) error {
 	return db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
 		for _, env := range envs {
-			version, err := getNextEnvVersion(ctx, tx, env.Name, env.Path)
-			if err != nil {
-				return err
+			if env.Version == "" {
+				version, err := getNextEnvVersion(ctx, tx, env.Name, env.Path)
+				if err != nil {
+					return err
+				}
+
+				env.Version = version
 			}
 
-			env.Version = version
 			if err := gorm.G[Environment](tx).Create(ctx, &env); err != nil {
 				return err
 			}
@@ -234,29 +237,34 @@ func (db *DB) FulfilEnvPackage(ctx context.Context, u UpdateValue[FulfilRequestB
 	})
 }
 
-func getNextEnvVersion(ctx context.Context, tx *gorm.DB, name, path string) (int, error) {
+func getNextEnvVersion(ctx context.Context, tx *gorm.DB, name, path string) (string, error) {
 	var envs []Environment
 
 	if err := tx.WithContext(ctx).Preload(clause.Associations).Where(&Environment{
 		Name: name,
 		Path: path,
 	}).Find(&envs).Error; err != nil {
-		return -1, err
+		return "", err
 	}
 
 	if len(envs) == 0 {
-		return 1, nil
+		return "1", nil
 	}
 
 	highest := -1
 
 	for _, env := range envs {
-		if env.Version > highest {
-			highest = env.Version
+		v, err := strconv.Atoi(env.Version)
+		if err != nil {
+			continue
+		}
+
+		if v > highest {
+			highest = v
 		}
 	}
 
-	return highest + 1, nil
+	return strconv.Itoa(highest + 1), nil
 }
 
 func (db *DB) SetEnvBuildTime(ctx context.Context, u UpdateValue[int64], start bool) error {

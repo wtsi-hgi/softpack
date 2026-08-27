@@ -32,7 +32,7 @@ func TestCreateEnvironments(t *testing.T) {
 	envs, err := db.GetEnvironments(ctx)
 	assert.NoError(t, err)
 
-	env1.Version = 1
+	env1.Version = "1"
 	assert.Equal(t, zeroEnvKey([]Environment{env1}), zeroEnvKey(envs))
 
 	env2 := Environment{
@@ -72,8 +72,8 @@ func TestCreateEnvironments(t *testing.T) {
 	envs, err = db.GetEnvironments(ctx)
 	assert.NoError(t, err)
 
-	env2.Version = 2
-	env3.Version = 1
+	env2.Version = "2"
+	env3.Version = "1"
 	assert.Equal(t, zeroEnvKey([]Environment{env1, env2, env3}), zeroEnvKey(envs))
 
 	env4 := Environment{
@@ -198,7 +198,7 @@ func TestFulfilEnvPackage(t *testing.T) {
 	env := Environment{
 		Name:     "env",
 		Path:     "path/to/env",
-		Version:  1,
+		Version:  "1",
 		Tags:     []Tag{},
 		Packages: pkgs,
 	}
@@ -369,7 +369,7 @@ func TestGetBuildingEnvs(t *testing.T) {
 	env1 := Environment{
 		Name:     "env",
 		Path:     "path/to/env",
-		Version:  1,
+		Version:  "1",
 		Packages: []Package{},
 
 		Status: Building,
@@ -380,7 +380,7 @@ func TestGetBuildingEnvs(t *testing.T) {
 	env2 := Environment{
 		Name:     "env2",
 		Path:     "path/to/env2",
-		Version:  2,
+		Version:  "2",
 		Packages: []Package{},
 
 		Status: Building,

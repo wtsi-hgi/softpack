@@ -49,7 +49,7 @@ func TestCreateEnvironment(t *testing.T) {
 	assertEmptyResp(t, code, resp)
 
 	env.Status = db.Building
-	env.Version = 1
+	env.Version = "1"
 	env.Created = 0
 	checkAllEqual(t, s, zeroEnv(t, []db.Environment{env}))
 
@@ -79,7 +79,7 @@ func TestCreateEnvironment(t *testing.T) {
 	assertEmptyResp(t, code, resp)
 
 	waitingEnv.Status = db.Waiting
-	waitingEnv.Version = 1
+	waitingEnv.Version = "1"
 	waitingEnv.Created = 0
 	checkAllEqual(t, s, zeroEnv(t, []db.Environment{env, waitingEnv}))
 }
@@ -126,7 +126,7 @@ func TestAddAndDeleteTags(t *testing.T) {
 	env2 := db.Environment{
 		Name:        "env2",
 		Path:        "path/to/env2",
-		Version:     1,
+		Version:     "1",
 		Description: "desc",
 		Tags:        []db.Tag{},
 		Packages: []db.Package{
@@ -209,7 +209,7 @@ func setupWithEnv(t *testing.T) (*httptest.Server, db.Environment) {
 	code, resp := getResponse(t, s, "/create-environment", env)
 	assertEmptyResp(t, code, resp)
 
-	env.Version = 1
+	env.Version = "1"
 	checkAllEqual(t, s, []db.Environment{env})
 
 	return s, env
