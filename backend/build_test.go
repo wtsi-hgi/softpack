@@ -51,7 +51,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 	env1 := &db.Environment{
 		Name:    "env1",
 		Path:    "/path/to/env1",
-		Version: 1,
+		Version: "1",
 		Created: 1234,
 		Tags:    []db.Tag{},
 		Packages: []db.Package{
@@ -87,7 +87,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 	env2 := &db.Environment{
 		Name:    "env2",
 		Path:    "/path/to/env2",
-		Version: 2,
+		Version: "2",
 		Created: 2,
 		Tags:    []db.Tag{},
 		Packages: []db.Package{

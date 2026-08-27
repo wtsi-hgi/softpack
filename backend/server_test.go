@@ -37,7 +37,7 @@ func TestServer(t *testing.T) {
 	env := db.Environment{
 		Name:    "env",
 		Path:    "path/to/env",
-		Version: 1,
+		Version: "1",
 		Tags:    []db.Tag{},
 		Packages: []db.Package{
 			{Name: "abc"},
@@ -52,7 +52,7 @@ func TestServer(t *testing.T) {
 	env2 := db.Environment{
 		Name:    "complexEnv",
 		Path:    "path/to/complexEnv",
-		Version: 1,
+		Version: "1",
 		Tags:    []db.Tag{},
 		Packages: []db.Package{
 			{

@@ -32,7 +32,7 @@ func TestInstall(t *testing.T) {
 	e := db.Environment{
 		Path:        "groups/myGroup",
 		Name:        "myEnv",
-		Version:     1,
+		Version:     "1",
 		Description: "My Environment",
 		Packages: []db.Package{
 			{
