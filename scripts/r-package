@@ -67,6 +67,10 @@ cat(paste0("----------\n", jsonlite::toJSON(packages, auto_unbox = TRUE), "\n"))
 HEREDOC
 ) | tee >(sed -n '/^----------$/q; p' > /dev/tty) | sed '0,/^----------$/d')";
 
+if [ -z "$json" ]; then
+	exit 1;
+fi;
+
 declare tempDir="$(mktemp -d)";
 declare debs="$(mktemp -d)";
 
