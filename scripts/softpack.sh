@@ -47,9 +47,9 @@ runContainer() {
 	trap "rm -rf ${slTemp@Q}; rm -rf ${TMP@Q}" EXIT;
 
 	cat "$script" | if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" "$base/softpack.sif" -- "$@";
+		singularity exec --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" "$base/softpack.sif" bash "$script" "$@"
 	else
-		singularity shell --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" "$base/softpack.sif" -- "$@";
+		singularity exec --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" "$base/softpack.sif" bash "$script" "$@";
 	fi;
 }
 
