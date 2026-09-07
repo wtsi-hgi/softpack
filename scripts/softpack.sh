@@ -2,6 +2,7 @@
 
 set -euo pipefail;
 
+declare base="$(dirname "$0")";
 declare aptRepo="$(grep "^aptrepo:" "${SOFTPACK_CONFIG:-$HOME/.softpack/config.yaml}" | head -n1 | cut -d':' -f2- | sed -e 's/^ *//')";
 
 aptMount() {
@@ -46,9 +47,9 @@ runContainer() {
 	trap "rm -rf ${slTemp@Q}; rm -rf ${TMP@Q}" EXIT;
 
 	cat "$script" | if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" softpack.sif -- "$@";
+		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" "$base/softpack.sif" -- "$@";
 	else
-		singularity shell --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" softpack.sif -- "$@";
+		singularity shell --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" "$base/softpack.sif" -- "$@";
 	fi;
 }
 
@@ -58,14 +59,14 @@ runShell() {
 	trap "rm -rf ${slTemp@Q}; rm -rf ${TMP@Q}" EXIT;
 
 	if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" softpack.sif;
+		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" "$base/softpack.sif";
 	else
-		singularity shell --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" softpack.sif;
+		singularity shell --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" "$base/softpack.sif";
 	fi;
 }
 
-. commands.sh;
+. "$base/commands.sh";
 
-declare parts=( $(ls -I "*.sh" -I "*.sif" -I "*.def") );
+declare parts=( $(find "$base" -maxdepth 1 -type f -not -iname "*.sh" -not -iname "*.sif" -not -iname "*.def") );
 
-commands global.sh "${parts[@]}";
+commands "$base/global.sh" "${parts[@]}";
