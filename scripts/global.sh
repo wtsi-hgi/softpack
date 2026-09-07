@@ -84,6 +84,50 @@ setExecutables() {
 	)";
 }
 
+aptOpts() {
+	declare tmpDir="$1";
+	declare downloadDir="${2:-$tmpDir}";
+
+	mkdir -p "$tmpDir/etc/apt/preferences.d" "$tmpDir/etc/apt/sources.list.d" "$tmpDir/var/lib/apt/lists/partial" "$tmpDir/var/cache/apt/archives/partial" "$tmpDir/var/lib/dpkg" "/$tmpDir/debs";
+
+	cp "/etc/apt/sources.list.d/ubuntu.sources" "$tmpDir/etc/apt/sources.list.d/";
+
+	cat <<HEREDOC > "$tmpDir/etc/apt/preferences.d/99-local-priority"
+Package: *
+Pin: release l=SoftPack
+Pin-Priority: 990
+
+Package: *
+Pin: release n=resolute
+Pin-Priority: 500
+HEREDOC
+
+	cat <<HEREDOC > "$tmpDir/etc/apt/sources.list.d/apt.list"
+deb [trusted=yes] http://r2u.stat.illinois.edu/ubuntu resolute main
+deb [trusted=yes] https://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu/ resolute main
+deb [trusted=yes] https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/ resolute main
+deb [trusted=yes] file:///repo resolute main
+HEREDOC
+
+	if [ -v aptDir ]; then
+		echo "deb [trusted=yes] file://$aptDir resolute main" >> "$tmpDir/etc/apt/sources.list.d/apt.list";
+	fi;
+
+	OPTS=(
+		-o Dir::Etc="$tmpDir/etc/apt/"
+		-o Dir::Etc::sourcelist="sources.list"
+		-o Dir::Etc::sourceparts="sources.list.d"
+		-o Dir::State="$tmpDir/var/lib/apt/"
+		-o Dir::State::status="$tmpDir/var/lib/dpkg/status"
+		-o Dir::Cache="$tmpDir/var/cache/apt/"
+		-o Dir::Cache::archives="$downloadDir"
+		-o Dir::Cache::archives::partial="$tmpDir/var/cache/apt/archives/partial"
+		-o Acquire::AllowInsecureRepositories=true
+		-o Acquire::AllowDowngradeToInsecureRepositories=true
+		-o APT::Get::Update::SourceListWarnings=false
+	);
+}
+
 downloadDeps() {
 	declare downloadDir="$1";
 	shift;
@@ -119,40 +163,8 @@ HEREDOC
 		packages+=( "$pkg=$ver" );
 	done < <(grep-dctrl -s Package,Version . -n "$aptDir/dists/resolute/main/binary-amd64/Packages");
 
-	mkdir -p "$tmpDir/etc/apt/preferences.d" "$tmpDir/etc/apt/sources.list.d" "$tmpDir/var/lib/apt/lists/partial" "$tmpDir/var/cache/apt/archives/partial" "$tmpDir/var/lib/dpkg" "/$tmpDir/debs";
-
-	cp "/etc/apt/sources.list.d/ubuntu.sources" "$tmpDir/etc/apt/sources.list.d/";
-
-	cat <<HEREDOC > "$tmpDir/etc/apt/preferences.d/99-local-priority"
-Package: *
-Pin: release l=SoftPack
-Pin-Priority: 990
-
-Package: *
-Pin: release n=resolute
-Pin-Priority: 500
-HEREDOC
-
-	cat <<HEREDOC > "$tmpDir/etc/apt/sources.list.d/apt.list"
-deb [trusted=yes] http://r2u.stat.illinois.edu/ubuntu resolute main
-deb [trusted=yes] https://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu/ resolute main
-deb [trusted=yes] file:///repo resolute main
-deb [trusted=yes] file://$aptDir resolute main
-HEREDOC
-
-	OPTS=(
-		-o Dir::Etc="$tmpDir/etc/apt/"
-		-o Dir::Etc::sourcelist="sources.list"
-		-o Dir::Etc::sourceparts="sources.list.d"
-		-o Dir::State="$tmpDir/var/lib/apt/"
-		-o Dir::State::status="$tmpDir/var/lib/dpkg/status"
-		-o Dir::Cache="$tmpDir/var/cache/apt/"
-		-o Dir::Cache::archives="$downloadDir"
-		-o Dir::Cache::archives::partial="$tmpDir/var/cache/apt/archives/partial"
-		-o Acquire::AllowInsecureRepositories=true
-		-o Acquire::AllowDowngradeToInsecureRepositories=true
-		-o APT::Get::Update::SourceListWarnings=false
-	);
+	declare -a OPTS;
+	aptOpts "$tmpDir" "$downloadDir";
 
 	apt "${OPTS[@]}" update;
 	apt "${OPTS[@]}" install --download-only -y --allow-downgrades --allow-change-held-packages --allow-remove-essential --no-strict-pinning --reinstall "${packages[@]}";
@@ -206,6 +218,41 @@ fixR() {
 		"XB-Softpack" "true";
 }
 
+addPythonSymlinkIfMissing() {
+	declare deb="$1";
+
+	declare tmpDir="$(mktemp -d)";
+
+	dpkg-deb -R "$deb" "$tmpDir";
+
+	declare -a exes=( "$tmpDir/usr/bin/python"* );
+
+	if [ -e "$tmpDir/usr/bin/python" -o ! -v exes ]; then
+		return;
+	fi;
+
+	mkdir -p "$tmpDir/usr/bin";
+	ln -s "/usr/bin/$(basename "$exes")" "$tmpDir/usr/bin/python";
+
+	dpkg-deb --root-owner-group -b "$tmpDir" "$deb";
+}
+
+fixPythonVersioning() {
+	declare file="$1";
+
+	addPythonSymlinkIfMissing "$file";
+
+	if [ -z "$(grep "^python3.[0-9]\+_" <<< "$file")" ]; then
+		return 0;
+	fi;
+
+	setMetadata "$file" \
+		"Package" "python3" \
+		"XB-Alias" "python" \
+		"XB-Executables" "python, ${file/_*/}" \
+		"XB-Softpack" "true";
+}
+
 installDebs() {
 	declare debDir="$1";
 
@@ -225,11 +272,13 @@ installDebs() {
 			patchUCF "$file";
 		elif [ "${file:0:8}" = "systemd_" ]; then
 			patchSystemd "$file";
+		elif [ "${file:0:8}" = "python3." ]; then
+			fixPythonVersioning "$file";
 		elif [ "${file:0:12}" = "r-base-core_" ]; then
 			addRSymlinkIfOpt "$file";
 			fixR "$file" "r";
-		elif [ "${file:0:7}" = "r-cran-" -o "${file:0:7}" = "r-bioc-" ]; then
-			fixR "$file" "$(sed -e 's/^r-\(bioc\|cran\)-\([^_]*\)_.*/r-\2/' -e 's/\./-/g' <<< "$file")";
+		elif [ "${file:0:7}" = "r-cran-" -o "${file:0:7}" = "r-bioc-" -o "${file:0:7}" = "r-misc-" ]; then
+			fixR "$file" "$(sed -e 's/^r-\(bioc\|cran\|misc\)-\([^_]*\)_.*/r-\2/' -e 's/\./-/g' <<< "$file")";
 		fi;
 
 		setExecutables "$file";
