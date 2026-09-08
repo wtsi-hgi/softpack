@@ -38,30 +38,37 @@ aptMount() {
 	echo "$mount";
 }
 
+setBind() {
+	declare slTemp="$(mktemp -d)";
+	declare dpTemp="$(mktemp -d)";
+	export TMP="$(mktemp -d)";
+	trap "rm -rf ${slTemp@Q}; rm -rf ${dpTemp@Q}; rm -rf ${TMP@Q}" EXIT;
+
+	bind="$slTemp:/usr/lib/R/site-library/,$dpTemp:/usr/lib/python3/dist-packages,$TMP:/tmp";
+}
+
 runContainer() {
 	declare script="$1";
 	shift;
 
-	declare slTemp="$(mktemp -d)";
-	export TMP="$(mktemp -d)";
-	trap "rm -rf ${slTemp@Q}; rm -rf ${TMP@Q}" EXIT;
+	declare bind="";
+	setBind;
 
 	cat "$script" | if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity exec --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" "$base/softpack.sif" bash "$script" "$@"
+		singularity exec --fusemount "$(aptMount)" --bind "$bind" "$base/softpack.sif" bash "$script" "$@"
 	else
-		singularity exec --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" "$base/softpack.sif" bash "$script" "$@";
+		singularity exec --bind "$bind" "$base/softpack.sif" bash "$script" "$@";
 	fi;
 }
 
 runShell() {
-	declare slTemp="$(mktemp -d)";
-	export TMP="$(mktemp -d)";
-	trap "rm -rf ${slTemp@Q}; rm -rf ${TMP@Q}" EXIT;
+	declare bind="";
+	setBind;
 
 	if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity shell --fusemount "$(aptMount)" --bind "$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" "$base/softpack.sif";
+		singularity shell --fusemount "$(aptMount)" --bind "$bind" "$base/softpack.sif";
 	else
-		singularity shell --bind "$aptRepo:/repo,$slTemp:/usr/lib/R/site-library/,$TMP:/tmp" "$base/softpack.sif";
+		singularity shell --bind "$bind" "$base/softpack.sif";
 	fi;
 }
 
