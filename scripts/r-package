@@ -47,7 +47,7 @@ while read -r -d '' package && read -r -d '' version && read -r -d '' depends &&
 	Package: r-$type-${package,,}
 	Version: $version-r$R
 	Architecture: amd64
-	Maintainer: hgi
+	Maintainer: $maintainer
 	Depends: $depends
 	Description: $description
 	HEREDOC
