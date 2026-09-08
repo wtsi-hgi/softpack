@@ -4,6 +4,7 @@
 set -euo pipefail;
 
 declare BASE=/repo/pool/main/binary-amd64/;
+declare maintainer="hgi";
 
 aptConf() {
 	cat <<HEREDOC
@@ -253,6 +254,20 @@ fixPythonVersioning() {
 		"XB-Softpack" "true";
 }
 
+addPythonAlias() {
+	declare file="$1";
+
+	if [ "$(dpkg-deb -f "$file" Maintainer)" != "$maintainer" ]; then
+		return 0;
+	fi;
+
+	declare name="$(dpkg-deb -f "$file" Package)";
+
+	setMetadata "$file" \
+		"XB-Alias" "py${name:6}" \
+		"XB-Softpack" "true";
+}
+
 installDebs() {
 	declare debDir="$1";
 
@@ -274,6 +289,8 @@ installDebs() {
 			patchSystemd "$file";
 		elif [ "${file:0:8}" = "python3." ]; then
 			fixPythonVersioning "$file";
+		elif [ "${file:0:8}" = "python3-" ]; then
+			addPythonAlias "$file";
 		elif [ "${file:0:12}" = "r-base-core_" ]; then
 			addRSymlinkIfOpt "$file";
 			fixR "$file" "r";
