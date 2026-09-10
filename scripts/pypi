@@ -3,4 +3,96 @@
 : --name string # Package Name
 : --version string # Package Version
 
-# vim: set filetype=sh :
+export UV_PYTHON="/usr/bin/python$python";
+export DEB_HOST_ARCH="amd64";
+
+if [ ! -x "$UV_PYTHON" ]; then
+	echo "Invalid python version" >&2;
+
+	exit 1;
+fi;
+
+declare debs="$(mktemp -d)";
+
+UV_BREAK_SYSTEM_PACKAGES=1 uv pip install --target /usr/lib/python3/dist-packages "$name==$version";
+
+while read pkg; do
+	if [ "${pkg:0:10}" = "argparse==" ]; then
+		continue;
+	fi;
+
+	declare name="${pkg/==*/}";
+	declare version="${pkg/*==/}";
+	declare tmp="$(mktemp -d)";
+	declare pkgName="$(python3 /usr/share/dh-python/dhpython/pydist.py "$name")";
+	declare spName="${name//[._]/-}"
+
+	spName="py-${name,,}"
+
+	if [ -z "$pkgName" ]; then
+		pkgName="python3-${spName:3}";
+	fi;
+
+	cd "$tmp";
+	mkdir -p "$tmp/debian/$pkgName";
+	mkdir -p "$tmp/DEBIAN";
+
+	while read file; do
+		declare dir="$(dirname "$file")";
+
+		if [ "$dir" = "bin" ]; then
+			dir="usr/local/bin";
+		else
+			dir="usr/lib/python3/dist-packages/$dir";
+		fi;
+
+		mkdir -p "$tmp/debian/$pkgName/$dir";
+		cp "/usr/lib/python3/dist-packages/$file" "$tmp/debian/$pkgName/$dir";
+	done < <(uv pip show --files --target /usr/lib/python3/dist-packages "$name" 2> /dev/null | grep "^  " | cut -b 2-);
+
+	if ! grep -q "^Tag: py\(2\|3\|2.py3\)-" "$tmp/debian/$pkgName/usr/lib/python3/dist-packages/"*/WHEEL; then
+		version+="-py$python";
+	fi;
+
+	cat <<-HEREDOC > "$tmp/debian/control";
+	Source: $pkgName
+	Section: python
+	Maintainer: $maintainer
+	Priority: optional
+
+	Package: $pkgName
+	Architecture: amd64
+	Depends: \${python3:Depends}, \${shlibs:Depends}
+	Description: $(python$python -m pip show "$name" | grep "^Summary: " | cut -d' ' -f2-)
+HEREDOC
+
+	cat <<-EOF > "$tmp/debian/changelog";
+$pkgName ($version) unstable; urgency=low
+
+  * Built using UV
+
+ -- $maintainer  $(date -R)
+
+EOF
+
+	dpkg-shlibdeps "$tmp/debian/$pkgName/usr/lib/python3/dist-packages"/**/*.so 2> /dev/null || true;
+	dh_python3 -p "$pkgName";
+	cat "$tmp/debian/"*.substvars >> "$tmp/debian/substvars";
+	dpkg-gencontrol -p"$pkgName" -P"$tmp" -v"$version" -O"$tmp/DEBIAN/control"
+
+	cat <<-HEREDOC >> "$tmp/DEBIAN/control";
+	XB-Softpack: true
+	XB-Alias: $spName
+HEREDOC
+
+	mv "$tmp/DEBIAN" "$tmp/debian/$pkgName/";
+
+	dpkg-deb --root-owner-group --build "$tmp/debian/$pkgName/" "$debs/$pkgName-$version.deb";
+	echo "$debs/$pkgName-$version.deb"
+	dpkg -I "$debs/$pkgName-$version.deb"
+done < <(uv pip freeze --target /usr/lib/python3/dist-packages 2> /dev/null);
+
+downloadDeps "$debs";
+installDebs "$debs";
+
+# vim: set filetype=bash :
