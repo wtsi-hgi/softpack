@@ -12,4 +12,4 @@ cp apt.cache "$tmpDir";
 apt-ftparchive clean "$tmpDir"/apt.conf;
 cp -f "$tmpDir"/apt.cache ./;
 
-# vim: set filetype=sh :
+# vim: set filetype=bash :

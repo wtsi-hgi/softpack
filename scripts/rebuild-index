@@ -11,4 +11,4 @@ apt-ftparchive generate "$tmpDir"/apt.conf;
 apt-ftparchive -c release.conf release dists/resolute > dists/resolute/Release;
 cp -f "$tmpDir"/apt.cache ./;
 
-# vim: set filetype=sh :
+# vim: set filetype=bash :

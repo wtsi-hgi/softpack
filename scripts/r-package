@@ -125,4 +125,4 @@ for (inst in 1:nrow(installed_pkgs)) {
 cat(paste0("----------\n", jsonlite::toJSON(packages, auto_unbox = TRUE), "\n"))
 R_SCRIPT
 
-# vim: set filetype=sh :
+# vim: set filetype=bash :

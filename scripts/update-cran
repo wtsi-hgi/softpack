@@ -37,4 +37,4 @@ if ls -1q * &> /dev/null; then
 	installDebs "$tmpDir";
 fi;
 
-# vim: set filetype=sh :
+# vim: set filetype=bash :
