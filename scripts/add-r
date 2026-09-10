@@ -43,4 +43,4 @@ dpkg-deb --root-owner-group -b "$tmpDir/root/" "$tmpDir/deb/$file";
 setMetadata "$tmpDir/deb/$file" "Package" "r-base-core" "Version" "$version";
 installDebs "$tmpDir/deb/";
 
-# vim: set filetype=sh :
+# vim: set filetype=bash :

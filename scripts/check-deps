@@ -2,4 +2,4 @@
 
 dose-debcheck --failures /repo/dists/resolute/main/binary-amd64/Packages;
 
-# vim: set filetype=sh :
+# vim: set filetype=bash :
