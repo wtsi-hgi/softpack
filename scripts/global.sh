@@ -74,6 +74,12 @@ setExecutables() {
 
 	declare exes=( $(dpkg -c "$file" | grep "^[^d][^ ]*x" | grep " ./\(usr/local/bin/\|usr/bin/\|bin/\)" | sed -e 's@.*/\([^ ]*\)\( -> .*\)\?$@\1@' | sort | uniq) );
 
+	if [ "$(dpkg-deb -f "$file" Package)" = "python3" ]; then
+		declare version="$(dpkg-deb -f "$file" Version)";
+
+		exes+=( "python$(cut -d'.' -f1 <<< "$version")" "python$(cut -d'.' -f1-2 <<< "$version")" );
+	fi;
+
 	if [ ${#exes[@]} -eq 0 ]; then
 		return;
 	fi;
@@ -250,7 +256,6 @@ fixPythonVersioning() {
 	setMetadata "$file" \
 		"Package" "python3" \
 		"XB-Alias" "python" \
-		"XB-Executables" "python, ${file/_*/}" \
 		"XB-Softpack" "true";
 }
 
