@@ -88,8 +88,6 @@ HEREDOC
 	mv "$tmp/DEBIAN" "$tmp/debian/$pkgName/";
 
 	dpkg-deb --root-owner-group --build "$tmp/debian/$pkgName/" "$debs/$pkgName-$version.deb";
-	echo "$debs/$pkgName-$version.deb"
-	dpkg -I "$debs/$pkgName-$version.deb"
 done < <(uv pip freeze --target /usr/lib/python3/dist-packages 2> /dev/null);
 
 downloadDeps "$debs";
