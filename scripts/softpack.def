@@ -17,6 +17,23 @@ Stage: final
 	export INSTALLER_NO_MODIFY_PATH=1;
 	curl -LsSf https://astral.sh/uv/install.sh | bash;
 
+	cat > /usr/share/python3/debian_defaults <<HEREDOC
+[DEFAULT]
+# the default python3 version
+default-version = $(basename "$(readlink "$(which python3)")")
+
+# all supported python3 versions
+supported-versions = $(find /usr/bin -maxdepth 1 -executable -name "python3.[0-9]*" ! -name "*-config" ! -name "*m" | xargs -L1 basename | tr '\n' ',' | sed -e 's/,/, /g; s/, $//')
+
+# formerly supported python3 versions
+old-versions = python3.1, python3.2, python3.3, python3.4, python3.5, python3.6
+
+# unsupported versions, including older versions
+unsupported-versions = python3.1, python3.2, python3.3, python3.4, python3.5, python3.6
+HEREDOC
+
+	sed -i 's/exe = /exe = os.environ.get("UV_PYTHON") or /' /usr/share/dh-python/dhpython/interpreter.py
+
 	git clone https://github.com/s3fs-fuse/s3fs-fuse;
 	cd s3fs-fuse;
 	git checkout v1.97;
@@ -92,7 +109,7 @@ HEREDOC
 		chmod 644 ./r-${ver}_1_amd64.deb;
 		apt install -y ./r-${ver}_1_amd64.deb;
 		rm -f ./r-${ver}_1_amd64.deb;
-		/opt/R/$ver/bin/Rscript -e 'options(repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/resolute/latest")); install.packages("pak"); cmds <- pak::pkg_sysreqs("devtools")$install_scripts; ccmds <- gsub("r-(cran|bioc)-.*", "", cmds); system(ccmds); pak::pkg_install(c("devtools", "remotes", "jsonlite", "BiocManager"))';
+		/opt/R/$ver/bin/Rscript -e 'Sys.setenv(MAKEFLAGS = sprintf("-j%d", parallel::detectCores() - 1L)); options(repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/resolute/latest")); install.packages("pak"); cmds <- pak::pkg_sysreqs("devtools")$install_scripts; ccmds <- gsub("r-(cran|bioc)-.*", "", cmds); system(ccmds); pak::pkg_install(c("devtools", "remotes", "jsonlite", "BiocManager"))';
 	done;
 
 	apt-get clean;
