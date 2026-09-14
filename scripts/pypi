@@ -63,7 +63,7 @@ while read pkg; do
 	Package: $pkgName
 	Architecture: amd64
 	Depends: \${python3:Depends}, \${shlibs:Depends}
-	Description: $(python$python -m pip show "$name" | grep "^Summary: " | cut -d' ' -f2-)
+	Description: $(python3 -c "import sys, email; data = email.message_from_file(sys.stdin); print(data.get('Summary') or data.get_payload())" < "$tmp/debian/$pkgName/usr/lib/python3/dist-packages/"*/METADATA)
 HEREDOC
 
 	cat <<-EOF > "$tmp/debian/changelog";
