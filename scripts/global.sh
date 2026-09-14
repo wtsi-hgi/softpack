@@ -111,8 +111,8 @@ HEREDOC
 
 	cat <<HEREDOC > "$tmpDir/etc/apt/sources.list.d/apt.list"
 deb [trusted=yes] http://r2u.stat.illinois.edu/ubuntu resolute main
-deb [trusted=yes] https://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu/ resolute main
-deb [trusted=yes] https://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/ resolute main
+deb [trusted=yes] http://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu/ resolute main
+deb [trusted=yes] http://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/ resolute main
 deb [trusted=yes] file:///repo resolute main
 HEREDOC
 
