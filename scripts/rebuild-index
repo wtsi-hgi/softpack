@@ -1,4 +1,5 @@
 # Rebuild the APT repo index.
+: --from-scratch # Ignore the cache when building the repo.
 
 cd /repo/;
 
@@ -6,7 +7,7 @@ declare tmpDir="$(mktemp -d)/";
 
 aptConf "$tmpDir" > "$tmpDir/apt.conf";
 
-[ -f "apt.cache" ] && cp apt.cache "$tmpDir";
+[ -f "apt.cache" ] && ! $fromscratch && cp apt.cache "$tmpDir";
 apt-ftparchive generate "$tmpDir"/apt.conf;
 apt-ftparchive -c release.conf release dists/resolute > dists/resolute/Release;
 cp -f "$tmpDir"/apt.cache ./;
