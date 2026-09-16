@@ -39,13 +39,13 @@ while read -r -d '' package && read -r -d '' version && read -r -d '' depends &&
 		fi;;
 	esac;
 
-	declare filename="r-$type-${package,,}_$version-r$R.deb";
+	declare filename="r-$type-${package,,}_$version~r$R.deb";
 
 	mv "/usr/lib/R/site-library/$package" "$tempDir/usr/lib/R/site-library";
 
 	cat <<-HEREDOC > "$tempDir/DEBIAN/control"
 	Package: r-$type-${package,,}
-	Version: $version-r$R
+	Version: $version~r$R
 	Architecture: amd64
 	Maintainer: $maintainer
 	Depends: $depends
