@@ -1,10 +1,18 @@
 # Download a PyPI wheel and wrap it as a deb.
-: --python string # Python Version
-: --name string # Package Name
-: --version string # Package Version
+: --name string        # Package Name
+: --git [string]       # Git URL
+: --version [string]   # Package Version
+: --python [string]    # Python Version
 : --buildreqs [string] # Comma seperated list of packages required by (usually legacy) installs
+: --extradeps [string] # Comma seperated list of additional deb dependencies.
+: --debug              # Enable simple debugging and disable copying completed debs into repo.
+
+if [ ! -v python ]; then
+	python="$(find /usr/bin -maxdepth 1 -executable -name "python[0-9].[0-9]*" ! -name "*-config" ! -name "*m" | tr -dc '.0-9\n' | sort -V | tail -n1)";
+fi;
 
 export UV_PYTHON="/usr/bin/python$python";
+export UV_LINK_MODE="copy";
 export DEB_HOST_ARCH="amd64";
 
 if [ ! -x "$UV_PYTHON" ]; then
@@ -25,8 +33,23 @@ if [ -v buildreqs ]; then
 HEREDOC
 fi;
 
+declare toInstall="$name";
 
-UV_BREAK_SYSTEM_PACKAGES=1 uv pip install --target /usr/lib/python3/dist-packages --compile-bytecode "$name==$version";
+if [ -v git ]; then
+	toInstall="git+$git";
+fi;
+
+if [ -v version ]; then
+	if [ -v git ]; then
+		toInstall+="@$version";
+	else
+		toInstall+="==$version";
+	fi;
+fi;
+
+UV_BREAK_SYSTEM_PACKAGES=1 uv pip install --target /usr/lib/python3/dist-packages --compile-bytecode "$toInstall";
+
+declare -A collections=();
 
 while read pkg; do
 	if [ "${pkg:0:10}" = "argparse==" ]; then
@@ -34,39 +57,81 @@ while read pkg; do
 	fi;
 
 	declare name="${pkg/==*/}";
-	declare version="${pkg/*==/}~py$python";
-	declare tmp="$(mktemp -d)";
 	declare pkgName="$(python3 /usr/share/dh-python/dhpython/pydist.py "$name")";
-	declare spName="${name//[._]/-}"
-
-	spName="py-${name,,}"
 
 	if [ -z "$pkgName" ]; then
-		pkgName="python3-$spName";
+		pkgName="python3-${name,,}";
 	fi;
+
+	collections["$pkgName"]+="$pkg ";
+done < <(uv pip list --format freeze --target /usr/lib/python3/dist-packages 2> /dev/null);
+
+for pkgName in "${!collections[@]}"; do
+	declare parts=( ${collections["$pkgName"]} );
+	declare pname="${pkg/==*/}";
+	declare version="";
+	declare primary="";
+	declare spName="py-${pkgName:8}"
+
+	for part in "${parts[@]}"; do
+		while read req; do
+			if [ "$(python3 /usr/share/dh-python/dhpython/pydist.py "${part/==*}")" = "$pkgName" ]; then
+				continue 2;
+			fi;
+		done < <(UV_PYTHON="/usr/bin/python3.11" UV_BREAK_SYSTEM_PACKAGES=1 uv pip show --target /usr/lib/python3/dist-packages "$part" 2> /dev/null | grep "^Required-by: " | cut -d' ' -f2- | sed -e 's/, */'"\n"'/g');
+
+		primary="$part";
+		version="${part/*==/}~py$python";
+
+		break;
+	done;
+
+	if [ -z "$primary" ]; then
+		echo "Could not find primary package for $pkgName: ${parts[@]}" >&2;
+
+		exit 1;
+	fi;
+
+	if [ -f "$BASE/${pkgName:0:1}/$pkgName-$version.deb" ]; then
+		cp "$BASE/${pkgName:0:1}/$pkgName-$version.deb" "$debs";
+
+		if $debug; then
+			echo "Copied existing $pkgName-$version.deb";
+			dpkg -I "$debs/$pkgName-$version.deb";
+		fi;
+
+		continue;
+	fi;
+
+	if $debug; then
+		echo -e "\n$pkgName $version\n${pkgName//?/=}=${version//?/=}\n\n${parts[@]}\n";
+	fi;
+
+	declare tmp="$(mktemp -d)";
+	declare metadata="";
 
 	cd "$tmp";
 	mkdir -p "$tmp/debian/$pkgName";
 	mkdir -p "$tmp/DEBIAN";
 
-	if [ -f "$BASE/${pkgName:0:1}/$pkgName-$version.deb" ]; then
-		cp "$BASE/${pkgName:0:1}/$pkgName-$version.deb" "$debs";
+	for pname in "${parts[@]}"; do
+		while read file; do
+			declare dir="$(dirname "$file")";
 
-		continue;
-	fi;
+			if [ "$dir" = "bin" ]; then
+				dir="usr/local/bin";
+			else
+				dir="usr/lib/python3/dist-packages/$dir";
+			fi;
 
-	while read file; do
-		declare dir="$(dirname "$file")";
+			mkdir -p "$tmp/debian/$pkgName/$dir";
+			cp "/usr/lib/python3/dist-packages/$file" "$tmp/debian/$pkgName/$dir";
 
-		if [ "$dir" = "bin" ]; then
-			dir="usr/local/bin";
-		else
-			dir="usr/lib/python3/dist-packages/$dir";
-		fi;
-
-		mkdir -p "$tmp/debian/$pkgName/$dir";
-		cp "/usr/lib/python3/dist-packages/$file" "$tmp/debian/$pkgName/$dir";
-	done < <(uv pip show --files --target /usr/lib/python3/dist-packages "$name" 2> /dev/null | grep "^  " | sed -e 's/^ *//');
+			if [ "$pname" = "$primary" -a "$(basename "$file")" = "METADATA" ]; then
+				metadata="/usr/lib/python3/dist-packages/$file";
+			fi;
+		done < <(uv pip show --files --target /usr/lib/python3/dist-packages "${pname/==*/}" 2> /dev/null | grep "^  " | sed -e 's/^ *//');
+	done;
 
 	cat <<-HEREDOC > "$tmp/debian/control";
 	Source: $pkgName
@@ -76,8 +141,8 @@ while read pkg; do
 
 	Package: $pkgName
 	Architecture: amd64
-	Depends: python3 (>= $python), python3 (<< $nextPython), \${python3:Depends}, \${shlibs:Depends}
-	Description:$(python3 -c "import sys, email; data = email.message_from_file(sys.stdin); print(data.get('Summary') or data.get_payload())" < "$tmp/debian/$pkgName/usr/lib/python3/dist-packages/"*/METADATA | sed -e 's/^[ \t]*$/./; s/^/ /')
+	Depends: python3 (>= $python), python3 (<< $nextPython)$(if [ -n "${extradeps:-}" -a "$pname" = "$(echo "${name/\[*/}")" ]; then echo -n ",$extradeps" | sed -e 's/, */, /g'; fi), \${python3:Depends}, \${shlibs:Depends}
+	Description:$([ -z "$metadata" ] && echo "$pkgName" || python3 -c "import sys, email; data = email.message_from_file(sys.stdin); print(data.get('Summary') or data.get_payload())" < "$metadata" | sed -e 's/^[ \t]*$/./; s/^/ /')
 HEREDOC
 
 	cat <<-EOF > "$tmp/debian/changelog";
@@ -90,7 +155,7 @@ $pkgName ($version) unstable; urgency=low
 EOF
 
 	dpkg-shlibdeps "$tmp/debian/$pkgName/usr/lib/python3/dist-packages"/**/*.so 2> /dev/null || true;
-	dh_python3 -p "$pkgName";
+	dh_python3;
 
 	if [ -f "$tmp/debian/"*.substvars ]; then
 		cat "$tmp/debian/"*.substvars >> "$tmp/debian/substvars" || true;
@@ -106,9 +171,18 @@ HEREDOC
 	mv "$tmp/DEBIAN" "$tmp/debian/$pkgName/";
 
 	dpkg-deb --root-owner-group --build "$tmp/debian/$pkgName/" "$debs/$pkgName-$version.deb";
-done < <(uv pip freeze --target /usr/lib/python3/dist-packages 2> /dev/null);
+
+	if $debug; then
+		dpkg -I "$debs/$pkgName-$version.deb";
+	fi;
+
+	rm -rf "$tmp/debian/$pkgName/";
+done;
 
 downloadDeps "$debs";
-installDebs "$debs";
+
+if ! $debug; then
+	installDebs "$debs";
+fi;
 
 # vim: set filetype=bash :
