@@ -109,12 +109,14 @@ func TestCheckPkgsExist(t *testing.T) {
 
 func TestAlias(t *testing.T) {
 	s := Server{aliases: map[string]string{
-		"pkg":   "real-package",
-		"other": "other-package",
+		"pkg":          "real-package",
+		"other":        "other-package",
+		"other@v1.2.3": "other-package@1.2.3",
 	}}
 
 	assert.Equal(t, "real-package", s.Alias("pkg"))
 	assert.Equal(t, "other-package@version", s.Alias("other@version"))
 	assert.Equal(t, "not-a-package", s.Alias("not-a-package"))
 	assert.Equal(t, "not-a-package@version", s.Alias("not-a-package@version"))
+	assert.Equal(t, "other-package@1.2.3", s.Alias("other@v1.2.3"))
 }
