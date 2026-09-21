@@ -23,6 +23,7 @@ commands() {
 	*)
 		declare general="${1:-}";
 		shift;
+		declare base="$(dirname "$0")/";
 		declare -A sections=();
 
 		for section; do
@@ -31,7 +32,7 @@ commands() {
 
 		printf -v list "%s\n" "${!sections[@]}";
 
-		eval "__parts() { echo -en ${list@Q}; }; __sections() { case \${part:-} in \"\")$(
+		eval "__parts() { echo -en ${list@Q}; }; __sections() { (cd ${base@Q};case \${part:-} in \"\")$(
 			if [ -n "$general" ]; then
 				echo -n "cat ${general@Q}";
 			fi;
@@ -39,7 +40,7 @@ commands() {
 			for part in "${!sections[@]}"; do
 				echo -n "${part@Q})cat ${sections[$part]@Q};;";
 			done;
-		)esac; }";;
+		)esac) }";;
 	esac;
 
 	__handle_parts "${__args[@]}";
@@ -335,9 +336,7 @@ __print_flags() {
 				printf "  %-${maxLength}s" "$flag";
 
 				if [ -n "$desc" ]; then
-					echo -n " ";
-					eval "printf ' %s' $desc";
-					echo;
+					echo "  $(envsubst <<< "$desc")";
 				fi;
 			fi;
 		done < <(__flags);
@@ -393,12 +392,16 @@ __section_help() {
 }
 
 __bind_flags() {
+	for flag in "${!flags[@]}"; do
+		echo "unset $(tr -d '-' <<< "$flag") 2> /dev/null || true;";
+	done;
+
 	for flag in "${!setFlags[@]}"; do
-		echo "declare -g $(tr -d '-' <<< "$flag")=${setFlags[$flag]@Q}";
+		echo "declare -g $(tr -d '-' <<< "$flag")=${setFlags[$flag]@Q};";
 	done;
 
 	for flag in "${!arrays[@]}"; do
-		echo "declare -g -a $(tr -d '-' <<< "$flag")=${arrays[$flag]} )";
+		echo "declare -g -a $(tr -d '-' <<< "$flag")=${arrays[$flag]} );";
 	done;
 }
 
