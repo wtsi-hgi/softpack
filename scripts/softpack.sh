@@ -2,7 +2,7 @@
 
 set -euo pipefail;
 
-declare base="$(dirname "$0")";
+declare base="$(realpath "$(dirname "$0")")";
 declare aptRepo="$(grep "^aptrepo:" "${SOFTPACK_CONFIG:-$HOME/.softpack/config.yaml}" | head -n1 | cut -d':' -f2- | sed -e 's/^ *//')";
 
 aptMount() {
