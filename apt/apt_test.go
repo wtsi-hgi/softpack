@@ -25,14 +25,14 @@ Description: big lib
 
 Package: r-ggplot2
 Architecture: amd64
-Version: 1.2.3
+Version: 1.2.3-r1~r4.4
 Filename: pool/main/r/r-ggplot2-1.2.3.deb
 XB-Softpack: true
 Description: ggplot library
 
 Package: r-cran-ggplot2
 Architecture: amd64
-Version: 1.2.4
+Version: 1.2.4-r4.4
 Filename: pool/main/r/r-ggplot2-1.2.4.deb
 XB-Softpack: true
 XB-Alias: r-ggplot2
@@ -46,9 +46,10 @@ Description: system package
 
 Package: py-other
 Architecture: amd64
-Version: 2.0.1
+Version: 2.0.1-r1
 Filename: pool/main/p/py-torch-2.0.1.deb
 XB-Alias: py-torch
+XB-Version-Alias: 2.0.2
 XB-Softpack: true
 Description: big lib
 `
@@ -58,7 +59,7 @@ func TestReadIndex(t *testing.T) {
 		{
 			Name:        "py-torch",                 //nolint:goconst
 			Description: "big lib",                  //nolint:goconst
-			Versions:    []string{"2.0.0", "2.0.1"}, //nolint:goconst
+			Versions:    []string{"2.0.0", "2.0.2"}, //nolint:goconst
 		},
 		{
 			Name:        "r-ggplot2",
@@ -66,7 +67,7 @@ func TestReadIndex(t *testing.T) {
 			Versions:    []string{"1.2.3", "1.2.4"},
 		},
 	}
-	aliases := map[string]string{"py-torch": "py-other", "r-ggplot2": "r-cran-ggplot2"}
+	aliases := map[string]string{"py-torch": "py-other", "py-torch@2.0.2": "py-other@2.0.1", "r-ggplot2": "r-cran-ggplot2"}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, testPackages) //nolint:errcheck

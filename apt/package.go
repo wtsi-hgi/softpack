@@ -102,6 +102,10 @@ func (s *Server) Alias(pkg string) string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
+	if alias, ok := s.aliases[pkg]; ok {
+		return alias
+	}
+
 	name, ver, hasVer := strings.Cut(pkg, "@")
 
 	if alias, ok := s.aliases[name]; ok {

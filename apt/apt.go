@@ -86,22 +86,47 @@ func parseIndex(r io.ReadCloser, compressed bool) ([]Package, map[string]string,
 			continue
 		}
 
-		if alias, ok := entry.Values["XB-Alias"]; ok {
-			aliases[alias] = entry.Package
-			entry.Package = alias
-		}
+		entry.Version.Version, _, _ = strings.Cut(entry.Version.Version, "~")
+		entry.Version.Version, _, _ = strings.Cut(entry.Version.Version, "-")
 
-		pos, exists := slices.BinarySearchFunc(packages, Package{Name: entry.Package}, func(a, b Package) int {
-			return strings.Compare(a.Name, b.Name)
-		})
-		if !exists {
-			packages = slices.Insert(packages, pos, Package{Name: entry.Package, Description: entry.Description})
-		}
+		handleAliases(&entry, aliases)
 
-		packages[pos].Versions = append(packages[pos].Versions, entry.Version.Version)
+		packages = addPackage(packages, entry)
 	}
 
 	return packages, aliases, nil
+}
+
+func handleAliases(entry *control.BinaryIndex, aliases map[string]string) {
+	pkgName := entry.Package
+
+	alias, ok := entry.Values["XB-Alias"]
+	if ok {
+		aliases[alias] = entry.Package
+		entry.Package = alias
+	} else {
+		alias = entry.Package
+	}
+
+	if version, ok := entry.Values["XB-Version-Alias"]; ok {
+		aliases[alias+"@"+version] = pkgName + "@" + entry.Version.Version
+		entry.Version.Version = version
+	}
+}
+
+func addPackage(packages []Package, entry control.BinaryIndex) []Package {
+	ppos, exists := slices.BinarySearchFunc(packages, Package{Name: entry.Package}, func(a, b Package) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+	if !exists {
+		packages = slices.Insert(packages, ppos, Package{Name: entry.Package, Description: entry.Description})
+	}
+
+	if vpos, exists := slices.BinarySearch(packages[ppos].Versions, entry.Version.Version); !exists {
+		packages[ppos].Versions = slices.Insert(packages[ppos].Versions, vpos, entry.Version.Version)
+	}
+
+	return packages
 }
 
 func readPackageIndex(r io.ReadCloser, compressed bool) ([]control.BinaryIndex, error) {
