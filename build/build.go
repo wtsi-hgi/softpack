@@ -164,6 +164,8 @@ func setAptRepo(root, httpURL string) error {
 	)
 }
 
+var mountHack = []byte("#!/bin/bash\nrm /etc/{passwd,group};mv /etc/passwd{.orig,};mv /etc/group{.orig,}")
+
 func installPackages(log *strings.Builder, root string, pkgs []db.Package) ([]string, []db.Package, error) {
 	packages := make([]string, len(pkgs))
 
@@ -177,6 +179,12 @@ func installPackages(log *strings.Builder, root string, pkgs []db.Package) ([]st
 
 	if err := cmp.Or(
 		aptWithLog(log, root, "update"),
+		os.MkdirAll(filepath.Join(root, ".singularity", "env"), 0755),
+		os.WriteFile(filepath.Join(root, ".singularity", "env", "99-hack.sh"), mountHack, 0755),
+		os.Rename(filepath.Join(root, "etc", "passwd"), filepath.Join(root, "etc", "passwd.orig")),
+		os.Rename(filepath.Join(root, "etc", "group"), filepath.Join(root, "etc", "group.orig")),
+		os.Symlink(filepath.Join(root, "etc", "passwd.orig"), filepath.Join(root, "etc", "passwd")),
+		os.Symlink(filepath.Join(root, "etc", "group.orig"), filepath.Join(root, "etc", "group")),
 		aptWithLog(log, root, append(
 			[]string{
 				"-y",
@@ -187,6 +195,7 @@ func installPackages(log *strings.Builder, root string, pkgs []db.Package) ([]st
 			},
 			packages...,
 		)...),
+		os.RemoveAll(filepath.Join(root, ".singularity")),
 		os.RemoveAll(filepath.Join(root, "var", "cache", "apt")),
 		os.RemoveAll(filepath.Join(root, "var", "lib", "apt")),
 	); err != nil {
