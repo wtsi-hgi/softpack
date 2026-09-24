@@ -103,8 +103,24 @@ func TestCheckPkgsExist(t *testing.T) {
 		Version: "2.0.0",
 	}
 
+	expected2 := db.Package{
+		Name: "r",
+	}
+
+	expected3 := db.Package{
+		Name:    "r",
+		Version: "4.2.3",
+	}
+
+	noExpected := db.Package{
+		Name:    "r",
+		Version: "4.4",
+	}
+
 	assert.True(t, s.CheckPackageExists(expected))
-	assert.True(t, s.CheckPackagesExist([]db.Package{expected}))
+	assert.True(t, s.CheckPackageExists(expected2))
+	assert.True(t, s.CheckPackagesExist([]db.Package{expected, expected2, expected3}))
+	assert.False(t, s.CheckPackageExists(noExpected))
 }
 
 func TestAlias(t *testing.T) {

@@ -23,6 +23,14 @@ Filename: pool/main/p/py-torch-2.0.0.deb
 XB-Softpack: true
 Description: big lib
 
+Package: r-base-core
+Architecture: amd64
+Version: 4.2.3~r1
+Filename: pool/main/r/r-ggplot2-1.2.3.deb
+XB-Softpack: true
+XB-Alias: r
+Description: R interpreter
+
 Package: r-ggplot2
 Architecture: amd64
 Version: 1.2.3-r1~r4.4
@@ -62,12 +70,17 @@ func TestReadIndex(t *testing.T) {
 			Versions:    []string{"2.0.0", "2.0.2"}, //nolint:goconst
 		},
 		{
+			Name:        "r",
+			Description: "R interpreter",
+			Versions:    []string{"4.2.3"},
+		},
+		{
 			Name:        "r-ggplot2",
 			Description: "ggplot library",
 			Versions:    []string{"1.2.3", "1.2.4"},
 		},
 	}
-	aliases := map[string]string{"py-torch": "py-other", "py-torch@2.0.2": "py-other@2.0.1", "r-ggplot2": "r-cran-ggplot2"}
+	aliases := map[string]string{"py-torch": "py-other", "py-torch@2.0.2": "py-other@2.0.1", "r": "r-base-core", "r-ggplot2": "r-cran-ggplot2"}
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		io.WriteString(w, testPackages) //nolint:errcheck

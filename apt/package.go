@@ -87,11 +87,11 @@ func (s *Server) CheckPackagesExist(pkgs []db.Package) bool {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
 
-	for _, pkg := range pkgs {
-		pkg.Name = strings.TrimPrefix(pkg.Name, "*")
+	for _, reqPkg := range pkgs {
+		reqPkg.Name = strings.TrimPrefix(reqPkg.Name, "*")
 
-		if exists := s.CheckPackageExists(pkg); !exists {
-			return exists
+		if !s.CheckPackageExists(reqPkg) {
+			return false
 		}
 	}
 
@@ -119,17 +119,23 @@ func (s *Server) Alias(pkg string) string {
 	return pkg
 }
 
-func (s *Server) CheckPackageExists(pkg db.Package) bool {
-	for _, aptpkg := range s.packages {
-		if CheckPkgEqual(pkg, aptpkg) {
-			return true
-		}
+func (s *Server) CheckPackageExists(reqPkg db.Package) bool {
+	s.mu.RLock()
+	pkgs := s.packages
+	s.mu.RUnlock()
+
+	pos, found := slices.BinarySearchFunc(pkgs, Package{Name: reqPkg.Name}, func(a, b Package) int {
+		return strings.Compare(a.Name, b.Name)
+	})
+	if !found {
+		return false
 	}
 
-	return false
-}
+	if reqPkg.Version == "" {
+		return true
+	}
 
-func CheckPkgEqual(dbpkg db.Package, aptpkg Package) bool {
-	return dbpkg.Name == aptpkg.Name &&
-		slices.Contains(aptpkg.Versions, dbpkg.Version)
+	_, found = slices.BinarySearch(pkgs[pos].Versions, reqPkg.Version)
+
+	return found
 }
