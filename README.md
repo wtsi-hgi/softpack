@@ -23,10 +23,13 @@ wrapper-script: Local path to the wrapper script that generated symlinks
     will point to
 apt-src: Local directory, HTTP URL, or s3:// URL pointing to the APT
     repository used to install packages into the image.
+apt-index-src: Local file, HTTP URL, or s3:// URL pointing to the APT
+    repository Packages index.
 module-path: Local directory where generated module files will be placed.
 artefact-store: Local path or s3:// URL used to store generated artefacts.
 db-conn: Database connection string, either a local SQLite path or a
     mysql:// style URI for a remote database.
+db-driver: One of mysql or sqlite to determine how to interpret the connection URL.
 listen-addr: Address where the web server will listen.
 smtp: Open SMTP server address (Optional)
 email-domain: Email domain Eg. @example.com. Build status emails to admin will be
