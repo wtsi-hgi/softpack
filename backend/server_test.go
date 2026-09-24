@@ -126,7 +126,23 @@ func newTestServer(t *testing.T) *httptest.Server {
 func newBackend(t *testing.T, dbConn string) *Server {
 	t.Helper()
 
-	root := apt.CreateTestAptRepo(t, apt.ExamplePackages())
+	root := apt.CreateTestAptRepo(t, append(
+		apt.ExamplePackages(),
+		apt.Deb{
+			Name:    NonExistentPkg1, //nolint:goconst
+			Version: "0",
+			Metadata: map[string]string{
+				"XB-Softpack": "true",
+			},
+		},
+		apt.Deb{
+			Name:    NonExistentPkg2, //nolint:goconst
+			Version: "1",
+			Metadata: map[string]string{
+				"XB-Softpack": "true",
+			},
+		},
+	))
 	moduleBase := t.TempDir()
 	installBase := t.TempDir()
 	artefactBase := t.TempDir()

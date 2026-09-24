@@ -88,7 +88,9 @@ func (s *Server) CheckPackagesExist(pkgs []db.Package) bool {
 	defer s.mu.RUnlock()
 
 	for _, reqPkg := range pkgs {
-		reqPkg.Name = strings.TrimPrefix(reqPkg.Name, "*")
+		if strings.HasPrefix(reqPkg.Name, "*") {
+			continue
+		}
 
 		if !s.CheckPackageExists(reqPkg) {
 			return false

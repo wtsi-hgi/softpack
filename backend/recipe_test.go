@@ -78,6 +78,14 @@ func TestGetAllPackages(t *testing.T) {
 			Versions: []string{"1", "2"},
 		},
 		{
+			Name:     NonExistentPkg1,
+			Versions: []string{"0"},
+		},
+		{
+			Name:     NonExistentPkg2,
+			Versions: []string{"1"},
+		},
+		{
 			Name:     "py-xyz",
 			Versions: []string{"2.1"},
 		},
@@ -154,10 +162,10 @@ func TestFulfilRequestedRecipe(t *testing.T) {
 		Tags:        []db.Tag{},
 		Packages: []db.Package{
 			{
-				Name: "requestedpkg",
+				Name: "*requestedpkg",
 			},
 			{
-				Name:    "requestedpkg2",
+				Name:    "*requestedpkg2",
 				Version: "version",
 			},
 		},

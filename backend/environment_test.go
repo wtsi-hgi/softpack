@@ -71,7 +71,7 @@ func TestCreateEnvironment(t *testing.T) {
 		Tags:        []db.Tag{},
 		Packages: []db.Package{
 			{
-				Name: "new-pkg",
+				Name: "*new-pkg",
 			},
 		},
 	}
@@ -161,7 +161,7 @@ func TestAddAndDeleteTags(t *testing.T) {
 	code, resp = getResponse(t, s, "/add-tag", u)
 	assertBadRequest(t, code, resp, ErrDuplicateItem)
 
-	env.Tags = []db.Tag{db.Tag{Name: tag}}
+	env.Tags = []db.Tag{{Name: tag}}
 
 	env2.Status = db.Building
 	checkAllEqual(t, s, zeroEnv(t, []db.Environment{env, env2}))

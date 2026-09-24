@@ -17,7 +17,23 @@ import (
 func TestGetAverageBuildTime(t *testing.T) {
 	apt.SkipIfBadEnvironment(t)
 
-	src := apt.CreateTestAptRepo(t, apt.ExamplePackages())
+	src := apt.CreateTestAptRepo(t, append(
+		apt.ExamplePackages(),
+		apt.Deb{
+			Name:    NonExistentPkg1, //nolint:goconst
+			Version: "0",
+			Metadata: map[string]string{
+				"XB-Softpack": "true",
+			},
+		},
+		apt.Deb{
+			Name:    NonExistentPkg2, //nolint:goconst
+			Version: "1",
+			Metadata: map[string]string{
+				"XB-Softpack": "true",
+			},
+		},
+	))
 
 	backend, err := New(&config.Config{
 		AptSrc:        src,
@@ -56,7 +72,7 @@ func TestGetAverageBuildTime(t *testing.T) {
 		Tags:    []db.Tag{},
 		Packages: []db.Package{
 			{
-				Name: "nonexistentpkg",
+				Name: NonExistentPkg1,
 			},
 		},
 	}

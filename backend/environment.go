@@ -22,7 +22,7 @@ func (s *Server) CreateEnvironment(_ http.ResponseWriter, r *http.Request) error
 		return db.ErrMissingField
 	}
 
-	if exists := s.apt.CheckPackagesExist(env.Packages); exists {
+	if !s.apt.CheckPackagesExist(env.Packages) {
 		return apt.ErrInvalidPackage
 	}
 

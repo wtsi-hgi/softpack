@@ -110,7 +110,9 @@ func CreateTestAptRepo(t *testing.T, debs []Deb) string { //nolint:funlen
 
 		w := rwcount.Writer{Writer: f}
 
-		createDebFile(t, io.MultiWriter(&w, m, s1, s2, s5), control.String())
+		if !strings.HasPrefix(deb.Name, "nonexistent") {
+			createDebFile(t, io.MultiWriter(&w, m, s1, s2, s5), control.String())
+		}
 
 		_, err = fmt.Fprintf(
 			distFile,
