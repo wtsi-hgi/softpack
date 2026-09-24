@@ -183,7 +183,8 @@ func installPackages(log *strings.Builder, root string, pkgs []db.Package) ([]st
 				"-o", "DPkg::Options::=--force-not-root",
 				"--allow-downgrades", "--allow-change-held-packages",
 				"--allow-remove-essential", "--no-strict-pinning",
-				"install"},
+				"install",
+			},
 			packages...,
 		)...),
 		os.RemoveAll(filepath.Join(root, "var", "cache", "apt")),
@@ -260,7 +261,14 @@ func getExecutablesAndConcretise(pkgs []db.Package, installed []control.BinaryIn
 			pkgs[idx].Name = alias
 		}
 
-		pkgs[idx].Version = deb.Version.Version
+		if alias, ok := deb.Values["XB-Version-Alias"]; ok {
+			deb.Version.Version = alias
+		}
+
+		ver, _, _ := strings.Cut(deb.Version.Version, "~")
+		ver, _, _ = strings.Cut(ver, "-")
+
+		pkgs[idx].Version = ver
 
 		if pkgExes, ok := deb.Values["XB-Executables"]; ok {
 			for exe := range strings.SplitSeq(pkgExes, ", ") {
@@ -285,7 +293,7 @@ func addInterpreters(pkgs []db.Package) []db.Package { //nolint:gocognit,gocyclo
 			hasPython = true
 		} else if strings.HasPrefix(pkg.Name, "r-") {
 			hasRLib = true
-		} else if strings.HasPrefix(pkg.Name, "py-") {
+		} else if strings.HasPrefix(pkg.Name, "py-") || strings.HasPrefix(pkg.Name, "python3-") {
 			hasPy = true
 		} else {
 			continue
