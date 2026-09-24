@@ -56,14 +56,5 @@ func Load(path string) (*Config, error) {
 		return nil, err
 	}
 
-	if cfg.TempDir == "" {
-		dir, err := os.MkdirTemp(cfg.InstallDir, "tmp")
-		if err != nil {
-			return nil, err
-		}
-
-		cfg.TempDir = dir
-	}
-
 	return cfg, nil
 }
