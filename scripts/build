@@ -1,0 +1,90 @@
+#!buildContainer
+# Build a custom package inside of a custom generated build container.
+: --name string        # Name of the package
+: --version string     # Version of the package
+: --download [URL]     # Download
+: --git [URL]          # Git repo
+: --tag [id]           # Git repo branch, tag, or commit to checkout
+: --builddep pkg[]     # Build dependency
+: --rundep pkg[]       # Runtime dependency
+: --subdir [string]    # Subdirectory within the download containing build start.
+: --description string # Description of package
+
+if [ ! -v download -a ! -v git -o -v download -a -v git ]; then
+	echo "One, and only one, of --download and --git can be set";
+
+	exit 1;
+fi;
+
+export DEBIAN_FRONTEND=noninteractive;
+aptSources > /etc/apt/sources.list.d/apt.list;
+apt update;
+apt -y -o DPkg::Options::=--force-not-root upgrade;
+apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git unzip build-essential debhelper devscripts dpkg-dev "${builddep[@]}" "${rundep[@]}";
+
+cd "$(mktemp -d)";
+
+mkdir -p "$name-$version/tmp";
+
+cd "$name-$version/tmp";
+
+if [ -v git ]; then
+	git clone "$git" -C .;
+
+	if [ -v tag ]; then
+		git checkout "$tag";
+	fi;
+else
+	declare downloadDir="$(mktemp -d)";
+
+	wget "$download" -O "$downloadDir/source";
+
+	case "$download" in
+	*".zip")
+		unzip -q "$downloadDir/source" -d .;;
+	*)
+		tar -xvf "$downloadDir/source" -C . --strip-components=1;;
+	esac;
+fi;
+
+cd ..
+mkdir src;
+mv tmp/${subdir:-}/* ./src/;
+rm -rf tmp;
+cd src;
+
+mkdir debian;
+
+cat <<HEREDOC > "debian/control";
+Source: $name
+Maintainer: $maintainer
+Priority: optional
+Build-Depends: debhelper-compat (= 13), build-essential$(for dep in "${builddeps[@]}"; do echo -n ", $dep";done)
+
+Package: $name
+Architecture: amd64
+Depends: \${shlibs:Depends}, \${misc:Depends}$(for dep in "${rundeps[@]}"; do echo -n ", $dep";done)
+Description: $description
+HEREDOC
+
+cat <<EOF > "debian/changelog";
+$name ($version) unstable; urgency=low
+
+  * Built via a Pipeline
+
+ -- $maintainer  $(date -R)
+
+EOF
+
+cat <<EOF > "debian/rules";
+#!/usr/bin/make -f
+%:
+	dh \$@
+EOF
+
+debuild -us -uc -b;
+
+downloadDeps "$PWD";
+installDebs "$PWD";
+
+# vim: set filetype=bash :
