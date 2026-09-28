@@ -47,6 +47,10 @@ if [ -v version ]; then
 	fi;
 fi;
 
+declare title="Creating DEB for $name${version+@}${version:-} for Python $python";
+
+echo -e "\n$title\n${title//?/=}\n";
+
 UV_BREAK_SYSTEM_PACKAGES=1 uv pip install --target /usr/lib/python3/dist-packages --compile-bytecode "$toInstall";
 
 declare -A collections=();
@@ -71,7 +75,7 @@ for pkgName in "${!collections[@]}"; do
 	declare pname="${pkg/==*/}";
 	declare version="";
 	declare primary="";
-	declare spName="py-${pkgName:8}"
+	declare spName="py-${pkgName#python3-}"
 
 	for part in "${parts[@]}"; do
 		while read req; do
@@ -155,7 +159,7 @@ $pkgName ($version) unstable; urgency=low
 EOF
 
 	dpkg-shlibdeps "$tmp/debian/$pkgName/usr/lib/python3/dist-packages"/**/*.so 2> /dev/null || true;
-	dh_python3;
+	dh_python3 --no-ext-rename;
 
 	if [ -f "$tmp/debian/"*.substvars ]; then
 		cat "$tmp/debian/"*.substvars >> "$tmp/debian/substvars" || true;
