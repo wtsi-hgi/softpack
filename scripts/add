@@ -87,9 +87,11 @@ done > "debian/install";
 
 find
 debuild -us -uc -b;
-cd ..
+cd ..;
 
-downloadDeps "$PWD";
-installDebs "$PWD";
+mkdir debs;
+mv *.deb debs;
+downloadDeps "$PWD/debs";
+installDebs "$PWD/debs";
 
 # vim: set filetype=bash :

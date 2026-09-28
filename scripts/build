@@ -83,8 +83,11 @@ cat <<EOF > "debian/rules";
 EOF
 
 debuild -us -uc -b;
+cd ..;
 
-downloadDeps "$PWD";
-installDebs "$PWD";
+mkdir debs;
+mv *.deb debs;
+downloadDeps "$PWD/debs";
+installDebs "$PWD/debs";
 
 # vim: set filetype=bash :
