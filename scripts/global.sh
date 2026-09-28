@@ -77,7 +77,7 @@ setExecutables() {
 	if [ "$(dpkg-deb -f "$file" Package)" = "python3" ]; then
 		declare version="$(dpkg-deb -f "$file" Version)";
 
-		exes+=( "python$(cut -d'.' -f1 <<< "$version")" "python$(cut -d'.' -f1-2 <<< "$version")" );
+		exes+=( "python" "python$(cut -d'.' -f1-2 <<< "$version")" );
 	fi;
 
 	if [ ${#exes[@]} -eq 0 ]; then
@@ -89,6 +89,15 @@ setExecutables() {
 			echo -n "$exe, ";
 		done | sed -e 's/, $//';
 	)";
+}
+
+aptSources() {
+	cat <<-HEREDOC
+	deb [trusted=yes] http://r2u.stat.illinois.edu/ubuntu resolute main
+	deb [trusted=yes] http://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu/ resolute main
+	deb [trusted=yes] http://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/ resolute main
+	deb [trusted=yes] file:///repo resolute main
+HEREDOC
 }
 
 aptOpts() {
@@ -109,16 +118,14 @@ Pin: release n=resolute
 Pin-Priority: 500
 HEREDOC
 
-	cat <<HEREDOC > "$tmpDir/etc/apt/sources.list.d/apt.list"
-deb [trusted=yes] http://r2u.stat.illinois.edu/ubuntu resolute main
-deb [trusted=yes] http://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu/ resolute main
-deb [trusted=yes] http://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/ resolute main
-deb [trusted=yes] file:///repo resolute main
-HEREDOC
+	{
+		aptSources;
 
-	if [ -v aptDir ]; then
-		echo "deb [trusted=yes] file://$aptDir resolute main" >> "$tmpDir/etc/apt/sources.list.d/apt.list";
-	fi;
+		if [ -v aptDir ]; then
+			echo "deb [trusted=yes] file://$aptDir resolute main" >> "$tmpDir/etc/apt/sources.list.d/apt.list";
+		fi;
+        } > "$tmpDir/etc/apt/sources.list.d/apt.list";
+
 
 	OPTS=(
 		-o Dir::Etc="$tmpDir/etc/apt/"
