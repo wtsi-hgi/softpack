@@ -4,11 +4,14 @@ set -euo pipefail;
 
 declare base="$(realpath "$(dirname "$0")")";
 declare aptRepo="$(grep "^aptrepo:" "${SOFTPACK_CONFIG:-$HOME/.softpack/config.yaml}" | head -n1 | cut -d':' -f2- | sed -e 's/^ *//')";
+export TMP="$(mktemp -d)";
+trap "rm -rf ${TMP@Q}" EXIT;
 
 aptMount() {
 	declare host="$(echo "$aptRepo" | cut -d'/' -f3)";
 	declare path="/$(echo "$aptRepo" | cut -d'/' -f4-)";
 
+	#declare mount="container:s3fs -d -o curldbg -o dbglevel=info" #-o logfile=/dev/null"
 	declare mount="container:s3fs -o logfile=/dev/null"
 
 	if [ -f ~/.aws/config ]; then
@@ -39,10 +42,8 @@ aptMount() {
 }
 
 setBind() {
-	declare slTemp="$(mktemp -d)";
-	declare dpTemp="$(mktemp -d)";
-	export TMP="$(mktemp -d)";
-	trap "rm -rf ${slTemp@Q}; rm -rf ${dpTemp@Q}; rm -rf ${TMP@Q}" EXIT;
+	declare slTemp="$(TMPDIR="$TMP" mktemp -d)";
+	declare dpTemp="$(TMPDIR="$TMP" mktemp -d)";
 
 	bind="$slTemp:/usr/lib/R/site-library/,$dpTemp:/usr/lib/python3/dist-packages,$TMP:/tmp";
 }
@@ -52,12 +53,20 @@ runContainer() {
 	shift;
 
 	declare bind="";
+
 	setBind;
 
-	cat "$script" | if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity exec --fusemount "$(aptMount)" --bind "$bind" "$base/softpack.sif" bash "$script" "$@"
+	startContainer exec --bind "$bind" "$base/softpack.sif" bash "$script" "$@"
+}
+
+startContainer() {
+	declare cmd="$1";
+	shift;
+
+	if [ "${aptRepo:0:5}" = "s3://" ]; then
+		singularity "$cmd" --fusemount "$(aptMount)" "$@"
 	else
-		singularity exec --bind "$bind" "$base/softpack.sif" bash "$script" "$@";
+		singularity exec "$@";
 	fi;
 }
 
@@ -65,11 +74,36 @@ runShell() {
 	declare bind="";
 	setBind;
 
+	startContainer shell --bind "$bind" "$base/softpack.sif" bash "$script" "$@"
+}
+
+buildContainer() {
+	declare root="$(TMPDIR="$TMP" mktemp -d)";
+	declare container="$(TMPDIR="$TMP" mktemp -d)";
+
+	singularity build --sandbox "$root/r" docker://ubuntu:latest;
+	singularity exec --bind "$root/r/:/r" "$base/softpack.sif" cp /usr/local/bin/s3fs /r/usr/local/bin/;
+	mkdir "$root/r/"{repo,build};
+
 	if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity shell --fusemount "$(aptMount)" --bind "$bind" "$base/softpack.sif";
-	else
-		singularity shell --bind "$bind" "$base/softpack.sif";
+		singularity exec --writable "$root/r" bash -c "export DEBIAN_FRONTEND=noninteractive; apt update && apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends ca-certificates s3fs libcurl4-openssl-dev libfuse-dev libxml2-dev libssl-dev";
+		singularity exec --bind "$root/r/:/build" "$base/softpack.sif" bash -c "cp /usr/local/bin/s3fs /build/usr/local/bin/";
 	fi;
+
+	mv "$root/r/etc/"passwd{,.new};
+	mv "$root/r/etc/"group{,.new};
+	ln -s "/etc/passwd.new" "$root/r/etc/passwd";
+	ln -s "/etc/group.new" "$root/r/etc/group";
+
+	mkdir -p "$root/r/.singularity.d/env";
+	cat > "$root/r/.singularity.d/env/99-etc.sh" <<-HEREDOC
+	rm /etc/{passwd,group}
+	mv /etc/passwd{.new,}
+	mv /etc/group{.new,}
+HEREDOC
+
+	chmod +x "$root/r/.singularity.d/env/99-etc.sh";
+	startContainer exec --writable "$root/r" bash "$1";
 }
 
 . "$base/commands.sh";
