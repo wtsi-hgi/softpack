@@ -1,0 +1,52 @@
+# Add existing deb file
+: --url [string]     # Package URL
+: --name [string]    # Package Name
+: --version [string] # Package Version
+: --library          # Package is a library that should not be exposed to SoftPack.
+: --alias [string]   # Alias to show to SoftPack
+
+declare debs="$(mktemp -d)";
+
+cd "$debs";
+
+if [ -v url ]; then
+	wget "$url";
+elif [ -v name ]; then
+	declare tmpDir="$(mktemp -d)";
+	declare -a OPTS;
+
+	aptOpts "$tmpDir" "$debs";
+
+	apt update "${OPTS[@]}";
+
+	if [ -v version ]; then
+		apt download "${OPTS[@]}" "$name==$version";
+	else
+		apt download "${OPTS[@]}" "$name";
+	fi;
+else
+	echo "One of --url or --name required" >&2;
+
+	exit 1;
+fi;
+
+declare -a metadata=();
+
+if ! $library; then
+	metadata+=( "XB-Softpack" "true" );
+fi;
+
+if [ -v alias ]; then
+	metadata+=( "XB-Alias" "$alias" );
+fi;
+
+if [ "${#metadata[@]}" -gt 0 ]; then
+	setMetadata "$debs/"*.deb "${metadata[@]}";
+fi;
+
+cd "$debs";
+
+downloadDeps "$debs";
+installDebs "$debs";
+
+# vim: set filetype=bash :
