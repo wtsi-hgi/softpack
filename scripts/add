@@ -5,6 +5,8 @@
 : --description string # Description of package
 : --rundeps pkg[]      # Runtime dependencies
 : --move string[]      # Filename/glob within the download => Final location.
+: --library            # Package is a library that should not be exposed to SoftPack.
+: --alias [string]     # Alias to show to SoftPack
 
 
 if [ "${#move[@]}" = 0 ]; then
@@ -79,6 +81,7 @@ cat <<EOF > "debian/rules";
 override_dh_auto_configure:
 override_dh_auto_build:
 override_dh_auto_test:
+override_dh_installchangelogs:
 EOF
 
 for m in "${move[@]}"; do
@@ -91,7 +94,25 @@ cd ..;
 
 mkdir debs;
 mv *.deb debs;
-downloadDeps "$PWD/debs";
-installDebs "$PWD/debs";
+
+declare -a metadata=();
+declare debs="$PWD/debs";
+
+if ! $library; then
+	metadata+=( "XB-Softpack" "true" );
+fi;
+
+if [ -v alias ]; then
+	metadata+=( "XB-Alias" "$alias" );
+fi;
+
+if [ "${#metadata[@]}" -gt 0 ]; then
+	setMetadata "$debs/"*.deb "${metadata[@]}";
+fi;
+
+cd "$debs";
+
+downloadDeps "$debs";
+installDebs "$debs";
 
 # vim: set filetype=bash :
