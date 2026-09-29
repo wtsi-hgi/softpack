@@ -11,8 +11,7 @@ aptMount() {
 	declare host="$(echo "$aptRepo" | cut -d'/' -f3)";
 	declare path="/$(echo "$aptRepo" | cut -d'/' -f4-)";
 
-	#declare mount="container:s3fs -d -o curldbg -o dbglevel=info" #-o logfile=/dev/null"
-	declare mount="container:s3fs -o logfile=/dev/null"
+	declare mount="container:s3fs -o logfile=/dev/null";
 
 	if [ -f ~/.aws/config ]; then
 		declare endpoint_url="$(cat ~/.aws/config | grep "^endpoint_url" | head -n1 | sed -e 's/.*= *//')";
@@ -103,7 +102,7 @@ buildContainer() {
 HEREDOC
 
 	chmod +x "$root/r/.singularity.d/env/99-etc.sh";
-	startContainer exec --writable "$root/r" bash "$1";
+	startContainer exec --bind "$(TMPDIR="$TMP" mktemp -d):/tmp" --writable "$root/r" bash "$1";
 }
 
 . "$base/commands.sh";
