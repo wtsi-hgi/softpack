@@ -9,6 +9,16 @@
 : --rundep pkg[]       # Runtime dependency
 : --subdir [string]    # Subdirectory within the download containing build start.
 : --description string # Description of package
+: --library            # Package is a library that should not be exposed to SoftPack.
+: --alias [string]     # Alias to show to SoftPack
+: --patch string[]     # Path to patch file
+: --std [string]       # C standard to use while compiling
+: --move string[]      # Filename/glob within the download => Final location.
+: --debug              # Enable simple debugging and disable copying completed debs into repo.
+: --cflags [string]    # Pass C compliation flags
+: --cxxflags [string]  # Pass C++ complilation flags
+: --ldflags [string]   # Pass Linker flags
+: --cppflags [string]  # Pass C/C++ preprocessor flags
 
 if [ ! -v download -a ! -v git -o -v download -a -v git ]; then
 	echo "One, and only one, of --download and --git can be set";
@@ -16,20 +26,24 @@ if [ ! -v download -a ! -v git -o -v download -a -v git ]; then
 	exit 1;
 fi;
 
+if [ "${#patch[@]}" -gt 0 ]; then
+	mapfile -d '' patchPaths < <(printf '%s\0' "${patch[@]}" | xargs -0 realpath -z);
+fi;
+
 export DEBIAN_FRONTEND=noninteractive;
 aptSources > /etc/apt/sources.list.d/apt.list;
 apt update;
 apt -y -o DPkg::Options::=--force-not-root upgrade;
-apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git unzip build-essential debhelper devscripts dpkg-dev "${builddep[@]}" "${rundep[@]}";
+apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git unzip build-essential debhelper devscripts dpkg-dev apt-utils zstd "${builddep[@]}" "${rundep[@]}";
 
 cd "$(mktemp -d)";
 
-mkdir -p "$name-$version/tmp";
+mkdir -p "$name-$version/src";
 
-cd "$name-$version/tmp";
+cd "$name-$version/src";
 
 if [ -v git ]; then
-	git clone "$git" -C .;
+	git clone "$git" .;
 
 	if [ -v tag ]; then
 		git checkout "$tag";
@@ -47,47 +61,102 @@ else
 	esac;
 fi;
 
-cd ..
-mkdir src;
-mv tmp/${subdir:-}/* ./src/;
-rm -rf tmp;
-cd src;
-
 mkdir debian;
 
 cat <<HEREDOC > "debian/control";
 Source: $name
 Maintainer: $maintainer
 Priority: optional
-Build-Depends: debhelper-compat (= 13), build-essential$(for dep in "${builddeps[@]}"; do echo -n ", $dep";done)
+Build-Depends: debhelper-compat (= 13), build-essential$(for dep in "${builddep[@]}"; do echo -n ", $dep";done)
 
 Package: $name
 Architecture: amd64
-Depends: \${shlibs:Depends}, \${misc:Depends}$(for dep in "${rundeps[@]}"; do echo -n ", $dep";done)
+Depends: \${shlibs:Depends}, \${misc:Depends}$(for dep in "${rundep[@]}"; do echo -n ", $dep";done)
 Description: $description
 HEREDOC
 
-cat <<EOF > "debian/changelog";
+cat <<HEREDOC > "debian/changelog";
 $name ($version) unstable; urgency=low
 
   * Built via a Pipeline
 
  -- $maintainer  $(date -R)
 
-EOF
+HEREDOC
 
-cat <<EOF > "debian/rules";
+cat <<HEREDOC > "debian/rules";
 #!/usr/bin/make -f
-%:
-	dh \$@
-EOF
 
-debuild -us -uc -b;
+${cflags+export DEB_CFLAGS_MAINT_APPEND = }${cflags:-}
+${cxxflags+export DEB_CXXFLAGS_MAINT_APPEND = }${cxxflags:-}
+${cppflags+export DEB_CPPFLAGS_MAINT_APPEND = }${cppflags:-}
+${ldflags+export DEB_LDFLAGS_MAINT_APPEND = }${ldflags:-}
+
+%:
+	dh \$@$(if [ -v subdir ]; then echo " --sourcedirectory=$subdir";fi;)
+execute_before_dh_auto_configure:
+	@ bash debian/exe-patches
+override_dh_auto_install:
+	dh_auto_install --max-parallel=1
+override_dh_installchangelogs:
+HEREDOC
+
+for m in "${move[@]}"; do
+	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$m";
+done > "debian/install";
+
+touch "debian/exe-patches";
+
+if [ "${#patch[@]}" -gt 0 ]; then
+	mkdir "debian/patches";
+	mkdir "debian/source";
+	echo "3.0 (quilt)" > "debian/source/format";
+
+	cp -rv "${patchPaths[@]}" "debian/patches";
+
+	for patch in "${patchPaths[@]}"; do
+		if [ "${patch: -3}" = ".sh" ]; then
+			echo "bash ${patch@Q}" >> "debian/exe-patches";
+		else
+			cp "$patch" "debian/patches";
+			basename "$patch" >> "debian/patches/series";
+		fi;
+	done;
+fi;
+
+debuild -ePWD -us -uc -b;
 cd ..;
 
 mkdir debs;
 mv *.deb debs;
-downloadDeps "$PWD/debs";
-installDebs "$PWD/debs";
+
+declare -a metadata=();
+
+if ! $library; then
+	metadata+=( "XB-Softpack" "true" );
+fi;
+
+if [ -v alias ]; then
+	metadata+=( "XB-Alias" "$alias" );
+fi;
+
+if [ "${#metadata[@]}" -gt 0 ]; then
+	setMetadata "$PWD/debs/"*.deb "${metadata[@]}";
+fi;
+
+declare debs="$PWD/debs";
+
+cd "$debs";
+
+if $debug; then
+	dpkg -I *.deb;
+	dpkg -c *.deb;
+fi;
+
+downloadDeps "$debs";
+
+if ! $debug; then
+	installDebs "$debs";
+fi;
 
 # vim: set filetype=bash :
