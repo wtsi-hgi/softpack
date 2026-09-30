@@ -2,8 +2,10 @@
 : --url [string]     # Package URL
 : --name [string]    # Package Name
 : --version [string] # Package Version
+: --repo string[]    # Repo string to get packages from: deb[-src] http://URL DISTRO COMPONENT
 : --library          # Package is a library that should not be exposed to SoftPack.
 : --alias [string]   # Alias to show to SoftPack
+: --debug            # Enable simple debugging and disable copying completed debs into repo.
 
 declare debs="$(mktemp -d)";
 
@@ -15,7 +17,7 @@ elif [ -v name ]; then
 	declare tmpDir="$(mktemp -d)";
 	declare -a OPTS;
 
-	aptOpts "$tmpDir" "$debs";
+	aptOpts "$tmpDir" "$debs" "${repo[@]}";
 
 	apt update "${OPTS[@]}";
 
@@ -46,7 +48,15 @@ fi;
 
 cd "$debs";
 
+if $debug; then
+	dpkg -I *.deb;
+	dpkg -c *.deb;
+fi;
+
 downloadDeps "$debs";
-installDebs "$debs";
+
+if ! $debug; then
+	installDebs "$debs";
+fi;
 
 # vim: set filetype=bash :
