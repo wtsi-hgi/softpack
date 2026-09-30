@@ -14,11 +14,11 @@
 : --patch string[]     # Path to patch file
 : --std [string]       # C standard to use while compiling
 : --move string[]      # Filename/glob within the download => Final location.
-: --debug              # Enable simple debugging and disable copying completed debs into repo.
 : --cflags [string]    # Pass C compliation flags
 : --cxxflags [string]  # Pass C++ complilation flags
 : --ldflags [string]   # Pass Linker flags
 : --cppflags [string]  # Pass C/C++ preprocessor flags
+: --debug              # Enable simple debugging and disable copying completed debs into repo.
 
 if [ ! -v download -a ! -v git -o -v download -a -v git ]; then
 	echo "One, and only one, of --download and --git can be set";
@@ -43,10 +43,10 @@ mkdir -p "$name-$version/src";
 cd "$name-$version/src";
 
 if [ -v git ]; then
-	git clone "$git" .;
+	git clone --recurse-submodules "$git" .;
 
 	if [ -v tag ]; then
-		git checkout "$tag";
+		git checkout --recurse-submodules "$tag";
 	fi;
 else
 	declare downloadDir="$(mktemp -d)";
@@ -84,6 +84,8 @@ $name ($version) unstable; urgency=low
 
 HEREDOC
 
+find . -type f \( -name "configure.ac" -o -name "configure.in" \) -print0 | xargs -r -0 -n1 dirname | sort | uniq | sed -e 's@^\./@@' > "debian/autoreconf";
+
 cat <<HEREDOC > "debian/rules";
 #!/usr/bin/make -f
 
@@ -93,11 +95,17 @@ ${cppflags+export DEB_CPPFLAGS_MAINT_APPEND = }${cppflags:-}
 ${ldflags+export DEB_LDFLAGS_MAINT_APPEND = }${ldflags:-}
 
 %:
-	dh \$@$(if [ -v subdir ]; then echo " --sourcedirectory=$subdir";fi;)
+	dh \$@$(if [ -v subdir ]; then echo " --sourcedirectory=$subdir";fi;);
+override_dh_autoreconf:
+	while read -r dir; do \
+		(cd "\$\$dir"; autopoint --force;) \
+	done < "debian/autoreconf";
+
+	if [ -f "configure.ac" -p -f "configure.in"; then dh_autoreconf; fi;
 execute_before_dh_auto_configure:
-	@ bash debian/exe-patches
+	@ bash debian/exe-patches;
 override_dh_auto_install:
-	dh_auto_install --max-parallel=1
+	dh_auto_install --max-parallel=1;
 override_dh_installchangelogs:
 HEREDOC
 
@@ -125,6 +133,11 @@ if [ "${#patch[@]}" -gt 0 ]; then
 fi;
 
 debuild -ePWD -us -uc -b;
+
+if $debug; then
+	find;
+fi;
+
 cd ..;
 
 mkdir debs;
