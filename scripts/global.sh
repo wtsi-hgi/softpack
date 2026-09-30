@@ -98,6 +98,12 @@ aptSources() {
 	deb [trusted=yes] http://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/ resolute main
 	deb [trusted=yes] file:///repo resolute main
 HEREDOC
+
+	if [ -v repo ]; then
+		for r in "${repo[@]}"; do
+			sed -e 's/^\(deb\(-src\)\?\) \([^[]\)/\1 [trusted=yes] \3/' <<< "$r";
+		done;
+	fi;
 }
 
 aptOpts() {
@@ -122,7 +128,7 @@ HEREDOC
 		aptSources;
 
 		if [ -v aptDir ]; then
-			echo "deb [trusted=yes] file://$aptDir resolute main" >> "$tmpDir/etc/apt/sources.list.d/apt.list";
+			echo "deb [trusted=yes] file://$aptDir resolute main";
 		fi;
         } > "$tmpDir/etc/apt/sources.list.d/apt.list";
 
