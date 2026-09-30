@@ -7,6 +7,7 @@
 : --move string[]      # Filename/glob within the download => Final location.
 : --library            # Package is a library that should not be exposed to SoftPack.
 : --alias [string]     # Alias to show to SoftPack
+: --debug               # Show debug information and do not add to repo
 
 
 if [ "${#move[@]}" = 0 ]; then
@@ -112,7 +113,16 @@ fi;
 
 cd "$debs";
 
+if $debug; then
+	dpkg -I *.deb;
+	dpkg -c *.deb;
+fi;
+
 downloadDeps "$debs";
-installDebs "$debs";
+
+
+if ! $debug; then
+	installDebs "$debs";
+fi;
 
 # vim: set filetype=bash :
