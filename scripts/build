@@ -18,6 +18,8 @@
 : --cxxflags [string]  # Pass C++ complilation flags
 : --ldflags [string]   # Pass Linker flags
 : --cppflags [string]  # Pass C/C++ preprocessor flags
+: --prebuild [string]  # Instructions to run before general make instructions
+: --skiptests          # Skip build tests
 : --debug              # Enable simple debugging and disable copying completed debs into repo.
 
 if [ ! -v download -a ! -v git -o -v download -a -v git ]; then
@@ -34,7 +36,7 @@ export DEBIAN_FRONTEND=noninteractive;
 aptSources > /etc/apt/sources.list.d/apt.list;
 apt update;
 apt -y -o DPkg::Options::=--force-not-root upgrade;
-apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git unzip build-essential debhelper devscripts dpkg-dev apt-utils zstd "${builddep[@]}" "${rundep[@]}";
+apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git unzip build-essential debhelper devscripts dpkg-dev apt-utils zstd cmake "${builddep[@]}" "${rundep[@]}";
 
 cd "$(mktemp -d)";
 
@@ -61,7 +63,7 @@ else
 	esac;
 fi;
 
-mkdir debian;
+mkdir -p debian;
 
 cat <<HEREDOC > "debian/control";
 Source: $name
@@ -89,6 +91,7 @@ find . -type f \( -name "configure.ac" -o -name "configure.in" \) -print0 | xarg
 cat <<HEREDOC > "debian/rules";
 #!/usr/bin/make -f
 
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
 ${cflags+export DEB_CFLAGS_MAINT_APPEND = }${cflags:-}
 ${cxxflags+export DEB_CXXFLAGS_MAINT_APPEND = }${cxxflags:-}
 ${cppflags+export DEB_CPPFLAGS_MAINT_APPEND = }${cppflags:-}
@@ -101,13 +104,26 @@ override_dh_autoreconf:
 		(cd "\$\$dir"; autopoint --force;) \
 	done < "debian/autoreconf";
 
-	if [ -f "configure.ac" -p -f "configure.in"; then dh_autoreconf; fi;
+	if [ -f "configure.ac" -o -f "configure.in" ]; then dh_autoreconf; fi;
 execute_before_dh_auto_configure:
 	@ bash debian/exe-patches;
+override_dh_auto_build:
+	${prebuild:-}
+	dh_auto_build
 override_dh_auto_install:
 	dh_auto_install --max-parallel=1;
 override_dh_installchangelogs:
+override_dh_auto_test:
 HEREDOC
+if ! $skiptests; then
+	cat <<HEREDOC >> "debian/rules";
+	dh_auto_test || ( \
+		echo "=== TEST FAILING: DUMPING LOGS ==="; \
+		if [ -d "test" ]; then find test/ -name "*.err" -o -name "*.log" | xargs -I {} sh -c 'echo "--- {} ---"; cat {}'; fi; \
+		exit 2 \
+	)
+HEREDOC
+fi;
 
 for m in "${move[@]}"; do
 	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$m";
