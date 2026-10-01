@@ -1,28 +1,31 @@
 #!buildContainer
 # Build a custom package inside of a custom generated build container.
-: --name string        # Name of the package
-: --version string     # Version of the package
-: --download [URL]     # Download
-: --git [URL]          # Git repo
-: --tag [id]           # Git repo branch, tag, or commit to checkout
-: --builddep pkg[]     # Build dependency
-: --rundep pkg[]       # Runtime dependency
-: --subdir [string]    # Subdirectory within the download containing build start.
-: --description string # Description of package
-: --library            # Package is a library that should not be exposed to SoftPack.
-: --alias [string]     # Alias to show to SoftPack
-: --patch string[]     # Path to patch file
-: --std [string]       # C standard to use while compiling
-: --move string[]      # Filename/glob within the download => Final location.
-: --cflags [string]    # Pass C compliation flags
-: --cxxflags [string]  # Pass C++ complilation flags
-: --ldflags [string]   # Pass Linker flags
-: --cppflags [string]  # Pass C/C++ preprocessor flags
-: --prebuild [string]  # Instructions to run before general make instructions
-: --skiptests          # Skip build tests
-: --debug              # Enable simple debugging and disable copying completed debs into repo.
+: --name string           # Name of the package
+: --version string        # Version of the package
+: --download [URL]        # Download
+: --git [URL]             # Git repo
+: --fossil [URL]          # Fossil repo
+: --tag [id]              # Git repo branch, tag, or commit to checkout
+: --builddep pkg[]        # Build dependency
+: --rundep pkg[]          # Runtime dependency
+: --subdir [string]       # Subdirectory within the download containing build start.
+: --description string    # Description of package
+: --library               # Package is a library that should not be exposed to SoftPack.
+: --alias [string]        # Alias to show to SoftPack
+: --aliasversion [string] # Alias to show to SoftPack
+: --patch string[]        # Path to patch file
+: --std [string]          # C standard to use while compiling
+: --move string[]         # Filename/glob within the download => Final location.
+: --cflags [string]       # Pass C compliation flags
+: --cxxflags [string]     # Pass C++ complilation flags
+: --ldflags [string]      # Pass Linker flags
+: --cppflags [string]     # Pass C/C++ preprocessor flags
+: --prebuild [string]     # Instructions to run before general make instructions
+: --repo string[]         # Repo string to get packages from: deb[-src] http://URL DISTRO COMPONENT
+: --skiptests             # Skip build tests
+: --debug                 # Enable simple debugging and disable copying completed debs into repo.
 
-if [ ! -v download -a ! -v git -o -v download -a -v git ]; then
+if [ ! -v download -a ! -v git -a ! -v fossil -o -v download -a -v git -a -v fossil ]; then
 	echo "One, and only one, of --download and --git can be set";
 
 	exit 1;
@@ -36,7 +39,7 @@ export DEBIAN_FRONTEND=noninteractive;
 aptSources > /etc/apt/sources.list.d/apt.list;
 apt update;
 apt -y -o DPkg::Options::=--force-not-root upgrade;
-apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git unzip build-essential debhelper devscripts dpkg-dev apt-utils zstd cmake "${builddep[@]}" "${rundep[@]}";
+apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git fossil unzip build-essential debhelper devscripts dpkg-dev apt-utils zstd cmake "${builddep[@]}" "${rundep[@]}";
 
 cd "$(mktemp -d)";
 
@@ -50,6 +53,9 @@ if [ -v git ]; then
 	if [ -v tag ]; then
 		git checkout --recurse-submodules "$tag";
 	fi;
+elif [ -v fossil ]; then
+	fossil clone "$fossil" .fossil;
+	fossil open .fossil "${tag:-master}";
 else
 	declare downloadDir="$(mktemp -d)";
 
@@ -65,15 +71,45 @@ fi;
 
 mkdir -p debian;
 
+translateDep() {
+	declare dep="$1";
+
+	if grep -vq "=" <<< "$dep"; then
+		echo "$dep";
+	elif [ "${dep: -1}" != "*" ]; then
+		echo "${dep/=*/} (=${dep/*=/})";
+	else
+		dep="${dep:0:-1}";
+
+		declare ver="${dep/*=/}";
+		declare last="${ver##*.}";
+		declare first="${ver%"$last"}";
+		declare next="";
+
+		case "${last: -1}" in
+		0|1|2|3|4|5|6|7|8|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y)
+			next="$first${last:0:-1}$(tr '[a-y][A-Y][0-8]' '[b-z][B-Z][1-9]' <<< "${last: -1}")";;
+		9)
+			next="$first$(sed -e 's/[0-9]*$//')$(( sed -e 's/.*\([0-9]*\)$/\1/' <<< "$last" + 1 ))";;
+		*)
+			echo "Could not parse version number" >&2;
+
+			exit 1;;
+		esac;
+
+		echo "${dep/=*} (>=$ver), ${dep/=*} (<$next~)";
+	fi;
+}
+
 cat <<HEREDOC > "debian/control";
 Source: $name
 Maintainer: $maintainer
 Priority: optional
-Build-Depends: debhelper-compat (= 13), build-essential$(for dep in "${builddep[@]}"; do echo -n ", $dep";done)
+Build-Depends: debhelper-compat (= 13), build-essential$(for dep in "${builddep[@]}"; do echo -n ", $(translateDep "$dep")";done)
 
 Package: $name
 Architecture: amd64
-Depends: \${shlibs:Depends}, \${misc:Depends}$(for dep in "${rundep[@]}"; do echo -n ", $dep";done)
+Depends: \${shlibs:Depends}, \${misc:Depends}$(for dep in "${rundep[@]}"; do echo -n ", $(translateDep "$dep")";done)
 Description: $description
 HEREDOC
 
@@ -148,7 +184,7 @@ if [ "${#patch[@]}" -gt 0 ]; then
 	done;
 fi;
 
-debuild -ePWD -us -uc -b;
+DEB_BUILD_OPTIONS=parallel=1 debuild -us -uc
 
 if $debug; then
 	find;
@@ -167,6 +203,10 @@ fi;
 
 if [ -v alias ]; then
 	metadata+=( "XB-Alias" "$alias" );
+fi;
+
+if [ -v aliasversion ]; then
+	metadata+=( "XB-Version-Alias" "$aliasversion" );
 fi;
 
 if [ "${#metadata[@]}" -gt 0 ]; then
