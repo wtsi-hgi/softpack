@@ -38,7 +38,7 @@ commands() {
 			fi;
 		);;$(
 			for part in "${!sections[@]}"; do
-				echo -n "${part@Q})cat ${sections[$part]@Q};;";
+				echo -n "${part@Q})cat ${sections["$part"]@Q};;";
 			done;
 		)esac) }";;
 	esac;
@@ -397,11 +397,11 @@ __bind_flags() {
 	done;
 
 	for flag in "${!setFlags[@]}"; do
-		echo "declare -g $(tr -d '-' <<< "$flag")=${setFlags[$flag]@Q};";
+		echo "declare -g $(tr -d '-' <<< "$flag")=${setFlags["$flag"]@Q};";
 	done;
 
 	for flag in "${!arrays[@]}"; do
-		echo "declare -g -a $(tr -d '-' <<< "$flag")=${arrays[$flag]} );";
+		echo "declare -g -a $(tr -d '-' <<< "$flag")=${arrays["$flag"]} );";
 	done;
 }
 
@@ -458,23 +458,23 @@ __handle_parts() {
 			read flag;
 
 			while read alias; do
-				aliases[$alias]="$flag";
+				aliases["$alias"]="$flag";
 			done;
 		} < <(tr ',' '\n' <<< "$flag");
 
 		if [ "$flag" = "..." -o "$flag" = "…" ]; then
 			hasAdditional=true;
 		elif [ "$type" = "" ]; then
-			setFlags[$flag]="false";
-			flags[$flag]="$type";
+			setFlags["$flag"]="false";
+			flags["$flag"]="$type";
 		elif [ "${type: -2}" = "[]" ]; then
-			arrays[$flag]="(";
-			flags[$flag]="${type:0:-2}";
+			arrays["$flag"]="(";
+			flags["$flag"]="${type:0:-2}";
 		elif [ "${type:0:1}" = "[" -a "${type: -1}" = "]" ]; then
-			flags[$flag]="${type:1:-1}";
+			flags["$flag"]="${type:1:-1}";
 		else
-			required[$flag]=true;
-			flags[$flag]="$type";
+			required["$flag"]=true;
+			flags["$flag"]="$type";
 		fi;
 	done < <(
 		part="" __flags;
@@ -485,15 +485,15 @@ __handle_parts() {
 		declare flag="$1";
 		shift;
 
-		if [ -v aliases[$flag] ]; then
-			flag="${aliases[$flag]}";
+		if [ -v aliases["$flag"] ]; then
+			flag="${aliases["$flag"]}";
 		fi;
 
 		if [ "$flag" = "--help" ]; then
 			__section_help;
 
 			exit 0;
-		elif [ ! -v flags[$flag] ]; then
+		elif [ ! -v flags["$flag"] ]; then
 			if [ "${flag:0:1}" = "-" -a "${flag:0:2}" != "--" ]; then
 				declare allBinary=true;
 
@@ -501,7 +501,7 @@ __handle_parts() {
 					f="-$f";
 
 					if [ -v aliases["$f"] ]; then
-						f="${aliases[$f]}";
+						f="${aliases["$f"]}";
 					fi;
 
 					if [ "${flags["$f"]-!}" != "" ]; then
@@ -515,14 +515,14 @@ __handle_parts() {
 					while IFS= read -r -n 1 f; do
 						declare flag="-$f";
 
-						if [ -v aliases[$flag] ]; then
-							flag="${aliases[$flag]}";
+						if [ -v aliases["$flag"] ]; then
+							flag="${aliases["$flag"]}";
 						fi;
 
 						if [ -v arrays["$flag"] ]; then
-							arrays["$flag"]="${arrays[$flag]} true";
+							arrays["$flag"]="${arrays["$flag"]} true";
 						else
-							setFlags[$flag]="true";
+							setFlags["$flag"]="true";
 						fi;
 					done < <(echo -n "${flag:1}");
 
@@ -544,11 +544,11 @@ __handle_parts() {
 			fi;
 		fi;
 
-		if [ "${flags[$flag]}" = "" ]; then
+		if [ "${flags["$flag"]}" = "" ]; then
 			if [ -v arrays["$flag"] ]; then
-				arrays["$flag"]="${arrays[$flag]} true";
+				arrays["$flag"]="${arrays["$flag"]} true";
 			else
-				setFlags[$flag]="true";
+				setFlags["$flag"]="true";
 			fi;
 
 			continue;
@@ -559,7 +559,7 @@ __handle_parts() {
 
 				exit 2;
 			} >&2;
-		elif [ "${flags[$flag]: -2}" = "##" -a -z "$(grep "^[+-]\?[0-9]*\(\.[0-9]\+\)\?$" <<< "$1")" -o "${flags[$flag]: -1}" = "#" -a "${flags[$flag]: -2}" != "##" -a -z "$(grep "^[+-]\?[0-9]\+$" <<< "$1")" ]; then
+		elif [ "${flags["$flag"]: -2}" = "##" -a -z "$(grep "^[+-]\?[0-9]*\(\.[0-9]\+\)\?$" <<< "$1")" -o "${flags["$flag"]: -1}" = "#" -a "${flags["$flag"]: -2}" != "##" -a -z "$(grep "^[+-]\?[0-9]\+$" <<< "$1")" ]; then
 			{
 				echo -e "Error: Invalid flag value: $flag "$1"\n";
 				__section_help;
@@ -567,7 +567,7 @@ __handle_parts() {
 				exit 2;
 			} >&2;
 		elif [ -v arrays["$flag"] ]; then
-			arrays["$flag"]="${arrays[$flag]} ${1@Q}";
+			arrays["$flag"]="${arrays["$flag"]} ${1@Q}";
 		elif [ -v setFlags["$flag"] ]; then
 			{
 				echo -e "Error: Flag already set: $flag\n";
@@ -576,14 +576,14 @@ __handle_parts() {
 				exit 2;
 			} >&2;
 		else
-			setFlags[$flag]="$1";
+			setFlags["$flag"]="$1";
 		fi;
 
 		shift;
 	done;
 
 	for flag in "${!required[@]}"; do
-		if [ ! -v setFlags[$flag] ]; then
+		if [ ! -v setFlags["$flag"] ]; then
 			{
 				echo -e "Error: Required flag not set: $flag\n";
 				__section_help;
