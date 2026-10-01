@@ -1,0 +1,62 @@
+# Add existing deb file
+: --url [string]     # Package URL
+: --name [string]    # Package Name
+: --version [string] # Package Version
+: --repo string[]    # Repo string to get packages from: deb[-src] http://URL DISTRO COMPONENT
+: --library          # Package is a library that should not be exposed to SoftPack.
+: --alias [string]   # Alias to show to SoftPack
+: --debug            # Enable simple debugging and disable copying completed debs into repo.
+
+declare debs="$(mktemp -d)";
+
+cd "$debs";
+
+if [ -v url ]; then
+	wget "$url";
+elif [ -v name ]; then
+	declare tmpDir="$(mktemp -d)";
+	declare -a OPTS;
+
+	aptOpts "$tmpDir" "$debs" "${repo[@]}";
+
+	apt update "${OPTS[@]}";
+
+	if [ -v version ]; then
+		apt download "${OPTS[@]}" "$name==$version";
+	else
+		apt download "${OPTS[@]}" "$name";
+	fi;
+else
+	echo "One of --url or --name required" >&2;
+
+	exit 1;
+fi;
+
+declare -a metadata=();
+
+if ! $library; then
+	metadata+=( "XB-Softpack" "true" );
+fi;
+
+if [ -v alias ]; then
+	metadata+=( "XB-Alias" "$alias" );
+fi;
+
+if [ "${#metadata[@]}" -gt 0 ]; then
+	setMetadata "$debs/"*.deb "${metadata[@]}";
+fi;
+
+cd "$debs";
+
+if $debug; then
+	dpkg -I *.deb;
+	dpkg -c *.deb;
+fi;
+
+downloadDeps "$debs";
+
+if ! $debug; then
+	installDebs "$debs";
+fi;
+
+# vim: set filetype=bash :
