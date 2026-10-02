@@ -188,7 +188,7 @@ if [ "${#patch[@]}" -gt 0 ]; then
 	done;
 fi;
 
-DEB_BUILD_OPTIONS=parallel=1 debuild -us -uc
+DEB_BUILD_OPTIONS=parallel=1 debuild -us -uc -b;
 
 if $debug; then
 	find;
