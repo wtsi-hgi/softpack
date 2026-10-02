@@ -145,8 +145,6 @@ override_dh_autoreconf:
 	done < "debian/autoreconf";
 
 	if [ -f "configure.ac" -o -f "configure.in" ]; then dh_autoreconf; fi;
-execute_before_dh_auto_configure:
-	@ bash debian/exe-patches;
 override_dh_auto_build:
 	${prebuild:-}
 	dh_auto_build
@@ -169,29 +167,20 @@ for m in "${move[@]}"; do
 	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$m";
 done > "debian/install";
 
-touch "debian/exe-patches";
-
 if [ "${#patch[@]}" -gt 0 ]; then
-	mkdir "debian/patches";
-	mkdir "debian/source";
-	echo "3.0 (quilt)" > "debian/source/format";
-
-	cp -rv "${patchPaths[@]}" "debian/patches";
-
 	for patch in "${patchPaths[@]}"; do
 		if [ "${patch: -3}" = ".sh" ]; then
-			echo "bash ${patch@Q}" >> "debian/exe-patches";
+			bash "$patch";
 		else
-			cp "$patch" "debian/patches";
-			basename "$patch" >> "debian/patches/series";
+			patch -p1 < "$patch";
 		fi;
 	done;
 fi;
 
-DEB_BUILD_OPTIONS=parallel=1 debuild -us -uc -b;
+DEB_BUILD_OPTIONS=parallel=1 debuild -us -uc;
 
 if $debug; then
-	find;
+	find -ls;
 fi;
 
 cd ..;
