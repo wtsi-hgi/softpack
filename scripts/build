@@ -59,7 +59,11 @@ elif [ -v fossil ]; then
 else
 	declare downloadDir="$(mktemp -d)";
 
-	wget "$download" -O "$downloadDir/source";
+	if [ "${download:0:6}" = "ftp://" ]; then
+		wget "$download" --no-passive-ftp -O "$downloadDir/source";
+	else
+		wget "$download" -O "$downloadDir/source";
+	fi;
 
 	case "$download" in
 	*".zip")
