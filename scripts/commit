@@ -1,0 +1,10 @@
+# Commit staged debs files to APT repo
+
+declare debs="$SOFTPACK_LOCAL_REPO";
+unset SOFTPACK_LOCAL_REPO;
+
+cd "$debs";
+downloadDeps "$debs";
+installDebs "$debs";
+
+# vim: set filetype=bash :
