@@ -11,6 +11,7 @@ aptMount() {
 	declare host="$(echo "$aptRepo" | cut -d'/' -f3)";
 	declare path="/$(echo "$aptRepo" | cut -d'/' -f4-)";
 
+	#declare mount="container:s3fs -d -o curldbg -o dbglevel=info";
 	declare mount="container:s3fs -o logfile=/dev/null";
 
 	if [ -f ~/.aws/config ]; then
@@ -45,6 +46,10 @@ setBind() {
 	declare dpTemp="$(TMPDIR="$TMP" mktemp -d)";
 
 	bind="$slTemp:/usr/lib/R/site-library/,$dpTemp:/usr/lib/python3/dist-packages,$TMP:/tmp";
+
+	if [ -v SOFTPACK_LOCAL_REPO ]; then
+		bind+=",$SOFTPACK_LOCAL_REPO:/repo-local";
+	fi;
 }
 
 runContainer() {
@@ -107,6 +112,12 @@ HEREDOC
 
 . "$base/commands.sh";
 
-declare parts=( $(find "$base" -maxdepth 1 -type f -not -iname "*.sh" -not -iname "*.sif" -not -iname "*.def") );
+declare parts=( $(find "$base" -maxdepth 1 -type f -not -iname "*.sh" -not -iname "*.sif" -not -iname "*.def" -not -iname "builder" -not -iname "update-cran" -not -iname "commit") );
+
+if [ -v SOFTPACK_LOCAL_REPO ]; then
+	parts+=( "commit" );
+else
+	parts+=( "builder" "update-cran" );
+fi;
 
 commands "$base/global.sh" "${parts[@]}";

@@ -6,6 +6,10 @@ set -euo pipefail;
 declare BASE=/repo/pool/main/binary-amd64/;
 declare maintainer="hgi <hgi@sanger.ac.uk>";
 
+if [ -d /test-repo ]; then
+	declare BASE=/test-repo/pool/main/binary-amd64/;
+fi;
+
 aptConf() {
 	cat <<HEREDOC
 Dir {
@@ -93,11 +97,15 @@ setExecutables() {
 
 aptSources() {
 	cat <<-HEREDOC
+	deb [trusted=yes] file:///repo resolute main
 	deb [trusted=yes] http://r2u.stat.illinois.edu/ubuntu resolute main
 	deb [trusted=yes] http://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu/ resolute main
 	deb [trusted=yes] http://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/ resolute main
-	deb [trusted=yes] file:///repo resolute main
 HEREDOC
+
+	if [ -d /test-repo ]; then
+		echo "deb [trusted=yes] file:///test-repo resolute main";
+	fi;
 
 	if [ -v repo ]; then
 		for r in "${repo[@]}"; do
@@ -114,15 +122,23 @@ aptOpts() {
 
 	cp "/etc/apt/sources.list.d/ubuntu.sources" "$tmpDir/etc/apt/sources.list.d/";
 
-	cat <<HEREDOC > "$tmpDir/etc/apt/preferences.d/99-local-priority"
-Package: *
-Pin: release l=SoftPack
-Pin-Priority: 990
+	cat <<-HEREDOC > "$tmpDir/etc/apt/preferences.d/99-local-priority"
+	Package: *
+	Pin: release l=SoftPack
+	Pin-Priority: 990
 
-Package: *
-Pin: release n=resolute
-Pin-Priority: 500
+	Package: *
+	Pin: release n=resolute
+	Pin-Priority: 500
 HEREDOC
+
+	if [ -d /test-repo ]; then
+		cat <<-HEREDOC >> "$tmpDir/etc/apt/preferences.d/99-local-priority"
+		Package: *
+		Pin: release l=SoftPackTest
+		Pin-Priority: 1001
+HEREDOC
+	fi;
 
 	{
 		aptSources;

@@ -1,0 +1,11 @@
+#!/bin/bash --init-file
+# Start a new local APT repo to aid testing of new packages.
+
+set +euo pipefail
+source ~/.bashrc;
+set -euo pipefail
+
+export PS1="<SP Builder> $PS1";
+export SOFTPACK_LOCAL_REPO="$(mktemp -d)";
+
+trap "rm -rf ${SOFTPACK_LOCAL_REPO@Q}" EXIT;
