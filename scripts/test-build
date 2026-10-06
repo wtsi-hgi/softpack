@@ -7,7 +7,7 @@ rm -rf /etc/apt/sources.list.d/*;
 aptSources | grep "file:///" > /etc/apt/sources.list.d/apt.list;
 apt update;
 apt -y -o DPkg::Options::=--force-not-root upgrade;
-apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git fossil unzip build-essential debhelper devscripts dpkg-dev apt-utils zstd cmake "${package[@]}";
+apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends "${package[@]}";
 
 bash -i;
 
