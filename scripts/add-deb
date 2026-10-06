@@ -1,11 +1,13 @@
 # Add existing deb file
-: --url [string]     # Package URL
-: --name [string]    # Package Name
-: --version [string] # Package Version
-: --repo string[]    # Repo string to get packages from: deb[-src] http://URL DISTRO COMPONENT
-: --library          # Package is a library that should not be exposed to SoftPack.
-: --alias [string]   # Alias to show to SoftPack
-: --debug            # Enable simple debugging and disable copying completed debs into repo.
+: --url [string]          # Package URL
+: --name [string]         # Package Name
+: --version [string]      # Package Version
+: --repo string[]         # Repo string to get packages from: deb[-src] http://URL DISTRO COMPONENT
+: --library               # Package is a library that should not be exposed to SoftPack.
+: --alias [string]        # Alias to show to SoftPack
+: --aliasversion [string] # Alias to show to SoftPack
+: --dep string[]          # Additional dependency
+: --debug                 # Enable simple debugging and disable copying completed debs into repo.
 
 declare debs="$(mktemp -d)";
 
@@ -40,6 +42,24 @@ fi;
 
 if [ -v alias ]; then
 	metadata+=( "XB-Alias" "$alias" );
+fi;
+
+if [ -v aliasversion ]; then
+	metadata+=( "XB-Version-Alias" "$aliasversion" );
+fi;
+
+if [ "${#dep[@]}" -gt 0 ]; then
+	declare deps="$(dpkg-deb -f "$debs/"*.deb Depends)";
+
+	for d in "${dep[@]}"; do
+		if [ -n "$deps" ]; then
+			deps+=", $d";
+		else
+			deps="$d";
+		fi;
+	done;
+
+	metadata+=( "Depends" "$deps" );
 fi;
 
 if [ "${#metadata[@]}" -gt 0 ]; then
