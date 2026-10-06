@@ -2,8 +2,6 @@
 : --version string # Version of R to download deb for.
 
 declare tmpDir="$(mktemp -d)/";
-trap "rm -rf $tmpDir" EXIT;
-
 declare file="r-base-core_${version}_1_amd64.deb";
 
 mkdir "$tmpDir/deb";
