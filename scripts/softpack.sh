@@ -12,7 +12,7 @@ aptMount() {
 	declare path="/$(echo "$aptRepo" | cut -d'/' -f4-)";
 
 	#declare mount="container:s3fs -d -o curldbg -o dbglevel=info";
-	declare mount="container:s3fs -o logfile=/dev/null";
+	declare mount="container:s3fs -o logfile=/dev/null -o compat_dir -o complement_stat -o disable_noobj_cache ";
 
 	if [ -f ~/.aws/config ]; then
 		declare endpoint_url="$(cat ~/.aws/config | grep "^endpoint_url" | head -n1 | sed -e 's/.*= *//')";
@@ -47,8 +47,12 @@ setBind() {
 
 	bind="$slTemp:/usr/lib/R/site-library/,$dpTemp:/usr/lib/python3/dist-packages,$TMP:/tmp";
 
+	addLocalRepoBind;
+}
+
+addLocalRepoBind() {
 	if [ -v SOFTPACK_LOCAL_REPO ]; then
-		bind+=",$SOFTPACK_LOCAL_REPO:/repo-local";
+		bind+=",$SOFTPACK_LOCAL_REPO:/test-repo";
 	fi;
 }
 
@@ -87,7 +91,7 @@ buildContainer() {
 
 	singularity build --sandbox "$root/r" docker://ubuntu:latest;
 	singularity exec --bind "$root/r/:/r" "$base/softpack.sif" cp /usr/local/bin/s3fs /r/usr/local/bin/;
-	mkdir "$root/r/"{repo,build};
+	mkdir "$root/r/"{repo,build,test-repo};
 
 	if [ "${aptRepo:0:5}" = "s3://" ]; then
 		singularity exec --writable "$root/r" bash -c "export DEBIAN_FRONTEND=noninteractive; apt update && apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends ca-certificates s3fs libcurl4-openssl-dev libfuse-dev libxml2-dev libssl-dev";
@@ -106,8 +110,12 @@ buildContainer() {
 	mv /etc/group{.new,}
 HEREDOC
 
+	declare bind="";
+
+	addLocalRepoBind;
+
 	chmod +x "$root/r/.singularity.d/env/99-etc.sh";
-	startContainer exec --bind "$(TMPDIR="$TMP" mktemp -d):/tmp" --writable "$root/r" bash "$1";
+	startContainer exec --bind "$bind" --bind "$(TMPDIR="$TMP" mktemp -d):/tmp" --writable "$root/r" bash "$1";
 }
 
 . "$base/commands.sh";

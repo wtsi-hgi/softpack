@@ -7,7 +7,7 @@ declare BASE=/repo/pool/main/binary-amd64/;
 declare maintainer="hgi <hgi@sanger.ac.uk>";
 
 if [ -d /test-repo ]; then
-	declare BASE=/test-repo/pool/main/binary-amd64/;
+	BASE=/test-repo/pool/main/binary-amd64/;
 fi;
 
 aptConf() {
@@ -290,6 +290,11 @@ fixPythonVersioning() {
 
 installDebs() {
 	declare debDir="$1";
+	declare BASE=/repo/pool/main/binary-amd64/;
+
+	if [ -v SOFTPACK_LOCAL_REPO ]; then
+		BASE=/test-repo/pool/main/binary-amd64/;
+	fi;
 
 	cd "$debDir";
 

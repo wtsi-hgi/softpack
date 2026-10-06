@@ -5,8 +5,6 @@ cd /repo/;
 
 if [ -d /test-repo ]; then
 	cd /test-repo
-
-	sed -e 's/SoftPack/SoftPackTest/' < /repo/release.conf > ./release.conf;
 fi;
 
 declare tmpDir="$(mktemp -d)/";

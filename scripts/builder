@@ -3,9 +3,30 @@
 
 set +euo pipefail
 source ~/.bashrc;
-set -euo pipefail
 
+trap "rm -rf ${TMP@Q}" EXIT;
 export PS1="<SP Builder> $PS1";
-export SOFTPACK_LOCAL_REPO="$(mktemp -d)";
+export SOFTPACK_LOCAL_REPO="$(TMPDIR="$TMP" mktemp -d)";
+declare tmpDir="$(TMPDIR="$TMP" mktemp -d)/";
 
-trap "rm -rf ${SOFTPACK_LOCAL_REPO@Q}" EXIT;
+cat <<HEREDOC > "$SOFTPACK_LOCAL_REPO/release.conf";
+APT::FTPArchive::Release::Origin "HGI";
+APT::FTPArchive::Release::Label "SoftPackTest";
+APT::FTPArchive::Release::Suite "resolute";
+APT::FTPArchive::Release::Codename "resolute";
+APT::FTPArchive::Release::Architectures "amd64";
+APT::FTPArchive::Release::Components "main";
+APT::FTPArchive::Release::Description "SoftPack APT Repository";
+HEREDOC
+
+cd "$SOFTPACK_LOCAL_REPO";
+
+mkdir -p dists/resolute/main/binary-amd64/;
+mkdir -p pool/main/binary-amd64;
+
+aptConf "$tmpDir" > "$tmpDir/apt.conf";
+
+apt-ftparchive generate "$tmpDir"/apt.conf &> /dev/null;
+apt-ftparchive -c release.conf release dists/resolute > dists/resolute/Release 2> /dev/null;
+
+cd - &> /dev/null;
