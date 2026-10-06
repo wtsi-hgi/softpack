@@ -39,9 +39,9 @@ export DEBIAN_FRONTEND=noninteractive;
 aptSources > /etc/apt/sources.list.d/apt.list;
 apt update;
 apt -y -o DPkg::Options::=--force-not-root upgrade;
-apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git fossil unzip build-essential debhelper devscripts dpkg-dev apt-utils zstd cmake "${builddep[@]}" "${rundep[@]}";
+apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git fossil unzip build-essential debhelper devscripts dpkg-dev apt-utils zstd cmake dctrl-tools "${builddep[@]}" "${rundep[@]}";
 
-cd "$(mktemp -d)";
+cd /build;
 
 mkdir -p "$name-$version/src";
 
@@ -57,19 +57,17 @@ elif [ -v fossil ]; then
 	fossil clone "$fossil" .fossil;
 	fossil open .fossil "${tag:-master}";
 else
-	declare downloadDir="$(mktemp -d)";
-
 	if [ "${download:0:6}" = "ftp://" ]; then
-		wget "$download" --no-passive-ftp -O "$downloadDir/source";
+		wget "$download" --no-passive-ftp -O "/build/source";
 	else
-		wget "$download" -O "$downloadDir/source";
+		wget "$download" -O "/build/source";
 	fi;
 
 	case "$download" in
 	*".zip")
-		unzip -q "$downloadDir/source" -d .;;
+		unzip -q "/build/source" -d .;;
 	*)
-		tar -xvf "$downloadDir/source" -C . --strip-components=1;;
+		tar -xvf "/build/source" -C . --strip-components=1;;
 	esac;
 fi;
 
