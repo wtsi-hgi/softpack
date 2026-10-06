@@ -24,7 +24,6 @@ apt download "${OPTS[@]}" "${packages[@]}";
 
 mv "$debs/99-local-priority" "$tmpDir/etc/apt/preferences.d/99-local-priority";
 
-downloadDeps "$debs";
 installDebs "$debs";
 
 # vim: set filetype=bash :
