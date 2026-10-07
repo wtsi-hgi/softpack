@@ -11,7 +11,7 @@ Stage: final
 	echo "deb [trusted=yes] http://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/ resolute main" > /etc/apt/sources.list.d/deadsnakes.list;
 
 	apt-get update;
-	apt install -y ca-certificates vim emacs nano file equivs curl wget fuse git s3fs $(apt list 2> /dev/null | grep "^python3\.[0-9]\+\(-dev\|-distutils\|-venv\)\?/" | cut -d'/' -f1) libfuse3-dev build-essential pkg-config libcurl4-openssl-dev libxml2-dev libssl-dev media-types apt-utils xz-utils zstd libdb-dev meson ninja-build libdb5.3++-dev dose-distcheck jq libmagick++-dev libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libsqlite3-dev libpq-dev libhdf5-dev libgdal-dev gdal-bin libproj-dev libgeos-dev libudunits2-dev libgsl-dev libgmp3-dev libmpfr-dev libcairo2-dev libxt-dev libpng-dev libjpeg-dev libtiff-dev xvfb default-jdk libglpk-dev libgl1-mesa-dev libglu1-mesa-dev texlive dctrl-tools jags dh-python db-util debhelper devscripts dpkg-dev;
+	apt install -y ca-certificates vim emacs nano file equivs curl wget fuse git s3fs $(apt list 2> /dev/null | grep "^python3\.[0-9]\+\(-dev\|-distutils\|-venv\)\?/" | cut -d'/' -f1) libfuse3-dev build-essential pkg-config libcurl4-openssl-dev libxml2-dev libssl-dev media-types apt-utils xz-utils zstd libdb-dev meson ninja-build libdb5.3++-dev dose-distcheck jq libmagick++-dev libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libsqlite3-dev libpq-dev libhdf5-dev libgdal-dev gdal-bin libproj-dev libgeos-dev libudunits2-dev libgsl-dev libgmp3-dev libmpfr-dev libcairo2-dev libxt-dev libpng-dev libjpeg-dev libtiff-dev xvfb default-jdk libglpk-dev libgl1-mesa-dev libglu1-mesa-dev texlive dctrl-tools jags dh-python db-util debhelper devscripts dpkg-dev golang-go;
 
 	for file in /usr/include/tcl/*; do
 		ln -s "$file" /usr/include/"$(basename "$file")" || true;
@@ -115,6 +115,48 @@ HEREDOC
 		rm -f ./r-${ver}_1_amd64.deb;
 		/opt/R/$ver/bin/Rscript -e 'Sys.setenv(MAKEFLAGS = sprintf("-j%d", parallel::detectCores() - 1L)); options(repos = c(CRAN = "https://packagemanager.posit.co/cran/__linux__/resolute/latest")); install.packages("pak"); cmds <- pak::pkg_sysreqs("devtools")$install_scripts; ccmds <- gsub("r-(cran|bioc)-.*", "", cmds); system(ccmds); pak::pkg_install(c("devtools", "remotes", "jsonlite", "BiocManager"))';
 	done;
+
+	mkdir /t;
+	cd t;
+
+	go mod init repo-http;
+	cat <<HEREDOC > main.go
+package main
+
+import (
+	"fmt"
+	"net"
+	"net/http"
+	"os"
+)
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	l, err := net.Listen("tcp", ":0")
+	if err != nil {
+		return err
+	}
+
+	_, port, err := net.SplitHostPort(l.Addr().String())
+	if err != nil {
+		return err
+	}
+
+	fmt.Println("Listening on:", port)
+
+	return http.Serve(l, http.FileServer(http.Dir("/repo")))
+}
+HEREDOC
+
+	go build;
+	mv repo-http /usr/bin
 
 	apt-get clean;
 
