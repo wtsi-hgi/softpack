@@ -129,12 +129,12 @@ HEREDOC
 
 . "$base/commands.sh";
 
-declare parts=( $(find "$base" -maxdepth 1 -type f -not -name "*.sh" -not -name "*.sif" -not -name "*.def" -not -name "builder" -not -name "build" -not -name "update-cran" -not -name "commit") );
+declare parts=( $(find "$base/global/" -maxdepth 1 -type f) );
 
 if [ -v SOFTPACK_LOCAL_REPO ]; then
-	parts+=( "build" "commit" );
+	parts+=( $(find "$base/building/" -maxdepth 1 -type f) );
 else
-	parts+=( "builder" "update-cran" );
+	parts+=( $(find "$base/normal/" -maxdepth 1 -type f) );
 fi;
 
 commands "$base/global.sh" "${parts[@]}";
