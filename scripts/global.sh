@@ -96,7 +96,7 @@ setExecutables() {
 }
 
 aptSources() {
-	cat <<-HEREDOC
+	if [ -f /repo ]; then sed -e 's@file:///repo@'$(cat /repo)'@'; else cat; fi <<-HEREDOC
 	deb [trusted=yes] file:///repo resolute main
 	deb [trusted=yes] http://r2u.stat.illinois.edu/ubuntu resolute main
 	deb [trusted=yes] http://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu/ resolute main

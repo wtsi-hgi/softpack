@@ -74,7 +74,7 @@ startContainer() {
 	if [ "${aptRepo:0:5}" = "s3://" ]; then
 		singularity "$cmd" --fusemount "$(aptMount)" "$@"
 	else
-		singularity exec "$@";
+		singularity "$cmd" --bind "$aptRepo:/repo" "$@";
 	fi;
 }
 
@@ -91,12 +91,21 @@ buildContainer() {
 
 	singularity build --sandbox "$root/r" docker://ubuntu:latest;
 	singularity exec --bind "$root/r/:/r" "$base/softpack.sif" cp /usr/local/bin/s3fs /r/usr/local/bin/;
-	mkdir "$root/r/"{repo,build,test-repo};
+	mkdir "$root/r/"{build,test-repo};
 
-	if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity exec --writable "$root/r" bash -c "export DEBIAN_FRONTEND=noninteractive; apt update && apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends ca-certificates s3fs libcurl4-openssl-dev libfuse-dev libxml2-dev libssl-dev";
-		singularity exec --bind "$root/r/:/build" "$base/softpack.sif" bash -c "cp /usr/local/bin/s3fs /build/usr/local/bin/";
+	coproc SERVER { startContainer exec "$base/softpack.sif" repo-http 2>&1; };
+	trap "kill $SERVER_PID; rm -rf ${TMP@Q}" EXIT;
+
+	read -r line <&"${SERVER[0]}";
+	#cat <&"${SERVER[0]}" > /dev/null &
+
+	if [ "${line:0:14}" != "Listening on: " ]; then
+		echo "Failed to start repo HTTP server: $line" >&2;
+
+		exit 1;
 	fi;
+
+	echo "http://127.0.0.1:${line:14}" > $root/r/repo;
 
 	mv "$root/r/etc/"passwd{,.new};
 	mv "$root/r/etc/"group{,.new};
@@ -115,15 +124,15 @@ HEREDOC
 	addLocalRepoBind;
 
 	chmod +x "$root/r/.singularity.d/env/99-etc.sh";
-	startContainer exec --bind "$bind" --bind "$(TMPDIR="$TMP" mktemp -d):/tmp" --writable "$root/r" bash "$1";
+	singularity exec --bind "$bind" --bind "$(TMPDIR="$TMP" mktemp -d):/tmp" --writable "$root/r" bash "$1";
 }
 
 . "$base/commands.sh";
 
-declare parts=( $(find "$base" -maxdepth 1 -type f -not -iname "*.sh" -not -iname "*.sif" -not -iname "*.def" -not -iname "builder" -not -iname "update-cran" -not -iname "commit") );
+declare parts=( $(find "$base" -maxdepth 1 -type f -not -name "*.sh" -not -name "*.sif" -not -name "*.def" -not -name "builder" -not -name "build" -not -name "update-cran" -not -name "commit") );
 
 if [ -v SOFTPACK_LOCAL_REPO ]; then
-	parts+=( "commit" );
+	parts+=( "build" "commit" );
 else
 	parts+=( "builder" "update-cran" );
 fi;

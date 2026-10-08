@@ -35,8 +35,9 @@ if [ "${#patch[@]}" -gt 0 ]; then
 	mapfile -d '' patchPaths < <(printf '%s\0' "${patch[@]}" | xargs -0 realpath -z);
 fi;
 
-export DEBIAN_FRONTEND=noninteractive;
 aptSources > /etc/apt/sources.list.d/apt.list;
+
+export DEBIAN_FRONTEND=noninteractive;
 apt update;
 apt -y -o DPkg::Options::=--force-not-root upgrade;
 apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git fossil unzip build-essential debhelper devscripts dpkg-dev apt-utils zstd cmake dctrl-tools "${builddep[@]}" "${rundep[@]}";
