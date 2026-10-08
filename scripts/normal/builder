@@ -30,3 +30,5 @@ apt-ftparchive generate "$tmpDir"/apt.conf &> /dev/null;
 apt-ftparchive -c release.conf release dists/resolute > dists/resolute/Release 2> /dev/null;
 
 cd - &> /dev/null;
+
+. <(softpack.sh --completions);
