@@ -1,0 +1,27 @@
+# Safely remove a deb file from the APT cache and optionally from the repo.
+: --name string    # Package name to remove from cache
+: --version string # Package version to remove from cache
+: --remove         # Remove file from Repo
+
+declare filename="$(grep-dctrl -X -F Package "$name" --and -r -F Version "^${version//./\.}" -s Filename -n /repo/dists/resolute/main/binary-amd64/Packages)";
+
+if [ -z "$filename" ]; then
+	"$name=$version not found" >&2;
+
+	exit 1;
+fi;
+
+if [ "${filename:0:2}" != "./" ]; then
+	filename="./$filename";
+fi;
+
+echo "Removing $filename";
+
+db_dump /repo/apt.cache | sed '/^ '$(echo -n "$filename" | xxd -p -c0)'/,+1d' | db_load /tmp/apt.cache;
+mv /tmp/apt.cache /repo/;
+
+if ${remove:-false}; then
+	rm "/repo/$filename";
+fi;
+
+# vim: set filetype=bash :

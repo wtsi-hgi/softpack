@@ -1,0 +1,223 @@
+#!buildContainer
+# Build a custom package inside of a custom generated build container.
+: --name string           # Name of the package
+: --version string        # Version of the package
+: --download [URL]        # Download
+: --git [URL]             # Git repo
+: --fossil [URL]          # Fossil repo
+: --tag [id]              # Git repo branch, tag, or commit to checkout
+: --builddep pkg[]        # Build dependency
+: --rundep pkg[]          # Runtime dependency
+: --subdir [string]       # Subdirectory within the download containing build start.
+: --description string    # Description of package
+: --library               # Package is a library that should not be exposed to SoftPack.
+: --alias [string]        # Alias to show to SoftPack
+: --aliasversion [string] # Alias to show to SoftPack
+: --patch string[]        # Path to patch file
+: --std [string]          # C standard to use while compiling
+: --move string[]         # Filename/glob within the download => Final location.
+: --cflags [string]       # Pass C compliation flags
+: --cxxflags [string]     # Pass C++ complilation flags
+: --ldflags [string]      # Pass Linker flags
+: --cppflags [string]     # Pass C/C++ preprocessor flags
+: --prebuild [string]     # Instructions to run before general make instructions
+: --repo string[]         # Repo string to get packages from: deb[-src] http://URL DISTRO COMPONENT
+: --skiptests             # Skip build tests
+: --debug                 # Enable simple debugging and disable copying completed debs into repo.
+
+if [ ! -v download -a ! -v git -a ! -v fossil -o -v download -a -v git -a -v fossil ]; then
+	echo "One, and only one, of --download and --git can be set";
+
+	exit 1;
+fi;
+
+if [ "${#patch[@]}" -gt 0 ]; then
+	mapfile -d '' patchPaths < <(printf '%s\0' "${patch[@]}" | xargs -0 realpath -z);
+fi;
+
+aptSources > /etc/apt/sources.list.d/apt.list;
+
+export DEBIAN_FRONTEND=noninteractive;
+apt update;
+apt -y -o DPkg::Options::=--force-not-root upgrade;
+apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git fossil unzip build-essential debhelper devscripts dpkg-dev apt-utils zstd cmake dctrl-tools "${builddep[@]}" "${rundep[@]}";
+
+cd /build;
+
+mkdir -p "$name-$version/src";
+
+cd "$name-$version/src";
+
+if [ -v git ]; then
+	git clone --recurse-submodules "$git" .;
+
+	if [ -v tag ]; then
+		git checkout --recurse-submodules "$tag";
+	fi;
+elif [ -v fossil ]; then
+	fossil clone "$fossil" .fossil;
+	fossil open .fossil "${tag:-master}";
+else
+	if [ "${download:0:6}" = "ftp://" ]; then
+		wget "$download" --no-passive-ftp -O "/build/source";
+	else
+		wget "$download" -O "/build/source";
+	fi;
+
+	case "$download" in
+	*".zip")
+		unzip -q "/build/source" -d .;;
+	*)
+		tar -xvf "/build/source" -C . --strip-components=1;;
+	esac;
+fi;
+
+mkdir -p debian;
+
+translateDep() {
+	declare dep="$1";
+
+	if grep -vq "=" <<< "$dep"; then
+		echo "$dep";
+	elif [ "${dep: -1}" != "*" ]; then
+		echo "${dep/=*/} (=${dep/*=/})";
+	else
+		dep="${dep:0:-1}";
+
+		declare ver="${dep/*=/}";
+		declare last="${ver##*.}";
+		declare first="${ver%"$last"}";
+		declare next="";
+
+		case "${last: -1}" in
+		0|1|2|3|4|5|6|7|8|a|b|c|d|e|f|g|h|i|j|k|l|m|n|o|p|q|r|s|t|u|v|w|x|y|A|B|C|D|E|F|G|H|I|J|K|L|M|N|O|P|Q|R|S|T|U|V|W|X|Y)
+			next="$first${last:0:-1}$(tr '[a-y][A-Y][0-8]' '[b-z][B-Z][1-9]' <<< "${last: -1}")";;
+		9)
+			next="$first$(sed -e 's/[0-9]*$//')$(( sed -e 's/.*\([0-9]*\)$/\1/' <<< "$last" + 1 ))";;
+		*)
+			echo "Could not parse version number" >&2;
+
+			exit 1;;
+		esac;
+
+		echo "${dep/=*} (>=$ver), ${dep/=*} (<$next~)";
+	fi;
+}
+
+cat <<HEREDOC > "debian/control";
+Source: $name
+Maintainer: $maintainer
+Priority: optional
+Build-Depends: debhelper-compat (= 13), build-essential$(for dep in "${builddep[@]}"; do echo -n ", $(translateDep "$dep")";done)
+
+Package: $name
+Architecture: amd64
+Depends: \${shlibs:Depends}, \${misc:Depends}$(for dep in "${rundep[@]}"; do echo -n ", $(translateDep "$dep")";done)
+Description: $description
+HEREDOC
+
+cat <<HEREDOC > "debian/changelog";
+$name ($version) unstable; urgency=low
+
+  * Built via a Pipeline
+
+ -- $maintainer  $(date -R)
+
+HEREDOC
+
+find . -type f \( -name "configure.ac" -o -name "configure.in" \) -print0 | xargs -r -0 -n1 dirname | sort | uniq | sed -e 's@^\./@@' > "debian/autoreconf";
+
+cat <<HEREDOC > "debian/rules";
+#!/usr/bin/make -f
+
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
+${cflags+export DEB_CFLAGS_MAINT_APPEND = }${cflags:-}
+${cxxflags+export DEB_CXXFLAGS_MAINT_APPEND = }${cxxflags:-}
+${cppflags+export DEB_CPPFLAGS_MAINT_APPEND = }${cppflags:-}
+${ldflags+export DEB_LDFLAGS_MAINT_APPEND = }${ldflags:-}
+
+%:
+	dh \$@$(if [ -v subdir ]; then echo " --sourcedirectory=$subdir";fi;);
+override_dh_autoreconf:
+	while read -r dir; do \
+		(cd "\$\$dir"; autopoint --force;) \
+	done < "debian/autoreconf";
+
+	if [ -f "configure.ac" -o -f "configure.in" ]; then dh_autoreconf; fi;
+override_dh_auto_build:
+	${prebuild:-}
+	dh_auto_build
+override_dh_auto_install:
+	dh_auto_install --max-parallel=1;
+override_dh_installchangelogs:
+override_dh_auto_test:
+HEREDOC
+if ! $skiptests; then
+	cat <<HEREDOC >> "debian/rules";
+	dh_auto_test || ( \
+		echo "=== TEST FAILING: DUMPING LOGS ==="; \
+		if [ -d "test" ]; then find test/ -name "*.err" -o -name "*.log" | xargs -I {} sh -c 'echo "--- {} ---"; cat {}'; fi; \
+		exit 2 \
+	)
+HEREDOC
+fi;
+
+for m in "${move[@]}"; do
+	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$m";
+done > "debian/install";
+
+if [ "${#patch[@]}" -gt 0 ]; then
+	for patch in "${patchPaths[@]}"; do
+		if [ "${patch: -3}" = ".sh" ]; then
+			bash "$patch";
+		else
+			patch -p1 < "$patch";
+		fi;
+	done;
+fi;
+
+DEB_BUILD_OPTIONS=parallel=1 debuild -us -uc;
+
+if $debug; then
+	find -ls;
+fi;
+
+cd ..;
+
+mkdir debs;
+mv *.deb debs;
+
+declare -a metadata=();
+
+if ! $library; then
+	metadata+=( "XB-Softpack" "true" );
+fi;
+
+if [ -v alias ]; then
+	metadata+=( "XB-Alias" "$alias" );
+fi;
+
+if [ -v aliasversion ]; then
+	metadata+=( "XB-Version-Alias" "$aliasversion" );
+fi;
+
+if [ "${#metadata[@]}" -gt 0 ]; then
+	setMetadata "$PWD/debs/"*.deb "${metadata[@]}";
+fi;
+
+declare debs="$PWD/debs";
+
+cd "$debs";
+
+if $debug; then
+	dpkg -I *.deb;
+	dpkg -c *.deb;
+fi;
+
+downloadDeps "$debs";
+
+if ! $debug; then
+	installDebs "$debs";
+fi;
+
+# vim: set filetype=bash :
