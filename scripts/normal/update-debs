@@ -6,23 +6,35 @@ declare debs="$(mktemp -d)";
 declare -a OPTS;
 
 aptOpts "$tmpDir" "$debs" "${repo[@]}";
-cp "$tmpDir/etc/apt/sources.list.d/apt.list" "$debs";
-cp "$tmpDir/etc/apt/preferences.d/99-local-priority" "$debs";
-sed -i 's/990/500/' "$tmpDir/etc/apt/preferences.d/99-local-priority";
 sed -i '\@file:///@d; /r2u\.stat\.illinois\.edu/d' "$tmpDir/etc/apt/sources.list.d/apt.list";
 
-apt update "${OPTS[@]}";
-
-declare -a packages=( $(comm -12 <(grep-dctrl -s Package . -n "/repo/dists/resolute/main/binary-amd64/Packages" | sort -u | grep -v "^$") <(apt-cache "${OPTS[@]}" pkgnames | sort -u)) );
-
-mv "$debs/apt.list" "$tmpDir/etc/apt/sources.list.d/apt.list";
+grep-dctrl -v -F Maintainer "$maintainer" "/repo/dists/resolute/main/binary-amd64/Packages" | sed '/^Package:/a Status: install ok installed' > "$tmpDir"/var/lib/dpkg/status;
 
 apt update "${OPTS[@]}";
+
+declare -a packages=( $(apt "${OPTS[@]}" list --upgradable 2> /dev/null| tail -n +2 | cut -d'/' -f1) );
 
 cd "$debs";
 apt download "${OPTS[@]}" "${packages[@]}";
 
-mv "$debs/99-local-priority" "$tmpDir/etc/apt/preferences.d/99-local-priority";
+for deb in "$debs/"*.deb; do
+	declare name="$(dpkg-deb -f "$deb" Package)";
+	declare -a metadata=();
+	declare existing="$(grep-dctrl -X -P "$name" -s "XB-Softpack,XB-Alias" "/repo/dists/resolute/main/binary-amd64/Packages")"
+	declare alias="$(grep "^XB-Alias" <<< "$existing" | head -n1 | cut -d':' -f2 | tr -d ' ')";
+
+	if [ -n "$alias" ]; then
+		metadata+=( "XB-Alias" "$alias" )
+	fi;
+
+	if grep -q "^XB-Softpack" <<< "$existing"; then
+		metadata+=( "XB-Softpack" "true" )
+	fi;
+
+	if [ ${#metadata[@]} -gt 0 ]; then
+		setMetadata "$deb" "${metadata[@]}";
+	fi;
+done;
 
 installDebs "$debs";
 
