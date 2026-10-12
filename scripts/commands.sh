@@ -236,6 +236,7 @@ __completions() {
 	declare hasV="$(compgen -V var -W "a" "" &> /dev/null && echo true || echo false)";
 	declare fn="__completions";
 	declare hasExtra=false;
+	declare exe="$(basename "$0")";
 
 	while declare -F "$fn" > /dev/null; do
 		fn="__do_completion_$RANDOM";
@@ -310,7 +311,7 @@ __completions() {
 	fi;
 }
 
-complete -F ${fn@Q} ${0@Q};
+complete -F ${fn@Q} ${0@Q} ./${exe@Q} ${exe@Q};
 HEREDOC
 }
 
