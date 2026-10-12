@@ -346,7 +346,7 @@ func buildContainer(log *strings.Builder, sqfs, installDir string) error {
 			"--parttype", "1",
 			"--partfs", "1",
 			"--partarch", arch[runtime.GOARCH],
-			SingularityPath(installDir), sqfs,
+			sif, sqfs,
 		)),
 		runWithLog(log, exec.Command("singularity", "sif", "setprim", "1", sif)), //nolint:noctx
 	)
