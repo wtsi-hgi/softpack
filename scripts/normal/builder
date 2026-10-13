@@ -4,7 +4,7 @@
 set +euo pipefail
 source ~/.bashrc;
 
-trap "rm -rf ${TMP@Q}" EXIT;
+trap "trap '' INT; rm -rf ${TMP@Q}" EXIT;
 export PS1="<SP Builder> $PS1";
 export SOFTPACK_LOCAL_REPO="$(TMPDIR="$TMP" mktemp -d)";
 declare tmpDir="$(TMPDIR="$TMP" mktemp -d)/";

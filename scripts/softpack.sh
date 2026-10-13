@@ -5,7 +5,7 @@ set -euo pipefail;
 declare base="$(realpath "$(dirname "$0")")";
 declare aptRepo="$(grep "^aptrepo:" "${SOFTPACK_CONFIG:-$HOME/.softpack/config.yaml}" | head -n1 | cut -d':' -f2- | sed -e 's/^ *//')";
 export TMP="$(mktemp -d)";
-trap "rm -rf ${TMP@Q}" EXIT;
+trap "trap '' INT; rm -rf ${TMP@Q}" EXIT;
 
 aptMount() {
 	declare host="$(echo "$aptRepo" | cut -d'/' -f3)";
@@ -94,10 +94,9 @@ buildContainer() {
 	mkdir "$root/r/"{build,test-repo};
 
 	coproc SERVER { startContainer exec "$base/softpack.sif" repo-http 2>&1; };
-	trap "kill $SERVER_PID; rm -rf ${TMP@Q}" EXIT;
+	trap "trap '' INT; kill $SERVER_PID; rm -rf ${TMP@Q}" EXIT;
 
 	read -r line <&"${SERVER[0]}";
-	#cat <&"${SERVER[0]}" > /dev/null &
 
 	if [ "${line:0:14}" != "Listening on: " ]; then
 		echo "Failed to start repo HTTP server: $line" >&2;
