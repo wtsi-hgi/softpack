@@ -128,6 +128,10 @@ HEREDOC
 
 . "$base/commands.sh";
 
+if [ ! -f "$base/softpack.sif" ]; then
+	commands "" "normal/build-container";
+fi;
+
 declare parts=( $(find "$base/global/" -maxdepth 1 -type f) );
 
 if [ -v SOFTPACK_LOCAL_REPO ]; then
