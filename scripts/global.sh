@@ -296,6 +296,17 @@ installDebs() {
 		BASE=/test-repo/pool/main/binary-amd64/;
 	fi;
 
+	declare -A inSoftpack=();
+	declare -A aliases=();
+
+	while read pkg; do
+		inSoftpack["$pkg"]="1";
+	done < <(grep-dctrl -X -F XB-Softpack -n -s Package "true" -n "/repo/dists/resolute/main/binary-amd64/Packages" | uniq);
+
+	while read -r pkg alias; do
+		aliases["$pkg"]="$alias";
+	done < <(grep-dctrl -r -F XB-Alias -s Package,XB-Alias . "/repo/dists/resolute/main/binary-amd64/Packages" | sed -n -e 'N;N; s/^Package: \(.*\)\nXB-Alias: \(.*\)\n$/\1 \2/p' | uniq);
+
 	cd "$debDir";
 
 	shopt -s nullglob;
@@ -319,6 +330,21 @@ installDebs() {
 			fixR "$file" "r";
 		elif [ "${file:0:7}" = "r-cran-" -o "${file:0:7}" = "r-bioc-" -o "${file:0:7}" = "r-misc-" ]; then
 			fixR "$file" "$(sed -e 's/^r-\(bioc\|cran\|misc\)-\([^_]*\)_.*/r-\2/' -e 's/\./-/g' <<< "$file")";
+		else
+			declare -a metadata=();
+			declare name="$(dpkg-deb -W "$file" | cut -f1)";
+
+			if [ -n "${aliases["$name"]:-}" ]; then
+				metadata+=( "XB-Alias" "${aliases["$name"]}" );
+			fi;
+
+			if [ -v "${inSoftpack["$name"]:-}" ]; then
+				metadata+=( "XB-Softpack" "true" );
+			fi;
+
+			if [ "${#metadata[@]}" -gt 0 ]; then
+				setMetadata "$file" "${metadata[@]}";
+			fi;
 		fi;
 
 		setExecutables "$file";

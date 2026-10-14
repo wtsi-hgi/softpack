@@ -17,25 +17,6 @@ declare -a packages=( $(apt "${OPTS[@]}" list --upgradable 2> /dev/null| tail -n
 cd "$debs";
 apt download "${OPTS[@]}" "${packages[@]}";
 
-for deb in "$debs/"*.deb; do
-	declare name="$(dpkg-deb -f "$deb" Package)";
-	declare -a metadata=();
-	declare existing="$(grep-dctrl -X -P "$name" -s "XB-Softpack,XB-Alias" "/repo/dists/resolute/main/binary-amd64/Packages")"
-	declare alias="$(grep "^XB-Alias" <<< "$existing" | head -n1 | cut -d':' -f2 | tr -d ' ')";
-
-	if [ -n "$alias" ]; then
-		metadata+=( "XB-Alias" "$alias" )
-	fi;
-
-	if grep -q "^XB-Softpack" <<< "$existing"; then
-		metadata+=( "XB-Softpack" "true" )
-	fi;
-
-	if [ ${#metadata[@]} -gt 0 ]; then
-		setMetadata "$deb" "${metadata[@]}";
-	fi;
-done;
-
 installDebs "$debs";
 
 # vim: set filetype=bash :
