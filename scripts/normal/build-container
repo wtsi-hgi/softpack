@@ -38,6 +38,8 @@ EXTRA_CFLAGS="-march=x86-64-v3"
 LDFLAGS="-Wl,-z,relro"
 HEREDOC
 
+chmod 755 "$ROOT/.singularity.d/env/91-environment.sh";
+
 cat > "$ROOT/.singularity/env/99-hack.sh" <<HEREDOC
 #!/bin/bash
 rm /etc/{passwd,group};
@@ -75,6 +77,7 @@ apt update;
 apt install -y ca-certificates;
 
 echo "deb [trusted=yes] http://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/ resolute main" > /etc/apt/sources.list.d/deadsnakes.list;
+chmod 644 /etc/apt/sources.list.d/deadsnakes.list;
 
 apt-get update;
 apt install -y ca-certificates vim emacs nano file equivs curl wget fuse git s3fs $(apt list 2> /dev/null | grep "^python3\.[0-9]\+\(-dev\|-distutils\|-venv\)\?/" | cut -d'/' -f1) libfuse3-dev build-essential pkg-config libcurl4-openssl-dev libxml2-dev libssl-dev media-types apt-utils xz-utils zstd libdb-dev meson ninja-build libdb5.3++-dev dose-distcheck jq libmagick++-dev libcurl4-openssl-dev libssl-dev libxml2-dev libfontconfig1-dev libharfbuzz-dev libfribidi-dev libsqlite3-dev libpq-dev libhdf5-dev libgdal-dev gdal-bin libproj-dev libgeos-dev libudunits2-dev libgsl-dev libgmp3-dev libmpfr-dev libcairo2-dev libxt-dev libpng-dev libjpeg-dev libtiff-dev xvfb default-jdk libglpk-dev libgl1-mesa-dev libglu1-mesa-dev texlive dctrl-tools jags dh-python db-util debhelper devscripts dpkg-dev golang-go;
