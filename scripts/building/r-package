@@ -2,11 +2,12 @@
 : --name string    # Package Name
 : --version string # Package Version
 : --R string       # R Version
+: --debug          # Enable simple debugging
 
 declare json="$(
 	xvfb-run -a /opt/R/$R/bin/Rscript <(
 		echo "pkg_req <- \"$name@$version\"";
-		sed -n '/^<<R_SCRIPT$/,/^R_SCRIPT/{//!p}' < "$0";
+		sed -n '/^<<'"'"'R_SCRIPT'"'"'$/,/^R_SCRIPT/{//!p}' < "$0";
 	) | tee >(sed -n '/^----------$/q; p' > /dev/tty) | sed '0,/^----------$/d';
 )";
 
@@ -23,10 +24,10 @@ touch "$tempDir/DEBIAN/control";
 chmod 755 "$tempDir/DEBIAN";
 chmod 644 "$tempDir/DEBIAN/control";
 
-while read -r -d '' package && read -r -d '' version && read -r -d '' depends && read -r -d '' description && read -r -d '' repo && read -r -d '' remote; do
+while read -r -d '' package && read -r -d '' version && read -r -d '' depends && read -r -d '' description && read -r -d '' rrepo && read -r -d '' remote; do
 	declare type="misc";
 
-	case "${repo,,}" in
+	case "${rrepo,,}" in
 	"cran")
 		type="cran";;
 	"bioconductor"*)
@@ -41,6 +42,14 @@ while read -r -d '' package && read -r -d '' version && read -r -d '' depends &&
 
 	declare filename="r-$type-${package,,}_$version~r$R.deb";
 
+	if grep-dctrl -q -X -F Filename "pool/main/binary-amd64/r/$filename" "/repo/dists/resolute/main/binary-amd64/Packages"; then
+		continue;
+	elif [ -f "/repo/pool/main/binary-amd64/r/$filename" ]; then
+		cp -v "/repo/pool/main/binary-amd64/r/$filename" "$debs/";
+
+		continue;
+	fi;
+
 	mv "/usr/lib/R/site-library/$package" "$tempDir/usr/lib/R/site-library";
 
 	cat <<-HEREDOC > "$tempDir/DEBIAN/control"
@@ -54,14 +63,19 @@ while read -r -d '' package && read -r -d '' version && read -r -d '' depends &&
 
 	dpkg-deb --root-owner-group --build "$tempDir" "$debs/$filename";
 
+	if $debug; then
+		dpkg -I "$debs/$filename";
+	fi;
+
 	rm -rf "$tempDir/usr/lib/R/site-library";
 done < <(jq -j 'to_entries[] | (.key, .value.version, .value.depends, .value.description, .value.repository, .value.remoterepos) | "\(.)\u0000"' <<< "$json");
 
 downloadDeps "$debs";
 installDebs "$debs";
 
-<<R_SCRIPT
+<<'R_SCRIPT'
 r_version = paste0(R.version$major, ".", strsplit(R.version$minor, "\\.")[[1]][1])
+next_r_version = paste0(R.version$major, ".", getRversion()[[1, 2]] + 1)
 repos <- BiocManager::repositories()
 repos["CRAN"] = sprintf("https://packagemanager.posit.co/cran/latest/bin/linux/resolute-%s/%s", R.version["arch"], r_version);
 options(repos = repos);
@@ -73,7 +87,7 @@ packages <- list();
 for (inst in 1:nrow(installed_pkgs)) {
 	name <- installed_pkgs[inst, "package"];
 	ver <- installed_pkgs[inst, "version"];
-	reqs <- list(paste0("r-base-core (=", r_version, ")"));
+	reqs <- list(paste0("r-base-core (>=", r_version, ".0), r-base-core (<<", next_r_version, ".0)"));
 
 	sr <- pak::pkg_sysreqs(installed_pkgs[inst, "remotepkgref"]);
 	reqs <- c(reqs, unlist(sr$packages[vapply(sr$packages$packages, function(x) name %in% x, logical(1)), ]$system_packages));
