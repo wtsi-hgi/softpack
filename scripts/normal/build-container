@@ -73,6 +73,15 @@ DPkg::Options {
 };
 HEREDOC
 
+declare bins=( "/usr/sbin/adduser" "/usr/sbin/addgroup" "/usr/sbin/useradd" "/usr/sbin/groupadd" "/usr/sbin/usermod" "/usr/sbin/groupmod" "/usr/bin/gpasswd" "/usr/bin/systemd-sysusers" "/usr/bin/chown" "/usr/bin/chgrp" "/usr/sbin/dpkg-statoverride" );
+
+for bin in "${bins[@]}"; do
+	dpkg-divert --local --rename --add "$bin";
+	echo "#!/bin/bash" > "$bin";
+	chmod +x "$bin";
+	ls -l "$bin";
+done
+
 apt update;
 apt install -y ca-certificates;
 
@@ -229,6 +238,10 @@ mv repo-http /usr/bin
 cd - &> /dev/null;
 rm -rf t;
 
+for bin in "${bins[@]}"; do
+	rm -f "$bin"
+	dpkg-divert --local --rename --remove "$bin"
+done
 apt-get clean;
 
 # vim: set filetype=bash :
