@@ -1,0 +1,15 @@
+# Clean the APT repo index cache, removing debs that are no longer in the repo.
+
+cd /repo/;
+
+[ ! -f "apt.cache" ] && exit 0;
+
+declare tmpDir="$(mktemp -d)/";
+
+aptConf "$tmpDir" > "$tmpDir/apt.conf";
+
+cp apt.cache "$tmpDir";	
+apt-ftparchive clean "$tmpDir"/apt.conf;
+cp -f "$tmpDir"/apt.cache ./;
+
+# vim: set filetype=bash :

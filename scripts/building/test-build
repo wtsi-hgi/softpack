@@ -1,0 +1,15 @@
+#!buildContainer
+# Build a container to test package installations.
+: --package string[] # Package to install
+
+rm -rf /etc/apt/sources.list.d/*;
+
+aptSources | grep "\(file:///\|127.0.0.1\)" > /etc/apt/sources.list.d/apt.list;
+
+export DEBIAN_FRONTEND=noninteractive;
+apt update;
+apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends "${package[@]}";
+
+bash -i;
+
+# vim: set filetype=bash :

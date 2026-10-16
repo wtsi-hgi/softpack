@@ -1,0 +1,13 @@
+# Commit staged debs files to APT repo
+
+unset SOFTPACK_LOCAL_REPO;
+declare debs="$(mktemp -d)";
+
+find /test-repo -type f -name "*.deb" -exec mv -t "$debs" {} +;
+rm -f /test-repo/apt.cache;
+
+cd "$debs";
+
+installDebs "$debs";
+
+# vim: set filetype=bash :

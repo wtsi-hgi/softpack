@@ -1,0 +1,40 @@
+# Update CRAN and BioConductor packages from the R2U repo.
+
+set -euo pipefail;
+
+fixDepends() {
+	declare file="$1";
+
+	declare depends="$(dpkg-deb -f "$file" Depends)";
+	declare fixed="$(sed -E 's/((r-cran-|r-bioc-)[a-zA-Z0-9.-]+)\1/\1/g' <<<"$depends")";
+
+	if [ "$depends" != "$fixed" ]; then
+		setMetadata "$file" "Depends" "$fixed";
+	fi;
+}
+
+cd "$BASE/r";
+
+declare -A files=();
+
+while read file; do
+	files[$file]=" ";
+done < <(ls -f);
+
+declare tmpDir="$(mktemp -d)/";
+
+cd "$tmpDir";
+
+while read file; do
+	if [ -z "${files[$file]:-}" ]; then
+	       	wget "https://r2u.stat.illinois.edu/ubuntu/pool/dists/resolute/main/$file";
+		fixDepends "$file";
+	fi;
+done < <(curl "https://r2u.stat.illinois.edu/ubuntu/pool/dists/resolute/main/" 2> /dev/null | grep ".deb" | cut -d'"' -f2 | grep -v "arm64.deb");
+
+if ls -1q * &> /dev/null; then
+	downloadDeps "$tmpDir/";
+	installDebs "$tmpDir";
+fi;
+
+# vim: set filetype=bash :
