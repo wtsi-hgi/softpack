@@ -7,7 +7,7 @@
 : --alias [string]        # Alias to show to SoftPack
 : --aliasversion [string] # Alias to show to SoftPack
 : --dep string[]          # Additional dependency
-: --debug                 # Enable simple debugging and disable copying completed debs into repo.
+: --debug                 # Enable simple debugging
 
 declare debs="$(mktemp -d)";
 
@@ -74,9 +74,6 @@ if $debug; then
 fi;
 
 downloadDeps "$debs";
-
-if ! $debug; then
-	installDebs "$debs";
-fi;
+installDebs "$debs";
 
 # vim: set filetype=bash :

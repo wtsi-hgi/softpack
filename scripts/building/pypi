@@ -5,7 +5,7 @@
 : --python [string]    # Python Version
 : --buildreqs [string] # Comma seperated list of packages required by (usually legacy) installs
 : --extradeps [string] # Comma seperated list of additional deb dependencies.
-: --debug              # Enable simple debugging and disable copying completed debs into repo.
+: --debug              # Enable simple debugging
 
 if [ ! -v python ]; then
 	python="$(find /usr/bin -maxdepth 1 -executable -name "python[0-9].[0-9]*" ! -name "*-config" ! -name "*m" | tr -dc '.0-9\n' | sort -V | tail -n1)";
@@ -184,9 +184,6 @@ HEREDOC
 done;
 
 downloadDeps "$debs";
-
-if ! $debug; then
-	installDebs "$debs";
-fi;
+installDebs "$debs";
 
 # vim: set filetype=bash :
