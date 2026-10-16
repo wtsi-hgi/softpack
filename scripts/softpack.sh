@@ -90,7 +90,6 @@ buildContainer() {
 	declare container="$(TMPDIR="$TMP" mktemp -d)";
 
 	singularity build --sandbox "$root/r" docker://ubuntu:latest;
-	singularity exec --bind "$root/r/:/r" "$base/softpack.sif" cp /usr/local/bin/s3fs /r/usr/local/bin/;
 	mkdir "$root/r/"{build,test-repo};
 
 	coproc SERVER { startContainer exec "$base/softpack.sif" repo-http 2>&1; };
@@ -123,7 +122,8 @@ HEREDOC
 	addLocalRepoBind;
 
 	chmod +x "$root/r/.singularity.d/env/99-etc.sh";
-	singularity exec --bind "$bind" --bind "$(TMPDIR="$TMP" mktemp -d):/tmp" --writable "$root/r" bash "$1";
+	unset SINGULARITY_BIND;
+	singularity exec --bind "$bind" --bind "$(TMPDIR="$TMP" mktemp -d):/tmp" --no-home --writable "$root/r" bash "$1";
 }
 
 . "$base/commands.sh";
