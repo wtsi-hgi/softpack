@@ -44,8 +44,14 @@ while read -r -d '' package && read -r -d '' version && read -r -d '' depends &&
 
 	if grep-dctrl -q -X -F Filename "pool/main/binary-amd64/r/$filename" "/repo/dists/resolute/main/binary-amd64/Packages"; then
 		continue;
+	elif [ -d /test-repo ] && grep-dctrl -q -X -F Filename "pool/main/binary-amd64/r/$filename" "/test-repo/dists/resolute/main/binary-amd64/Packages"; then
+		continue;
 	elif [ -f "/repo/pool/main/binary-amd64/r/$filename" ]; then
 		cp -v "/repo/pool/main/binary-amd64/r/$filename" "$debs/";
+
+		continue;
+	elif [ -f "/test-repo/pool/main/binary-amd64/r/$filename" ]; then
+		cp -v "/test-repo/pool/main/binary-amd64/r/$filename" "$debs/";
 
 		continue;
 	fi;
