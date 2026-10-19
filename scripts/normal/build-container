@@ -60,6 +60,7 @@ mksquashfs "$ROOT" "$SQFS" -all-root;
 singularity sif new "$SIF";
 singularity sif add --datatype 4 --parttype 1 --partfs 1 --partarch 2 "$SIF" "$SQFS";
 singularity sif setprim 1 "$SIF";
+chmod -x "$SIF";
 mv -f "$SIF" "$output";
 
 exit 0;
