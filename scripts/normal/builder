@@ -31,4 +31,4 @@ apt-ftparchive -c release.conf release dists/resolute > dists/resolute/Release 2
 
 cd - &> /dev/null;
 
-. <(softpack.sh --completions);
+. <(softpack --completions);
