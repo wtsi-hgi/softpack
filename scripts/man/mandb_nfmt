@@ -1,0 +1,3 @@
+#!/bin/bash
+
+../softpack --generate-roff | /usr/bin/nroff -mandoc -Tutf8;
