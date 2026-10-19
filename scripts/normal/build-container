@@ -178,7 +178,6 @@ index 45a2052..5407a06 100644
      if(!S3fsCurl::LoadEnvSse()){
 HEREDOC
 
-cat p;
 git apply p;
 ./autogen.sh;
 ./configure;
