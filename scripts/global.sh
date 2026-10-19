@@ -28,6 +28,24 @@ BinDirectory "pool/main/binary-amd64" {
 HEREDOC
 }
 
+buildIndex() {
+	declare dir="$1";
+	declare fromscratch="${2:-false}";
+	declare tmpDir="$(mktemp -d)";
+
+	(
+		cd "$dir";
+		echo $PWD;
+
+		aptConf "$tmpDir" > "$tmpDir/apt.conf";
+
+		[ -f "apt.cache" ] && ! $fromscratch && cp apt.cache "$tmpDir";
+		apt-ftparchive generate "$tmpDir/apt.conf";
+		apt-ftparchive -c release.conf release dists/resolute > dists/resolute/Release;
+		cp -f "$tmpDir"/apt.cache ./;
+	)
+}
+
 setMetadata() {
 	declare file="$1";
 
@@ -169,8 +187,8 @@ downloadDeps() {
 	shift;
 
 	declare tmpDir="$(mktemp -d)";
-	declare cacheDir="$(mktemp -d)/";
-	declare aptDir="$(mktemp -d)/";
+	declare cacheDir="$(mktemp -d)";
+	declare aptDir="$(mktemp -d)";
 
 	aptConf "$cacheDir" > "$cacheDir/apt.conf";
 
@@ -307,54 +325,56 @@ installDebs() {
 		aliases["$pkg"]="$alias";
 	done < <(grep-dctrl -r -F XB-Alias -s Package,XB-Alias . "/repo/dists/resolute/main/binary-amd64/Packages" | sed -n -e 'N;N; s/^Package: \(.*\)\nXB-Alias: \(.*\)\n$/\1 \2/p' | uniq);
 
-	cd "$debDir";
+	(
+		cd "$debDir";
 
-	shopt -s nullglob;
+		shopt -s nullglob;
 
-	for file in *.deb; do
-		declare l="$(basename "$file" | sed -e 's/^\(.\).*/\1/')";
-		mkdir -p "$BASE/$l";
+		for file in *.deb; do
+			declare l="$(basename "$file" | sed -e 's/^\(.\).*/\1/')";
+			mkdir -p "$BASE/$l";
 
-		if [ -f "$BASE/$l/$(basename "$file")" ]; then
-		       continue;
-		fi;
-
-		if [ "${file:0:4}" = "ucf_" ]; then
-			patchUCF "$file";
-		elif [ "${file:0:8}" = "systemd_" ]; then
-			patchSystemd "$file";
-		elif [ "${file:0:8}" = "python3." ]; then
-			fixPythonVersioning "$file";
-		elif [ "${file:0:12}" = "r-base-core_" ]; then
-			addRSymlinkIfOpt "$file";
-			fixR "$file" "r";
-		elif [ "${file:0:7}" = "r-cran-" -o "${file:0:7}" = "r-bioc-" -o "${file:0:7}" = "r-misc-" ]; then
-			fixR "$file" "$(sed -e 's/^r-\(bioc\|cran\|misc\)-\([^_]*\)_.*/r-\2/' -e 's/\./-/g' <<< "$file")";
-		else
-			declare -a metadata=();
-			declare name="$(dpkg-deb -W "$file" | cut -f1)";
-
-			if [ -n "${aliases["$name"]:-}" ]; then
-				metadata+=( "XB-Alias" "${aliases["$name"]}" );
+			if [ -f "$BASE/$l/$(basename "$file")" ]; then
+			       continue;
 			fi;
 
-			if [ -v "${inSoftpack["$name"]:-}" ]; then
-				metadata+=( "XB-Softpack" "true" );
+			if [ "${file:0:4}" = "ucf_" ]; then
+				patchUCF "$file";
+			elif [ "${file:0:8}" = "systemd_" ]; then
+				patchSystemd "$file";
+			elif [ "${file:0:8}" = "python3." ]; then
+				fixPythonVersioning "$file";
+			elif [ "${file:0:12}" = "r-base-core_" ]; then
+				addRSymlinkIfOpt "$file";
+				fixR "$file" "r";
+			elif [ "${file:0:7}" = "r-cran-" -o "${file:0:7}" = "r-bioc-" -o "${file:0:7}" = "r-misc-" ]; then
+				fixR "$file" "$(sed -e 's/^r-\(bioc\|cran\|misc\)-\([^_]*\)_.*/r-\2/' -e 's/\./-/g' <<< "$file")";
+			else
+				declare -a metadata=();
+				declare name="$(dpkg-deb -W "$file" | cut -f1)";
+
+				if [ -n "${aliases["$name"]:-}" ]; then
+					metadata+=( "XB-Alias" "${aliases["$name"]}" );
+				fi;
+
+				if [ -v "${inSoftpack["$name"]:-}" ]; then
+					metadata+=( "XB-Softpack" "true" );
+				fi;
+
+				if [ "${#metadata[@]}" -gt 0 ]; then
+					setMetadata "$file" "${metadata[@]}";
+				fi;
 			fi;
 
-			if [ "${#metadata[@]}" -gt 0 ]; then
-				setMetadata "$file" "${metadata[@]}";
-			fi;
-		fi;
+			setExecutables "$file";
 
-		setExecutables "$file";
+			mv -v "$file" "$BASE/$l/";
+		done;
+	)
 
-		mv -v "$file" "$BASE/$l/";
-	done;
-
-	cd - &> /dev/null;
-
-	shopt -u nullglob;
+	if [ -v SOFTPACK_LOCAL_REPO ]; then
+		buildIndex "/test-repo";
+	fi;
 }
 
 # vim: set filetype=bash :

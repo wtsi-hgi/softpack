@@ -8,7 +8,8 @@ aptSources | grep "\(file:///\|127.0.0.1\)" > /etc/apt/sources.list.d/apt.list;
 
 export DEBIAN_FRONTEND=noninteractive;
 apt update;
-apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends "${package[@]}";
+apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends apt-cudf;
+apt -y -o DPkg::Options::=--force-not-root install -o APT::Solver="aspcud" --no-install-recommends "${package[@]}";
 
 bash -i;
 
