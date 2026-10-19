@@ -179,6 +179,7 @@ HEREDOC
 		-o Acquire::AllowInsecureRepositories=true
 		-o Acquire::AllowDowngradeToInsecureRepositories=true
 		-o APT::Get::Update::SourceListWarnings=false
+		-o APT::Solver="aspcud"
 	);
 }
 
