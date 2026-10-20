@@ -72,9 +72,9 @@ startContainer() {
 	shift;
 
 	if [ "${aptRepo:0:5}" = "s3://" ]; then
-		singularity "$cmd" --fusemount "$(aptMount)" "$@"
+		singularity -s "$cmd" --fusemount "$(aptMount)" "$@"
 	else
-		singularity "$cmd" --bind "$aptRepo:/repo" "$@";
+		singularity -s "$cmd" --bind "$aptRepo:/repo" "$@";
 	fi;
 }
 
@@ -123,7 +123,7 @@ HEREDOC
 
 	chmod +x "$root/r/.singularity.d/env/99-etc.sh";
 	unset SINGULARITY_BIND;
-	singularity exec --bind "$bind" --bind "$(TMPDIR="$TMP" mktemp -d):/tmp" --no-home --writable "$root/r" bash "$1";
+	singularity -s exec --bind "$bind" --bind "$(TMPDIR="$TMP" mktemp -d):/tmp" --no-home --writable "$root/r" bash "$1";
 }
 
 . "$base/commands.sh";
