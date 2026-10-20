@@ -9,6 +9,6 @@ rm -f /test-repo/apt.cache;
 cd "$debs";
 
 installDebs "$debs";
-rebuildIndex "/repo";
+buildIndex "/repo";
 
 # vim: set filetype=bash :
