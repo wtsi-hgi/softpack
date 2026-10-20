@@ -164,6 +164,15 @@ func setAptRepo(root, httpURL string) error {
 	)
 }
 
+var aptConfig = []byte(`
+APT::Get::Assume-Yes "true";
+APT::Get::allow-change-held-packages "true";
+APT::Get::allow-downgrades "true";
+APT::Get::allow-remove-essential "true";
+APT::No-Strict-Pinning "true";
+DPkg::Options { "--force-not-root"; };
+`)
+var solverConfig = []byte(`APT::Solver "aspcud";`)
 var mountHack = []byte("#!/bin/bash\nrm /etc/{passwd,group};mv /etc/passwd{.orig,};mv /etc/group{.orig,}")
 
 func installPackages(log *strings.Builder, root string, pkgs []db.Package) ([]string, []db.Package, error) {
@@ -178,23 +187,17 @@ func installPackages(log *strings.Builder, root string, pkgs []db.Package) ([]st
 	}
 
 	if err := cmp.Or(
-		aptWithLog(log, root, "update"),
 		os.MkdirAll(filepath.Join(root, ".singularity", "env"), 0755),
+		os.WriteFile(filepath.Join(root, "etc", "apt", "apt.conf.d", "50config"), aptConfig, 0755),
+		aptWithLog(log, root, "update"),
+		aptWithLog(log, root, "install", "apt-cudf"),
+		os.WriteFile(filepath.Join(root, "etc", "apt", "apt.conf.d", "51solver"), solverConfig, 0755),
 		os.WriteFile(filepath.Join(root, ".singularity", "env", "99-hack.sh"), mountHack, 0755),
 		os.Rename(filepath.Join(root, "etc", "passwd"), filepath.Join(root, "etc", "passwd.orig")),
 		os.Rename(filepath.Join(root, "etc", "group"), filepath.Join(root, "etc", "group.orig")),
 		os.Symlink(filepath.Join(root, "etc", "passwd.orig"), filepath.Join(root, "etc", "passwd")),
 		os.Symlink(filepath.Join(root, "etc", "group.orig"), filepath.Join(root, "etc", "group")),
-		aptWithLog(log, root, append(
-			[]string{
-				"-y",
-				"-o", "DPkg::Options::=--force-not-root",
-				"--allow-downgrades", "--allow-change-held-packages",
-				"--allow-remove-essential", "--no-strict-pinning",
-				"install",
-			},
-			packages...,
-		)...),
+		aptWithLog(log, root, append([]string{"install"}, packages...)...),
 		os.RemoveAll(filepath.Join(root, ".singularity")),
 		os.RemoveAll(filepath.Join(root, "var", "cache", "apt")),
 		os.RemoveAll(filepath.Join(root, "var", "lib", "apt")),

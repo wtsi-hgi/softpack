@@ -90,9 +90,10 @@ func CreateTestAptRepo(t *testing.T, debs []Deb) string { //nolint:funlen
 
 		fmt.Fprintf(
 			&control,
-			"Package: %s\nArchitecture: all\nVersion: %s\nFilename: %s\n",
+			"Package: %s\nArchitecture: all\nVersion: %s\nMaintainer: %s\nFilename: %s\n",
 			deb.Name,
 			deb.Version,
+			cmp.Or(deb.Metadata["Maintainer"], "Unknown"),
 			debPath,
 		)
 
@@ -116,9 +117,8 @@ func CreateTestAptRepo(t *testing.T, debs []Deb) string { //nolint:funlen
 
 		_, err = fmt.Fprintf(
 			distFile,
-			"%sFilename: %s\nSize: %d\nMD5sum: %x\nSHA1: %x\nSHA256: %x\nSHA512: %x\n\n",
+			"%sSize: %d\nMD5sum: %x\nSHA1: %x\nSHA256: %x\nSHA512: %x\n\n",
 			control.String(),
-			debPath,
 			w.Count,
 			m.Sum(nil),
 			s1.Sum(nil),
@@ -249,8 +249,9 @@ func ExamplePackages() []Deb { //nolint:funlen
 func MockS3Server(t *testing.T, pkgs []Deb) *httptest.Server {
 	t.Helper()
 
-	root := CreateTestAptRepo(t, pkgs)
-
+	return MockS3ServerWithRoot(t, CreateTestAptRepo(t, pkgs))
+}
+func MockS3ServerWithRoot(t *testing.T, root string) *httptest.Server {
 	files, err := s3afero.FsPath(root, 0)
 	assert.NoError(t, err)
 
