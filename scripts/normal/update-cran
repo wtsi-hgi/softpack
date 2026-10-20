@@ -1,4 +1,5 @@
 # Update CRAN and BioConductor packages from the R2U repo.
+: --noupdate      # Do not automatically update repo index
 
 set -euo pipefail;
 
@@ -35,6 +36,10 @@ done < <(curl "https://r2u.stat.illinois.edu/ubuntu/pool/dists/resolute/main/" 2
 if ls -1q * &> /dev/null; then
 	downloadDeps "$tmpDir/";
 	installDebs "$tmpDir";
+
+	if ! $noupdate; then
+		buildIndex "/repo";
+	fi;
 fi;
 
 # vim: set filetype=bash :

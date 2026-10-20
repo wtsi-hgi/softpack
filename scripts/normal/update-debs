@@ -1,5 +1,6 @@
 # Update deb files pulled in from other repos.
 : --repo string[] # Repo string to get packages from: deb[-src] http://URL DISTRO COMPONENT
+: --noupdate      # Do not automatically update repo index
 
 declare tmpDir="$(mktemp -d)";
 declare debs="$(mktemp -d)";
@@ -17,6 +18,12 @@ declare -a packages=( $(apt "${OPTS[@]}" list --upgradable 2> /dev/null| tail -n
 cd "$debs";
 apt download "${OPTS[@]}" "${packages[@]}";
 
-installDebs "$debs";
+if ls -1q * &> /dev/null; then
+	installDebs "$debs";
+
+	if ! $noupdate; then
+		buildIndex "/repo";
+	fi;
+fi;
 
 # vim: set filetype=bash :

@@ -2,6 +2,7 @@
 : --name string    # Package name to remove from cache
 : --version string # Package version to remove from cache
 : --remove         # Remove file from Repo
+: --noupdate       # Do not automatically update repo index
 
 [ -d /test-repo ] && cd /test-repo || cd /repo;
 
@@ -26,6 +27,10 @@ fi;
 
 if ${remove:-false}; then
 	rm "$filename";
+fi;
+
+if ! $noupdate; then
+	buildIndex "$PWD";
 fi;
 
 # vim: set filetype=bash :
