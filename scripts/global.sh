@@ -35,7 +35,6 @@ buildIndex() {
 
 	(
 		cd "$dir";
-		echo $PWD;
 
 		aptConf "$tmpDir" > "$tmpDir/apt.conf";
 
@@ -275,7 +274,6 @@ fixR() {
 
 addPythonSymlinkIfMissing() {
 	declare deb="$1";
-
 	declare tmpDir="$(mktemp -d)";
 
 	dpkg-deb -R "$deb" "$tmpDir";
@@ -305,6 +303,39 @@ fixPythonVersioning() {
 		"Package" "python3" \
 		"XB-Alias" "python" \
 		"XB-Softpack" "true";
+}
+
+fixCudf() {
+	declare deb="$1";
+	declare tmpDir="$(mktemp -d)";
+
+	dpkg-deb -R "$deb" "$tmpDir";
+
+	if [ -e "$tmpDir/usr/bin/apt-cudf.orig" ]; then
+		return;
+	fi;
+
+	mv "$tmpDir/usr/bin/apt-cudf"{,.orig};
+	cat > /tmp/proxy.c <<HEREDOC
+#include <unistd.h>
+#include <fcntl.h>
+
+int main(int argc, char *argv[]) {
+	int devNull = open("/dev/null", O_WRONLY);
+
+	dup2(devNull, STDERR_FILENO);
+	close(devNull);
+
+	execv("/usr/bin/apt-cudf.orig", argv);
+
+	return 1;
+}
+HEREDOC
+	gcc -O2 /tmp/proxy.c -o "$tmpDir/usr/bin/apt-cudf";
+	chmod 755 "$tmpDir/usr/bin/apt-cudf";
+	rm -f /tmp/proxy.c;
+
+	dpkg-deb --root-owner-group -b "$tmpDir" "$deb";
 }
 
 installDebs() {
@@ -350,6 +381,8 @@ installDebs() {
 				fixR "$file" "r";
 			elif [ "${file:0:7}" = "r-cran-" -o "${file:0:7}" = "r-bioc-" -o "${file:0:7}" = "r-misc-" ]; then
 				fixR "$file" "$(sed -e 's/^r-\(bioc\|cran\|misc\)-\([^_]*\)_.*/r-\2/' -e 's/\./-/g' <<< "$file")";
+			elif [ "${file:0:9}" = "apt-cudf_" ]; then
+				fixCudf "$file";
 			else
 				declare -a metadata=();
 				declare name="$(dpkg-deb -W "$file" | cut -f1)";
