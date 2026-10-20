@@ -6,6 +6,10 @@ set -euo pipefail;
 
 trap "trap '' INT; rm -rf ${TMP@Q}" EXIT;
 
+if [ -d "$output" ]; then
+	output+="/softpack.sif";
+fi;
+
 if [ -f "$output" ]; then
 	read -r -p "Build target '$output' already exists and will be overwritten. Proceed? [y/N] " response;
 
