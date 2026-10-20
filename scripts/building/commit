@@ -11,4 +11,6 @@ cd "$debs";
 installDebs "$debs";
 buildIndex "/repo";
 
+rm "/test-repo/done";
+
 # vim: set filetype=bash :

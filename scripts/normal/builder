@@ -7,7 +7,10 @@ source ~/.bashrc;
 trap "trap '' INT; rm -rf ${TMP@Q}" EXIT;
 export PS1="<SP Builder> $PS1";
 export SOFTPACK_LOCAL_REPO="$(TMPDIR="$TMP" mktemp -d)";
+export PROMPT_COMMAND="if [ ! -f ${SOFTPACK_LOCAL_REPO@Q}/done ]; then exit 0; fi; $PROMPT_COMMAND";
 declare tmpDir="$(TMPDIR="$TMP" mktemp -d)/";
+
+touch "$SOFTPACK_LOCAL_REPO/done";
 
 cat <<HEREDOC > "$SOFTPACK_LOCAL_REPO/release.conf";
 APT::FTPArchive::Release::Origin "HGI";
