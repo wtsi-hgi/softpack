@@ -6,6 +6,7 @@ declare base="$(realpath "$(dirname "$0")")";
 declare aptRepo="$(grep "^aptrepo:" "${SOFTPACK_CONFIG:-$HOME/.softpack/config.yaml}" | head -n1 | cut -d':' -f2- | sed -e 's/^ *//')";
 export TMP="$(mktemp -d)";
 trap "trap '' INT; rm -rf ${TMP@Q}" EXIT;
+umask 0002;
 
 aptMount() {
 	declare host="$(echo "$aptRepo" | cut -d'/' -f3)";
