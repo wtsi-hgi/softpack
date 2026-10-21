@@ -71,6 +71,8 @@ exit 0;
 
 export DEBIAN_FRONTEND=noninteractive;
 export APT_CONFIG="$(mktemp)";
+export LANG=C;
+export LC_ALL=C;
 
 cat > "$APT_CONFIG" <<HEREDOC
 DPkg::Options {
