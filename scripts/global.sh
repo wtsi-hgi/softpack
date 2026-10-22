@@ -364,7 +364,7 @@ installDebs() {
 
 		for file in *.deb; do
 			declare l="$(basename "$file" | sed -e 's/^\(.\).*/\1/')";
-			mkdir -p "$BASE/$l";
+			mkdir -p "$BASE/$l" -m 777;
 
 			if [ -f "$BASE/$l/$(basename "$file")" ]; then
 			       continue;
