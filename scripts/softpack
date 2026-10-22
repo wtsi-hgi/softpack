@@ -101,6 +101,7 @@ startContainer() {
 runShell() {
 	declare bind="";
 	setBind;
+	addLocalRepoBind;
 
 	startContainer shell --bind "$bind" "$base/softpack.sif" bash "$script" "$@"
 }
