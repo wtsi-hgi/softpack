@@ -8,12 +8,29 @@ export TMP="$(mktemp -d)";
 trap "trap '' INT; rm -rf ${TMP@Q}" EXIT;
 umask 0002;
 
+checkS3Credentials() {
+	if [ -f ~/.passwd-s3fs ]; then
+		if [ "$(stat -c %a ~/.passwd-s3fs)" != "600" ]; then
+			echo "File ~/.passwd-s3fs has incorrect permissions, needs 0600" >&2;
+
+			exit 1;
+		fi;
+	elif [ -f ~/.aws/credentials ]; then
+		echo "$(sed -n '/^\[default\]/,/^\[/ { /^\[/d; p }' ~/.aws/credentials | grep "^aws_access_key_id *=" | cut -d'=' -f2- | tr -d ' '):$(sed -n '/^\[default\]/,/^\[/ { /^\[/d; p }' ~/.aws/credentials | grep "^aws_secret_access_key *=" | cut -d'=' -f2- | tr -d ' ')" > ~/.passwd-s3fs;
+		chmod 600 ~/.passwd-s3fs;
+	else
+		echo "Could not find S3 credentials file either at ~/.passwd-s3fs or  ~/.aws/credentials" >&2;
+
+		exit 1;
+	fi;
+}
+
 aptMount() {
 	declare host="$(echo "$aptRepo" | cut -d'/' -f3)";
 	declare path="/$(echo "$aptRepo" | cut -d'/' -f4-)";
 
-	#declare mount="container:s3fs -d -o curldbg -o dbglevel=info";
-	declare mount="container:s3fs -o logfile=/dev/null -o compat_dir -o complement_stat -o disable_noobj_cache ";
+	#declare mount="container:s3fs -o passwd_file=$HOME/.passwd-s3fs -d -o curldbg -o dbglevel=info -o compat_dir -o complement_stat -o disable_noobj_cache ";
+	declare mount="container:s3fs -o passwd_file=$HOME/.passwd-s3fs -o logfile=/dev/null -o compat_dir -o complement_stat -o disable_noobj_cache ";
 
 	if [ -f ~/.aws/config ]; then
 		declare endpoint_url="$(cat ~/.aws/config | grep "^endpoint_url" | head -n1 | sed -e 's/.*= *//')";
@@ -73,6 +90,8 @@ startContainer() {
 	shift;
 
 	if [ "${aptRepo:0:5}" = "s3://" ]; then
+		checkS3Credentials;
+
 		singularity -s "$cmd" --fusemount "$(aptMount)" "$@"
 	else
 		singularity -s "$cmd" --bind "$aptRepo:/repo" "$@";

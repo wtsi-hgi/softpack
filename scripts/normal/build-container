@@ -147,7 +147,7 @@ sed -i 's/exe = /exe = os.environ.get("UV_PYTHON") or /' /usr/share/dh-python/dh
 git clone https://github.com/s3fs-fuse/s3fs-fuse;
 cd s3fs-fuse;
 git checkout v1.97;
-cat > p <<HEREDOC
+cat > p <<'HEREDOC'
 diff --git a/src/s3fs.cpp b/src/s3fs.cpp
 index 45a2052..5407a06 100644
 --- a/src/s3fs.cpp
@@ -203,6 +203,30 @@ index 45a2052..5407a06 100644
  
      // Load SSE environment
      if(!S3fsCurl::LoadEnvSse()){
+diff --git a/src/s3fs_cred.cpp b/src/s3fs_cred.cpp
+index 508af3f..3201ce5 100644
+--- a/src/s3fs_cred.cpp
++++ b/src/s3fs_cred.cpp
+@@ -1014,7 +1014,18 @@ bool S3fsCred::InitialS3fsCredentials()
+     }
+
+     // 3b - check ${HOME}/.aws/credentials
+-    std::string aws_credentials = getpwuid(getuid())->pw_dir + "/.aws/credentials"s;
++    struct passwd *user = getpwuid(getuid());
++
++    std::string aws_credentials;
++
++    if (user != nullptr && user->pw_dir != nullptr) {
++        aws_credentials = std::string(user->pw_dir) + "/.aws/credentials";
++    } else {
++        const char* home_env = getenv("HOME");
++
++        aws_credentials = std::string(home_env ? home_env : "/tmp") + "/.aws/credentials";
++    }
++
+     if(ReadAwsCredentialFile(aws_credentials)){
+         return true;
+     }else if(aws_profile != DEFAULT_AWS_PROFILE_NAME){
 HEREDOC
 
 git apply p;
