@@ -47,9 +47,11 @@ if [ -v version ]; then
 	fi;
 fi;
 
-declare title="Creating DEB for $name${version+@}${version:-} for Python $python";
+if $debug; then
+	declare title="Creating DEB for $name${version+@}${version:-} for Python $python";
 
-echo -e "\n$title\n${title//?/=}\n";
+	echo -e "\n$title\n${title//?/=}\n";
+fi;
 
 UV_BREAK_SYSTEM_PACKAGES=1 uv pip install --target /usr/lib/python3/dist-packages --compile-bytecode "$toInstall";
 
@@ -76,6 +78,7 @@ for pkgName in "${!collections[@]}"; do
 	declare version="";
 	declare primary="";
 	declare spName="py-${pkgName#python3-}"
+	spName="$(tr . - <<<"$spName")";
 
 	for part in "${parts[@]}"; do
 		while read req; do
