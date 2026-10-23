@@ -1,0 +1,36 @@
+# Safely remove a deb file from the APT cache and optionally from the repo.
+: --name string    # Package name to remove from cache
+: --version string # Package version to remove from cache
+: --remove         # Remove file from Repo
+: --noupdate       # Do not automatically update repo index
+
+[ -d /test-repo ] && cd /test-repo || cd /repo;
+
+declare filename="$(grep-dctrl -X -F Package "$name" --and -r -F Version "^${version//./\.}" -s Filename -n dists/resolute/main/binary-amd64/Packages)";
+
+if [ -z "$filename" ]; then
+	echo "$name=$version not found" >&2;
+
+	exit 1;
+fi;
+
+if [ "${filename:0:2}" != "./" ]; then
+	filename="./$filename";
+fi;
+
+echo "Removing $filename";
+
+if [ -f apt.cache ]; then
+	db_dump apt.cache | sed '/^ '$(echo -n "$filename" | xxd -p -c0)'/,+1d' | db_load /tmp/apt.cache;
+	mv /tmp/apt.cache ./;
+fi;
+
+if ${remove:-false}; then
+	rm "$filename";
+fi;
+
+if ! $noupdate; then
+	buildIndex "$PWD";
+fi;
+
+# vim: set filetype=bash :
