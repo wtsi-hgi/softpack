@@ -4,8 +4,28 @@
 : --R string       # R Version
 : --debug          # Enable simple debugging
 
+declare -A RVersions=();
+
+for rver in /opt/R/*; do
+	rver="${rver:7}";
+
+	declare short="$(sed -e 's/^\([0-9]\+\.[0-9]\+\).*/\1/' <<< "$rver")";
+
+	RVersions["$short"]="$rver";
+done;
+
+if [ ! -v RVersions["$R"] ]; then
+	cat >&2 <<-HEREDOC
+	Invalid R Version (${R@Q})
+
+	Please chose from the following: $(tr ' ' '\n' <<<"${!RVersions[@]}" | sort -V | tr '\n' ' ')
+HEREDOC
+
+	exit 1;
+fi;
+
 declare json="$(
-	xvfb-run -a /opt/R/$R/bin/Rscript <(
+	xvfb-run -a /opt/R/${RVersions[$R]}/bin/Rscript <(
 		echo "pkg_req <- \"$name@$version\"";
 		sed -n '/^<<'"'"'R_SCRIPT'"'"'$/,/^R_SCRIPT/{//!p}' < "$0";
 	) | tee >(sed -n '/^----------$/q; p' > /dev/tty) | sed '0,/^----------$/d';
