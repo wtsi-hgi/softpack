@@ -1,6 +1,14 @@
 package main
 
-import "github.com/wtsi-hgi/softpack/cmd"
+import (
+	"syscall"
+
+	"github.com/wtsi-hgi/softpack/cmd"
+)
+
+func init() {
+	syscall.Umask(0)
+}
 
 func main() {
 	cmd.Execute()
