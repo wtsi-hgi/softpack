@@ -22,7 +22,7 @@ echo "Removing $filename";
 
 if [ -f apt.cache ]; then
 	db_dump apt.cache | sed '/^ '$(echo -n "$filename" | xxd -p -c0)'/,+1d' | db_load /tmp/apt.cache;
-	mv /tmp/apt.cache ./;
+	mv -f /tmp/apt.cache ./;
 fi;
 
 if ${remove:-false}; then
