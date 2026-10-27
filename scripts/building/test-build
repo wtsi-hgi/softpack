@@ -6,10 +6,24 @@ rm -rf /etc/apt/sources.list.d/*;
 
 aptSources | grep "\(file:///\|127.0.0.1\)" > /etc/apt/sources.list.d/apt.list;
 
+declare -A envs=();
+
+while read env; do
+	envs+=( ["$env"]=1 );
+done < <(ls /.singularity.d/env);
+
 export DEBIAN_FRONTEND=noninteractive;
 apt update;
 apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends apt-cudf;
 apt -y -o DPkg::Options::=--force-not-root install -o APT::Solver="aspcud" --no-install-recommends "${package[@]}";
+
+while read env; do
+	if [ ! -v envs["$env"] ]; then
+		source /.singularity.d/env/"$env";
+	fi;
+done < <(ls /.singularity.d/env);
+
+set +euo pipefail;
 
 bash -i;
 
