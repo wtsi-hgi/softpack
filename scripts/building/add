@@ -4,11 +4,12 @@
 : --version string     # Package Version
 : --description string # Description of package
 : --rundeps pkg[]      # Runtime dependencies
-: --move string[]      # Filename/glob within the download => Final location.
-: --library            # Package is a library that should not be exposed to SoftPack.
+: --move string[]      # Filename/glob within the download => Final location
+: --link string[]      # Symlink to add
+: --library            # Package is a library that should not be exposed to SoftPack
 : --alias [string]     # Alias to show to SoftPack
+: --skipstrip          # Skip binary stripping
 : --debug              # Enable simple debugging
-
 
 if [ "${#move[@]}" = 0 ]; then
 	echo "Need at least one --move set" >&2;
@@ -85,9 +86,17 @@ override_dh_auto_test:
 override_dh_installchangelogs:
 EOF
 
+if $skipstrip; then
+	echo -e "override_dh_dwz:\noverride_dh_strip:" >> "debian/rules";
+fi;
+
 for m in "${move[@]}"; do
 	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@src/\1 \2@' <<< "$m";
 done > "debian/install";
+
+for l in "${link[@]}"; do
+	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@src/\1 \2@' <<< "$l";
+done > "debian/links";
 
 find
 debuild -us -uc -b;
