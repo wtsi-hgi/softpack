@@ -336,6 +336,8 @@ HEREDOC
 	rm -f /tmp/proxy.c;
 
 	dpkg-deb --root-owner-group -b "$tmpDir" "$deb";
+
+	setMetadata "$deb" "Depends" "$(dpkg-deb -f "$deb" Depends | sed -e 's/ | cudf-solver//')";
 }
 
 installDebs() {
