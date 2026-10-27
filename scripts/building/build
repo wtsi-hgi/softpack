@@ -16,6 +16,7 @@
 : --patch string[]        # Path to patch file
 : --std [string]          # C standard to use while compiling
 : --move string[]         # Filename/glob within the download => Final location.
+: --link string[]         # Symlink to add
 : --cflags [string]       # Pass C compliation flags
 : --cxxflags [string]     # Pass C++ complilation flags
 : --ldflags [string]      # Pass Linker flags
@@ -23,6 +24,7 @@
 : --prebuild [string]     # Instructions to run before general make instructions
 : --repo string[]         # Repo string to get packages from: deb[-src] http://URL DISTRO COMPONENT
 : --skiptests             # Skip build tests
+: --skipstrip             # Skip binary stripping
 : --debug                 # Enable simple debugging
 
 if [ ! -v download -a ! -v git -a ! -v fossil -o -v download -a -v git -a -v fossil ]; then
@@ -32,6 +34,7 @@ if [ ! -v download -a ! -v git -a ! -v fossil -o -v download -a -v git -a -v fos
 fi;
 
 if [ "${#patch[@]}" -gt 0 ]; then
+	echo "$PWD";
 	mapfile -d '' patchPaths < <(printf '%s\0' "${patch[@]}" | xargs -0 realpath -z);
 fi;
 
@@ -44,9 +47,9 @@ apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget 
 
 cd /build;
 
-mkdir -p "$name-$version/src";
+mkdir "$name-$version";
 
-cd "$name-$version/src";
+cd "$name-$version";
 
 if [ -v git ]; then
 	git clone --recurse-submodules "$git" .;
@@ -152,6 +155,7 @@ override_dh_auto_install:
 override_dh_installchangelogs:
 override_dh_auto_test:
 HEREDOC
+
 if ! $skiptests; then
 	cat <<HEREDOC >> "debian/rules";
 	dh_auto_test || ( \
@@ -162,9 +166,17 @@ if ! $skiptests; then
 HEREDOC
 fi;
 
+if $skipstrip; then
+	echo "override_dh_dwz:" >> "debian/rules";
+fi;
+
 for m in "${move[@]}"; do
 	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$m";
 done > "debian/install";
+
+for l in "${link[@]}"; do
+	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$l";
+done > "debian/links";
 
 if [ "${#patch[@]}" -gt 0 ]; then
 	for patch in "${patchPaths[@]}"; do
@@ -182,10 +194,11 @@ if $debug; then
 	find -ls;
 fi;
 
-cd ..;
+declare debs="/build/debs";
 
-mkdir debs;
-mv *.deb debs;
+mkdir "$debs";
+cd ..;
+mv *.deb "$debs";
 
 declare -a metadata=();
 
@@ -202,10 +215,8 @@ if [ -v aliasversion ]; then
 fi;
 
 if [ "${#metadata[@]}" -gt 0 ]; then
-	setMetadata "$PWD/debs/"*.deb "${metadata[@]}";
+	setMetadata "$debs/"*.deb "${metadata[@]}";
 fi;
-
-declare debs="$PWD/debs";
 
 cd "$debs";
 
