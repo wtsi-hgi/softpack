@@ -144,7 +144,7 @@ HEREDOC
 
 	chmod +x "$root/r/.singularity.d/env/99-etc.sh";
 	unset SINGULARITY_BIND;
-	singularity -s exec --bind "$bind" --bind "$(TMPDIR="$TMP" mktemp -d):/tmp" --no-home --writable "$root/r" bash "$1";
+	singularity -s exec --bind "$bind" --bind "$(TMPDIR="$TMP" mktemp -d):/tmp" --writable "$root/r" bash "$1";
 }
 
 . "$base/commands.sh";
