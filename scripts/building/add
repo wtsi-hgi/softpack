@@ -27,9 +27,9 @@ done;
 
 cd "$(mktemp -d)";
 
-mkdir -p "$name-$version/src";
+mkdir -p "$name-$version";
 
-cd "$name-$version/src";
+cd "$name-$version";
 
 if [ -v git ]; then
 	git clone "$git" -C .;
@@ -49,8 +49,6 @@ else
 		tar -xvf "$downloadDir/source" -C .;;
 	esac;
 fi;
-
-cd ..;
 
 mkdir -p debian/"$name";
 
@@ -90,15 +88,20 @@ if $skipstrip; then
 	echo -e "override_dh_dwz:\noverride_dh_strip:" >> "debian/rules";
 fi;
 
-for m in "${move[@]}"; do
-	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@src/\1 \2@' <<< "$m";
-done > "debian/install";
+{
+	echo "#!/usr/bin/dh-exec --with=install"
+
+	for m in "${move[@]}"; do
+		sed -e 's@^ */\?\(.*\)\( *=> *\)/\?\(.*\) *$@\1\2\3@' <<< "$m";
+	done;
+} > "debian/install";
+
+chmod +x "debian/install";
 
 for l in "${link[@]}"; do
-	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@src/\1 \2@' <<< "$l";
+	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$l";
 done > "debian/links";
 
-find
 debuild -us -uc -b;
 cd ..;
 
