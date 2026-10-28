@@ -17,14 +17,6 @@ if [ "${#move[@]}" = 0 ]; then
 	exit 1;
 fi;
 
-for m in "${move[@]}"; do
-	if grep -v -q "=>" <<<"$m"; then
-		echo "Invalid move" >&2;
-
-		exit 1;
-	fi;
-done;
-
 cd "$(mktemp -d)";
 
 mkdir -p "$name-$version";
