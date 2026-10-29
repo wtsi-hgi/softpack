@@ -141,6 +141,7 @@ ${ldflags+export DEB_LDFLAGS_MAINT_APPEND = }${ldflags:-}
 
 %:
 	dh \$@$(if [ -v subdir ]; then echo " --sourcedirectory=$subdir";fi;);
+override_dh_auto_clean:
 override_dh_autoreconf:
 	while read -r dir; do \
 		(cd "\$\$dir"; autopoint --force;) \
