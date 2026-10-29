@@ -44,20 +44,12 @@ HEREDOC
 
 chmod 755 "$ROOT/.singularity.d/env/91-environment.sh";
 
-cat > "$ROOT/.singularity/env/99-hack.sh" <<HEREDOC
-#!/bin/bash
-rm /etc/{passwd,group};
-mv /etc/passwd{.orig,};
-mv /etc/group{.orig,};
-HEREDOC
-
 mv "$ROOT/etc/passwd"{,.orig};
 mv "$ROOT/etc/group"{,.orig};
 ln -s /etc/passwd.orig "$ROOT/etc/passwd";
 ln -s /etc/group.orig "$ROOT/etc/group";
 
 singularity shell --writable --no-home --bind "$(TMPDIR="$TMP" mktemp -d):/tmp" "$ROOT" < <(sed '1,/^exit 0;$/d' < "$0");
-rm "$ROOT/.singularity/env/99-hack.sh";
 
 mv "$ROOT"/.singularity.d/env/9{1,0}-environment.sh
 mksquashfs "$ROOT" "$SQFS" -all-root;
@@ -68,6 +60,10 @@ chmod -x "$SIF";
 mv -f "$SIF" "$output";
 
 exit 0;
+
+rm /etc/{passwd,group};
+mv /etc/passwd{.orig,};
+mv /etc/group{.orig,};
 
 export DEBIAN_FRONTEND=noninteractive;
 export APT_CONFIG="$(mktemp)";
