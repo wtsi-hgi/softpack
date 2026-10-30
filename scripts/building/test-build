@@ -15,7 +15,7 @@ done < <(ls /.singularity.d/env);
 export DEBIAN_FRONTEND=noninteractive;
 apt update;
 apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends apt-cudf;
-apt -y -o DPkg::Options::=--force-not-root install -o APT::Solver="aspcud" --no-install-recommends "${package[@]}";
+apt -y -o DPkg::Options::=--force-not-root install -o APT::Solver="aspcud" --no-install-recommends --allow-downgrades --allow-change-held-packages --allow-remove-essential --no-strict-pinning "${package[@]}";
 
 while read env; do
 	if [ ! -v envs["$env"] ]; then
