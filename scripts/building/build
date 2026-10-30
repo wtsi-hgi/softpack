@@ -52,11 +52,13 @@ mkdir "$name-$version";
 cd "$name-$version";
 
 if [ -v git ]; then
-	git clone --recurse-submodules "$git" .;
+	git clone "$git" .;
 
 	if [ -v tag ]; then
-		git checkout --recurse-submodules "$tag";
+		git checkout "$tag";
 	fi;
+
+	git submodule update --init --recursive;
 elif [ -v fossil ]; then
 	fossil clone "$fossil" .fossil;
 	fossil open .fossil "${tag:-master}";
