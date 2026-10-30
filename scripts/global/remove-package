@@ -26,6 +26,19 @@ if [ -f apt.cache ]; then
 fi;
 
 if ${remove:-false}; then
+	grep-dctrl -v -X -F Filename "${filename}" dists/resolute/main/binary-amd64/Packages > "dists/resolute/main/binary-amd64/Packages.new"
+
+	gzip -k9 "dists/resolute/main/binary-amd64/Packages.new";
+	bzip2 -k9 "dists/resolute/main/binary-amd64/Packages.new"
+	xz -k9 --extreme "dists/resolute/main/binary-amd64/Packages.new";
+	xz -k9 --extreme  -F lzma  "dists/resolute/main/binary-amd64/Packages.new";
+
+	for i in "dists/resolute/main/binary-amd64/Packages.new"*; do
+		mv "$i" "${i/.new/}";
+	done;
+
+	apt-ftparchive -c release.conf release "dists/resolute" > "dists/resolute/Release";
+
 	rm "$filename";
 fi;
 
