@@ -197,7 +197,6 @@ override_dh_link:
 			done; \
 		) < debian/links.old > debian/links; \
 		rm debian/links.old; \
-		cat "debian/links"; \
 	fi;
 	dh_link;
 override_dh_installchangelogs:
