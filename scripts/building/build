@@ -43,7 +43,7 @@ aptSources > /etc/apt/sources.list.d/apt.list;
 export DEBIAN_FRONTEND=noninteractive;
 apt update;
 apt -y -o DPkg::Options::=--force-not-root upgrade;
-apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git fossil unzip build-essential debhelper devscripts dh-exec dpkg-dev apt-utils zstd cmake dctrl-tools apt-cudf "${builddep[@]}" "${rundep[@]}";
+apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git fossil unzip build-essential debhelper devscripts dh-exec dh-cargo dpkg-dev apt-utils zstd cmake dctrl-tools apt-cudf "${builddep[@]}" "${rundep[@]}";
 
 cd /build;
 
@@ -73,6 +73,18 @@ else
 	*)
 		tar -xvf "/build/source" -C . --strip-components=1;;
 	esac;
+fi;
+
+declare isRust=false;
+
+if [ -f "./${subdir:-}/Cargo.toml" ]; then
+	isRust=true;
+
+	(
+		cd "${subdir:-.}";
+
+		cargo vendor;
+	);
 fi;
 
 mkdir -p debian;
@@ -140,7 +152,7 @@ ${cppflags+export DEB_CPPFLAGS_MAINT_APPEND = }${cppflags:-}
 ${ldflags+export DEB_LDFLAGS_MAINT_APPEND = }${ldflags:-}
 
 %:
-	dh \$@$(if [ -v subdir ]; then echo " --sourcedirectory=$subdir";fi;);
+	dh \$@$(if [ -v subdir ]; then echo " --sourcedirectory=$subdir";fi;)$(if $isRust; then echo " --with cargo"; fi;);
 override_dh_auto_clean:
 override_dh_autoreconf:
 	while read -r dir; do \
@@ -150,9 +162,21 @@ override_dh_autoreconf:
 	if [ -f "configure.ac" -o -f "configure.in" ]; then dh_autoreconf; fi;
 override_dh_auto_build:
 	${prebuild:-}
-	dh_auto_build
+	$(
+		if $isRust; then
+			echo "cargo build --release --frozen --offline ${subdir+--manifest-path=$subdir/Cargo.toml};";
+		else
+			echo "dh_auto_build;";
+		fi;
+	)
 override_dh_auto_install:
-	dh_auto_install --max-parallel=1;
+	$(
+		if $isRust; then
+			echo "mkdir -m 755 -p debian/\$(shell dpkg-parsechangelog -SSource)/usr/bin/; find target/release -maxdepth 1 -type f -executable -exec install -m 755 -t debian/\$(shell dpkg-parsechangelog -SSource)/usr/bin/ {} +";
+		else
+			echo "dh_auto_install --max-parallel=1;";
+		fi;
+	)
 override_dh_installchangelogs:
 override_dh_auto_test:
 HEREDOC
