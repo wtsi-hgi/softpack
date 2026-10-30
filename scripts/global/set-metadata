@@ -1,0 +1,85 @@
+# Update metadata on an existing deb file
+: --name string           # Package name to modify
+: --version string        # Version of package to modify
+: --alias [string]        # Alias to set
+: --aliasversion [string] # Version alias to set
+: --softpack              # Set as visible to SoftPack
+: --library               # Set as invisible to SoftPack
+
+if $softpack && $library; then
+	echo "Cannot use --softpack and --library at the same time" >&2;
+
+	exit 1;
+fi;
+
+declare -a metadata=();
+
+if [ -v alias ]; then
+	metadata+=( "XB-Alias" "$alias" );
+fi;
+
+if [ -v aliasversion ]; then
+	metadata+=( "XB-Version-Alias" "$alias" );
+fi;
+
+if $softpack; then
+	metadata+=( "XB-Softpack" "true" );
+elif $library; then
+	metadata+=( "XB-Softpack" "" );
+fi;
+
+if [ ${#metadata[@]} = 0 ]; then
+	exit 0;
+fi;
+
+[ -d /test-repo ] && cd /test-repo || cd /repo;
+
+mapfile -t files < <(grep-dctrl -X -F Package "$name" --and -r -F Version "^${version//./\.}" -s Filename -n dists/resolute/main/binary-amd64/Packages);
+
+case "${#files[@]}" in
+0)
+	echo "No deb files found matching $name==$version" >&2;
+
+	exit 1;;
+1) :;;
+*)
+	echo "Multiple deb files matching $name==$version; please be more specific" >&2;
+
+	for file in "${files[@]}"; do
+		echo "$file";
+	done;
+
+	exit 1;
+esac;
+
+declare file="$(basename "${files[0]}")";
+declare tmp="$(mktemp -d)";
+
+cp "${files[0]}" "$tmp";
+
+setMetadata "$tmp/$file" "${metadata[@]}";
+
+(
+	grep-dctrl -v -X -F Filename "${files[0]}" dists/resolute/main/binary-amd64/Packages;
+	dpkg-scanpackages "$tmp/$file" 2> /dev/null | sed -e 's/Filename: .*/Filename: '"${files[0]//\//\\\/}"'/';
+) > "dists/resolute/main/binary-amd64/Packages.new"
+
+gzip -k9 "dists/resolute/main/binary-amd64/Packages.new";
+bzip2 -k9 "dists/resolute/main/binary-amd64/Packages.new"
+xz -k9 --extreme "dists/resolute/main/binary-amd64/Packages.new";
+xz -k9 --extreme  -F lzma  "dists/resolute/main/binary-amd64/Packages.new";
+
+if [ -f apt.cache ]; then
+	db_dump apt.cache | sed '/^ '$(echo -n "${file[0]}" | xxd -p -c0)'/,+1d' | db_load "$tmp/apt.cache";
+	mv "$tmp/apt.cache" ./;
+fi;
+
+mv "$tmp/$file" "${files[0]}";
+
+for i in "dists/resolute/main/binary-amd64/Packages.new"*; do
+	mv "$i" "${i/.new/}";
+done;
+
+apt-ftparchive -c release.conf release "dists/resolute" > "dists/resolute/Release";
+
+# vim: set filetype=bash :
