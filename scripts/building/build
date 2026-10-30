@@ -179,6 +179,27 @@ override_dh_auto_install:
 			echo "dh_auto_install --max-parallel=1;";
 		fi;
 	)
+override_dh_link:
+	@if [ -f debian/links ] && grep -q "\\\*" debian/links; then \
+		mv debian/links debian/links.old; \
+		( \
+			cd "debian/\$(shell dpkg-parsechangelog -SSource)"; \
+			while read -r src dest; do \
+					case "\$\$src" in \
+					*"*"*) \
+						for path in \$\$src; do \
+							if [ -f "\$\$path" ]; then \
+								echo "\$\$path \$\$dest/\$\${path##*/}"; \
+							fi; \
+						done;; \
+					*) echo "\$\$src \$\$dest";; \
+					esac; \
+			done; \
+		) < debian/links.old > debian/links; \
+		rm debian/links.old; \
+		cat "debian/links"; \
+	fi;
+	dh_link;
 override_dh_installchangelogs:
 override_dh_auto_test:
 HEREDOC
@@ -197,13 +218,20 @@ if $skipstrip; then
 	echo "override_dh_dwz:" >> "debian/rules";
 fi;
 
-for m in "${move[@]}"; do
-	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$m";
-done > "debian/install";
+(
+	echo "#!/usr/bin/dh-exec";
+
+	for m in "${move[@]}"; do
+		sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$m";
+	done;
+) > "debian/install";
 
 for l in "${link[@]}"; do
 	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$l";
 done > "debian/links";
+
+chmod +x "debian/install"
+chmod +x "debian/links"
 
 if [ "${#patch[@]}" -gt 0 ]; then
 	for patch in "${patchPaths[@]}"; do
