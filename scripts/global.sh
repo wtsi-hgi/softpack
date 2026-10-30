@@ -340,6 +340,21 @@ HEREDOC
 	setMetadata "$deb" "Depends" "$(dpkg-deb -f "$deb" Depends | sed -e 's/ | cudf-solver//')";
 }
 
+fixDBus() {
+	declare deb="$1";
+	declare tmpDir="$(mktemp -d)";
+
+	dpkg-deb -R "$deb" "$tmpDir";
+
+	if ! grep -q "dpkg-statoverride" "$tmpDir/DEBIAN/postinst"; then
+		return 0;
+	fi;
+
+	sed -i 's/dpkg-statoverride/true/' "$tmpDir/DEBIAN/postinst";
+
+	dpkg-deb --root-owner-group -b "$tmpDir" "$deb";
+}
+
 installDebs() {
 	declare debDir="$1";
 	declare BASE=/repo/pool/main/binary-amd64/;
@@ -385,6 +400,8 @@ installDebs() {
 				fixR "$file" "$(sed -e 's/^r-\(bioc\|cran\|misc\)-\([^_]*\)_.*/r-\2/' -e 's/\./-/g' <<< "$file")";
 			elif [ "${file:0:9}" = "apt-cudf_" ]; then
 				fixCudf "$file";
+			elif [ "${file:0:5}" = "dbus_" ]; then
+				fixDBus "$file";
 			else
 				declare -a metadata=();
 				declare name="$(dpkg-deb -W "$file" | cut -f1)";
