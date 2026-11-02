@@ -340,19 +340,27 @@ HEREDOC
 	setMetadata "$deb" "Depends" "$(dpkg-deb -f "$deb" Depends | sed -e 's/ | cudf-solver//')";
 }
 
-fixDBus() {
+fixSimple() {
 	declare deb="$1";
 	declare tmpDir="$(mktemp -d)";
 
 	dpkg-deb -R "$deb" "$tmpDir";
 
-	if ! grep -q "dpkg-statoverride" "$tmpDir/DEBIAN/postinst"; then
-		return 0;
+	declare changed=false;
+
+	for replace in groupmod addgroup chgrp dpkg-statoverride; do
+		if ! grep -q "$replace" "$tmpDir/DEBIAN/postinst"; then
+			continue;
+		fi;
+
+		changed=true;
+
+		sed -i 's/'$replace'/true/' "$tmpDir/DEBIAN/postinst";
+	done;
+
+	if $changed; then
+		dpkg-deb --root-owner-group -b "$tmpDir" "$deb";
 	fi;
-
-	sed -i 's/dpkg-statoverride/true/' "$tmpDir/DEBIAN/postinst";
-
-	dpkg-deb --root-owner-group -b "$tmpDir" "$deb";
 }
 
 installDebs() {
@@ -400,8 +408,6 @@ installDebs() {
 				fixR "$file" "$(sed -e 's/^r-\(bioc\|cran\|misc\)-\([^_]*\)_.*/r-\2/' -e 's/\./-/g' <<< "$file")";
 			elif [ "${file:0:9}" = "apt-cudf_" ]; then
 				fixCudf "$file";
-			elif [ "${file:0:5}" = "dbus_" ]; then
-				fixDBus "$file";
 			else
 				declare -a metadata=();
 				declare name="$(dpkg-deb -W "$file" | cut -f1)";
@@ -417,6 +423,8 @@ installDebs() {
 				if [ "${#metadata[@]}" -gt 0 ]; then
 					setMetadata "$file" "${metadata[@]}";
 				fi;
+
+				fixSimple "$file";
 			fi;
 
 			setExecutables "$file";
