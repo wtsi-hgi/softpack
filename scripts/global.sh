@@ -346,6 +346,10 @@ fixSimple() {
 
 	dpkg-deb -R "$deb" "$tmpDir";
 
+	if [ ! -f "$tmpDir/DEBIAN/postinst" ]; then
+		return 0;
+	fi;
+
 	declare changed=false;
 
 	for replace in groupmod addgroup chgrp dpkg-statoverride; do
@@ -363,6 +367,23 @@ fixSimple() {
 	fi;
 }
 
+fixCifpp() {
+	declare deb="$1";
+	declare tmpDir="$(mktemp -d)";
+
+	dpkg-deb -R "$deb" "$tmpDir";
+
+	declare changed=false;
+
+	if ! grep -q "# run the update" "$tmpDir/DEBIAN/postinst"; then
+		exit 0;
+	fi;
+
+	sed -i 's/# run the update/export EUID=0/' "$tmpDir/DEBIAN/postinst";
+
+	dpkg-deb --root-owner-group -b "$tmpDir" "$deb";
+}
+
 installDebs() {
 	declare debDir="$1";
 	declare BASE=/repo/pool/main/binary-amd64/;
@@ -374,13 +395,20 @@ installDebs() {
 	declare -A inSoftpack=();
 	declare -A aliases=();
 
+
+	if [ -f /repo ]; then
+		wget "$(cat /repo)/dists/resolute/main/binary-amd64/Packages" -O /tmp/Packages;
+	else
+		cp /repo/dists/resolute/main/binary-amd64/Packages /tmp/Packages;
+	fi;
+
 	while read pkg; do
 		inSoftpack["$pkg"]="1";
-	done < <(grep-dctrl -X -F XB-Softpack -n -s Package "true" -n "/repo/dists/resolute/main/binary-amd64/Packages" | uniq);
+	done < <(grep-dctrl -X -F XB-Softpack -n -s Package "true" -n "/tmp/Packages" | uniq);
 
 	while read -r pkg alias; do
 		aliases["$pkg"]="$alias";
-	done < <(grep-dctrl -r -F XB-Alias -s Package,XB-Alias . "/repo/dists/resolute/main/binary-amd64/Packages" | sed -n -e 'N;N; s/^Package: \(.*\)\nXB-Alias: \(.*\)\n$/\1 \2/p' | uniq);
+	done < <(grep-dctrl -r -F XB-Alias -s Package,XB-Alias . "/tmp/Packages" | sed -n -e 'N;N; s/^Package: \(.*\)\nXB-Alias: \(.*\)\n$/\1 \2/p' | uniq);
 
 	(
 		cd "$debDir";
@@ -395,6 +423,8 @@ installDebs() {
 			       continue;
 			fi;
 
+			echo "$file";
+
 			if [ "${file:0:4}" = "ucf_" ]; then
 				patchUCF "$file";
 			elif [ "${file:0:8}" = "systemd_" ]; then
@@ -408,6 +438,8 @@ installDebs() {
 				fixR "$file" "$(sed -e 's/^r-\(bioc\|cran\|misc\)-\([^_]*\)_.*/r-\2/' -e 's/\./-/g' <<< "$file")";
 			elif [ "${file:0:9}" = "apt-cudf_" ]; then
 				fixCudf "$file";
+			elif [ "${file:0:14}" = "libcifpp-data_" ]; then
+				fixCifpp "$file";
 			else
 				declare -a metadata=();
 				declare name="$(dpkg-deb -W "$file" | cut -f1)";
