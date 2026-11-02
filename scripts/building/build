@@ -34,7 +34,6 @@ if [ ! -v download -a ! -v git -a ! -v fossil -o -v download -a -v git -a -v fos
 fi;
 
 if [ "${#patch[@]}" -gt 0 ]; then
-	echo "$PWD";
 	mapfile -d '' patchPaths < <(printf '%s\0' "${patch[@]}" | xargs -0 realpath -z);
 fi;
 
@@ -43,7 +42,8 @@ aptSources > /etc/apt/sources.list.d/apt.list;
 export DEBIAN_FRONTEND=noninteractive;
 apt update;
 apt -y -o DPkg::Options::=--force-not-root upgrade;
-apt -y -o DPkg::Options::=--force-not-root install --no-install-recommends wget git fossil unzip build-essential debhelper devscripts dh-exec dh-cargo dpkg-dev apt-utils zstd cmake dctrl-tools apt-cudf "${builddep[@]}" "${rundep[@]}";
+apt -y -o DPkg::Options::=--force-not-root install apt-cudf;
+apt -y -o DPkg::Options::=--force-not-root -o DPkg::Options::=--force-overwrite install --allow-downgrades --allow-change-held-packages --allow-remove-essential --no-strict-pinning wget git fossil unzip build-essential debhelper devscripts dh-exec dh-cargo dpkg-dev apt-utils zstd cmake dctrl-tools "${builddep[@]}" "${rundep[@]}";
 
 cd /build;
 
