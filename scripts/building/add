@@ -3,7 +3,7 @@
 : --url string         # Package URL
 : --version string     # Package Version
 : --description string # Description of package
-: --rundeps pkg[]      # Runtime dependencies
+: --rundep pkg[]       # Runtime dependencies
 : --move string[]      # Filename/glob within the download => Final location
 : --link string[]      # Symlink to add
 : --library            # Package is a library that should not be exposed to SoftPack
@@ -48,11 +48,11 @@ cat <<HEREDOC > "debian/control";
 Source: $name
 Maintainer: $maintainer
 Priority: optional
-Build-Depends: debhelper-compat (= 13), build-essential$(for dep in "${builddeps[@]}"; do echo -n ", $dep";done)
+Build-Depends: debhelper-compat (= 13), build-essential
 
 Package: $name
 Architecture: amd64
-Depends: \${shlibs:Depends}, \${misc:Depends}$(for dep in "${rundeps[@]}"; do echo -n ", $dep";done)
+Depends: \${shlibs:Depends}, \${misc:Depends}$(for dep in "${rundep[@]}"; do echo -n ", $dep";done)
 Description: $description
 HEREDOC
 
@@ -73,6 +73,26 @@ cat <<EOF > "debian/rules";
 override_dh_auto_configure:
 override_dh_auto_build:
 override_dh_auto_test:
+override_dh_link:
+	@if [ -f debian/links ] && grep -q "\\\*" debian/links; then \
+		mv debian/links debian/links.old; \
+		( \
+			cd "debian/\$(shell dpkg-parsechangelog -SSource)"; \
+			while read -r src dest; do \
+					case "\$\$src" in \
+					*"*"*) \
+						for path in \$\$src; do \
+							if [ -f "\$\$path" ]; then \
+								echo "\$\$path \$\$dest/\$\${path##*/}"; \
+							fi; \
+						done;; \
+					*) echo "\$\$src \$\$dest";; \
+					esac; \
+			done; \
+		) < debian/links.old > debian/links; \
+		rm debian/links.old; \
+	fi;
+	dh_link;
 override_dh_installchangelogs:
 EOF
 
@@ -80,19 +100,19 @@ if $skipstrip; then
 	echo -e "override_dh_dwz:\noverride_dh_strip:" >> "debian/rules";
 fi;
 
-{
-	echo "#!/usr/bin/dh-exec --with=install"
+(
+	echo "#!/usr/bin/dh-exec";
 
 	for m in "${move[@]}"; do
-		sed -e 's@^ */\?\(.*\)\( *=> *\)/\?\(.*\) *$@\1\2\3@' <<< "$m";
+		sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$m";
 	done;
-} > "debian/install";
-
-chmod +x "debian/install";
+) > "debian/install";
 
 for l in "${link[@]}"; do
 	sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$l";
 done > "debian/links";
+
+chmod +x "debian/install"
 
 debuild -us -uc -b;
 cd ..;
