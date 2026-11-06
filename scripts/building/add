@@ -32,7 +32,7 @@ if [ -v git ]; then
 else
 	declare downloadDir="$(mktemp -d)";
 
-	wget "$url" -O "$downloadDir/source";
+	wget --no-check-certificate "$url" -O "$downloadDir/source";
 
 	case "$url" in
 	*".zip")
