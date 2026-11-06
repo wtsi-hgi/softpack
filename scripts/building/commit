@@ -1,4 +1,5 @@
 # Commit staged debs files to APT repo
+: --noupdate # Do not update Package index
 
 unset SOFTPACK_LOCAL_REPO;
 declare debs="$(mktemp -d)";
@@ -9,7 +10,10 @@ rm -f /test-repo/apt.cache;
 cd "$debs";
 
 installDebs "$debs";
-buildIndex "/repo";
+
+if ! $noupdate; then
+	buildIndex "/repo";
+fi;
 
 rm "/test-repo/done";
 
