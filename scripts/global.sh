@@ -4,7 +4,9 @@
 set -euo pipefail;
 
 declare BASE=/repo/pool/main/binary-amd64/;
-declare maintainer="hgi <hgi@sanger.ac.uk>";
+export DEBFULLNAME="hgi";
+export DEBEMAIL="hgi@sanger.ac.uk";
+declare maintainer="$DEBFULLNAME <$DEBEMAIL>";
 
 if [ -d /test-repo ]; then
 	BASE=/test-repo/pool/main/binary-amd64/;
