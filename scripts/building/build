@@ -39,11 +39,23 @@ fi;
 
 aptSources > /etc/apt/sources.list.d/apt.list;
 
+declare -A envs=();
+
+while read env; do
+	envs+=( ["$env"]=1 );
+done < <(ls /.singularity.d/env);
+
 export DEBIAN_FRONTEND=noninteractive;
 apt update;
 apt -y -o DPkg::Options::=--force-not-root upgrade;
 apt -y -o DPkg::Options::=--force-not-root install apt-cudf;
-apt -y -o DPkg::Options::=--force-not-root -o DPkg::Options::=--force-overwrite install --allow-downgrades --allow-change-held-packages --allow-remove-essential --no-strict-pinning wget git fossil unzip build-essential debhelper devscripts dh-exec dh-cargo dpkg-dev apt-utils zstd cmake dctrl-tools "${builddep[@]}" "${rundep[@]}";
+apt -y -o DPkg::Options::=--force-not-root -o DPkg::Options::=--force-overwrite install -o APT::Solver="aspcud" --allow-downgrades --allow-change-held-packages --no-strict-pinning wget git fossil unzip build-essential debhelper dh-make-perl devscripts dh-exec dh-cargo dpkg-dev apt-utils zstd cmake dctrl-tools "${builddep[@]}" "${rundep[@]}";
+
+while read env; do
+	if [ ! -v envs["$env"] ]; then
+		source /.singularity.d/env/"$env";
+	fi;
+done < <(ls /.singularity.d/env);
 
 cd /build;
 
@@ -66,7 +78,7 @@ else
 	if [ "${download:0:6}" = "ftp://" ]; then
 		wget "$download" --no-passive-ftp -O "/build/source";
 	else
-		wget "$download" -O "/build/source";
+		wget "$download" --no-check-certificate -O "/build/source";
 	fi;
 
 	case "$download" in
@@ -200,6 +212,8 @@ override_dh_link:
 	fi;
 	dh_link;
 override_dh_installchangelogs:
+override_dh_shlibdeps:
+	dh_shlibdeps -- --ignore-missing-info
 override_dh_auto_test:
 HEREDOC
 
@@ -230,7 +244,6 @@ for l in "${link[@]}"; do
 done > "debian/links";
 
 chmod +x "debian/install"
-chmod +x "debian/links"
 
 if [ "${#patch[@]}" -gt 0 ]; then
 	for patch in "${patchPaths[@]}"; do
