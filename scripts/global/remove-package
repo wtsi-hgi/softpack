@@ -1,0 +1,77 @@
+# Safely remove a deb file from the APT cache and optionally from the repo.
+: --name string    # Package name to remove from cache
+: --version string # Package version to remove from cache
+: --all            # Remove all matching files
+: --remove         # Remove file from Repo
+: --noupdate       # Do not automatically update repo index
+
+[ -d /test-repo ] && cd /test-repo || cd /repo;
+
+mapfile -t filename < <(grep-dctrl -X -F Package "$name" --and -r -F Version "^${version//./\.}" -s Filename -n dists/resolute/main/binary-amd64/Packages);
+
+case "${#filename[@]}" in
+0)
+	echo "$name=$version not found" >&2;
+
+	exit 1;;
+1) :;;
+*)
+	if ! $all; then
+		echo "Found multiple matches; please be more specific" >&2;
+		echo "${filename[@]/*\/}";
+
+		exit 1;
+	fi;
+esac;
+
+if [ "${filename:0:2}" != "./" ]; then
+	filename="./$filename";
+fi;
+
+echo "Removing ${filename[@]/*\/}";
+
+if [ -f apt.cache ]; then
+	declare expr="";
+
+	for file in "${filename[@]}"; do
+		expr+="/^ $(echo -n "$file" | xxd -p -c0)/,+1d; ";
+	done;
+
+	db_dump apt.cache | sed "$expr" | db_load /tmp/apt.cache;
+	mv -f /tmp/apt.cache ./;
+fi;
+
+if ${remove:-false}; then
+	declare -a args=();
+
+	for file in "${filename[@]}"; do
+		if [ "${#args[@]}" -gt 0 ]; then
+			args+=( "--or" );
+		fi;
+
+		args+=( "-X" -"F" Filename "${file}" );
+	done;
+
+	grep-dctrl -v "${args[@]}" dists/resolute/main/binary-amd64/Packages > "dists/resolute/main/binary-amd64/Packages.new";
+
+	gzip -k9 "dists/resolute/main/binary-amd64/Packages.new";
+	bzip2 -k9 "dists/resolute/main/binary-amd64/Packages.new"
+	xz -k9 --extreme "dists/resolute/main/binary-amd64/Packages.new";
+	xz -k9 --extreme -F lzma "dists/resolute/main/binary-amd64/Packages.new";
+
+	for i in "dists/resolute/main/binary-amd64/Packages.new"*; do
+		mv -f "$i" "${i/.new/}";
+	done;
+
+	apt-ftparchive -c release.conf release "dists/resolute" > "dists/resolute/Release";
+
+	for file in "${filename[@]}"; do
+		rm -f "$filename";
+	done;
+fi;
+
+if ! $noupdate; then
+	buildIndex "$PWD";
+fi;
+
+# vim: set filetype=bash :

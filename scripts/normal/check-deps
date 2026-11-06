@@ -1,0 +1,5 @@
+# Check all packages in the repo index have their dependencies met.
+
+dose-debcheck --failures /repo/dists/resolute/main/binary-amd64/Packages;
+
+# vim: set filetype=bash :

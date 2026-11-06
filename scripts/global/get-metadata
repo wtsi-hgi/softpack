@@ -1,0 +1,13 @@
+# Get Metadata for a package or packages
+: --name string      # Name of package
+: --version [string] # Version of package
+
+[ -d /test-repo ] && cd /test-repo || cd /repo;
+
+if [ -n "${version:-}" ]; then
+	grep-dctrl -X -F Package "$name" --and -r -F Version "^${version//./\.}" "dists/resolute/main/binary-amd64/Packages";
+else
+	grep-dctrl -X -F Package "$name" "dists/resolute/main/binary-amd64/Packages";
+fi;
+
+# vim: set filetype=bash :

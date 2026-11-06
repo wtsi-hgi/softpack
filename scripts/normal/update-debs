@@ -1,0 +1,29 @@
+# Update deb files pulled in from other repos.
+: --repo string[] # Repo string to get packages from: deb[-src] http://URL DISTRO COMPONENT
+: --noupdate      # Do not automatically update repo index
+
+declare tmpDir="$(mktemp -d)";
+declare debs="$(mktemp -d)";
+declare -a OPTS;
+
+aptOpts "$tmpDir" "$debs" "${repo[@]}";
+sed -i '\@file:///@d; /r2u\.stat\.illinois\.edu/d' "$tmpDir/etc/apt/sources.list.d/apt.list";
+
+grep-dctrl -v -F Maintainer "$maintainer" "/repo/dists/resolute/main/binary-amd64/Packages" | sed '/^Package:/a Status: install ok installed' > "$tmpDir"/var/lib/dpkg/status;
+
+apt update "${OPTS[@]}";
+
+declare -a packages=( $(apt "${OPTS[@]}" list --upgradable 2> /dev/null| tail -n +2 | cut -d'/' -f1) );
+
+cd "$debs";
+apt download "${OPTS[@]}" "${packages[@]}";
+
+if ls -1q * &> /dev/null; then
+	installDebs "$debs";
+
+	if ! $noupdate; then
+		buildIndex "/repo";
+	fi;
+fi;
+
+# vim: set filetype=bash :
