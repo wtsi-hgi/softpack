@@ -19,7 +19,7 @@ if [ -v alias ]; then
 fi;
 
 if [ -v aliasversion ]; then
-	metadata+=( "XB-Version-Alias" "$alias" );
+	metadata+=( "XB-Version-Alias" "$aliasversion" );
 fi;
 
 if $softpack; then
