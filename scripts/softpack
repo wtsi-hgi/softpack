@@ -112,6 +112,7 @@ buildContainer() {
 
 	singularity build --sandbox "$root/r" docker://ubuntu:latest;
 	mkdir "$root/r/"{build,test-repo};
+	singularity exec --bind "$root/r/:/other" "$base/softpack.sif" cp /usr/local/bin/controller /other/usr/local/bin/;
 
 	coproc SERVER { startContainer exec "$base/softpack.sif" repo-http 2>&1; };
 	trap "trap '' INT; kill $SERVER_PID; rm -rf ${TMP@Q}" EXIT;

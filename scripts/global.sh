@@ -55,22 +55,7 @@ setMetadata() {
 	declare tmpDir="$(mktemp -d)";
 
 	dpkg-deb -e "$file" "$tmpDir";
-
-	while [ $# -gt 0 ]; do
-		declare key="$1";
-		declare value="$2";
-
-		shift 2;
-
-		if [ -z "$value" ]; then
-			sed -i "/^$key: /d" "$tmpDir/control";
-		elif grep -q "^$key: " "$tmpDir/control"; then
-			sed -i "s/^$key: .*/$key: $value/" "$tmpDir/control";
-		else
-			echo "$key: $value" >> "$tmpDir/control";
-		fi;
-	done;
-
+	controller "$tmpDir/control" "$@";
 	packageControl "$tmpDir" "$file";
 }
 

@@ -61,6 +61,8 @@ mv -f "$SIF" "$output";
 
 exit 0;
 
+set -euo pipefail;
+
 rm /etc/{passwd,group};
 mv /etc/passwd{.orig,};
 mv /etc/group{.orig,};
@@ -280,10 +282,107 @@ func run() error {
 }
 HEREDOC
 
-go build;
-mv repo-http /usr/bin
+go build -o /usr/local/bin/repo-http;
+
+cat <<HEREDOC > go.mod
+module controller
+
+go 1.26.0
+
+require (
+	github.com/ProtonMail/go-crypto v1.5.2 // indirect
+	github.com/cloudflare/circl v1.6.5 // indirect
+	golang.org/x/crypto v0.58.0 // indirect
+	golang.org/x/sys v0.49.0 // indirect
+	pault.ag/go/debian v0.21.3 // indirect
+	pault.ag/go/topsort v0.1.1 // indirect
+)
+HEREDOC
+
+cat <<HEREDOC > go.sum
+github.com/ProtonMail/go-crypto v1.5.2 h1:cucYnvqcY7UOXVD//mSyjeaPY0SSN3v5cDkYPxumINk=
+github.com/ProtonMail/go-crypto v1.5.2/go.mod h1:/RaSu30DaKO4RY+XdV/ACcCcZkGr7AhUIduq5sjzzCo=
+github.com/cloudflare/circl v1.6.5 h1:O64F26HEqNhznd/hrC5KZXVKYuKM2rx4deZDTc4ihQA=
+github.com/cloudflare/circl v1.6.5/go.mod h1:h5LNyxAc5nTue9DS5jT+48en2PSDYt3zdGnz5OstK6c=
+golang.org/x/crypto v0.58.0 h1:COkYLr4k7nDI4r6QtMML2AfzeIswWHAJthLS6K/M/54=
+golang.org/x/crypto v0.58.0/go.mod h1:Xh+kl5A+M0gMiWDytH2Hhr5Z7WbNCpv/eB/EFgfSk+w=
+golang.org/x/sys v0.49.0 h1:XbzkgYJHdqh/8m2Uu0W/dQv8nktxx4BFHp1M0gROTXA=
+golang.org/x/sys v0.49.0/go.mod h1:hNLxWAXmnKAxqDtdwIYC4bM9oQPEecfsnNMuSxOs3og=
+pault.ag/go/debian v0.21.3 h1:UeUSjK8WuhDqpgigEs7wLwFjt1tXuWdrfI9y+zigJF0=
+pault.ag/go/debian v0.21.3/go.mod h1:Yz4ZaBXxm+pPnt4etjDAUqB9fMG66TK1SroPCFIyjsU=
+pault.ag/go/topsort v0.1.1 h1:L0QnhUly6LmTv0e3DEzbN2q6/FGgAcQvaEw65S53Bg4=
+pault.ag/go/topsort v0.1.1/go.mod h1:r1kc/L0/FZ3HhjezBIPaNVhkqv8L0UJ9bxRuHRVZ0q4=
+HEREDOC
+
+cat <<HEREDOC > main.go
+package main
+
+import (
+	"errors"
+	"fmt"
+	"os"
+	"slices"
+	"strings"
+
+	"pault.ag/go/debian/control"
+)
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+
+		os.Exit(1)
+	}
+}
+
+func run() error {
+	if len(os.Args)%2 != 0 {
+		return errors.New("Usage: controller /path/to/control/file [Field Value]...")
+	}
+
+	c, err := control.ParseControlFile(os.Args[1])
+	if err != nil {
+		return fmt.Errorf("error reading control file: %w", err)
+	}
+
+	for k, v := range c.Source.Paragraph.Values {
+		c.Source.Paragraph.Values[k] = strings.TrimSpace(v)
+	}
+
+	for i := 2; i < len(os.Args); i += 2 {
+		if os.Args[i+1] == "" {
+			idx := slices.Index(c.Source.Order, os.Args[i])
+
+			if idx >= 0 {
+				c.Source.Order = slices.Delete(c.Source.Order, idx, idx+1)
+			}
+		} else {
+			c.Source.Set(os.Args[i], os.Args[i+1])
+		}
+	}
+
+	f, err := os.Create(os.Args[1])
+	if err != nil {
+		return fmt.Errorf("error creating control file: %w", err)
+	}
+
+	if err = c.Source.WriteTo(f); err != nil {
+		return fmt.Errorf("error writing control file: %w", err)
+	}
+
+	if err = f.Close(); err != nil {
+		return fmt.Errorf("error closing control file: %w", err)
+	}
+
+	return nil
+}
+HEREDOC
+
+go build -o /usr/local/bin/controller;
+go clean -cache -modcache;
+
 cd - &> /dev/null;
-rm -rf t;
+rm -rf /t;
 
 for bin in "${bins[@]}"; do
 	rm -f "$bin";
