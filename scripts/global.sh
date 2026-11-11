@@ -183,7 +183,7 @@ downloadDeps() {
 		cd "$aptDir";
 		mkdir -p "dists/resolute/main/binary-amd64";
 		mkdir -p "pool/main/binary-amd64";
-		cp "$downloadDir"/* "./pool/main/binary-amd64/";
+		cp "$downloadDir"/*.deb "./pool/main/binary-amd64/";
 		cat > release.conf <<HEREDOC
 APT::FTPArchive::Release::Origin "HGI";
 APT::FTPArchive::Release::Label "SoftPack";
