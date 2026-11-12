@@ -235,7 +235,7 @@ fi;
 	echo "#!/usr/bin/dh-exec";
 
 	for m in "${move[@]}"; do
-		sed -e 's@^ */\?\(.*\) *=> */\?\(.*\) *$@\1 \2@' <<< "$m";
+		sed -e 's@^ */\?\(.*\) *\(=>\) */\?\(.*\) *$@\1 \2 \3@' <<< "$m";
 	done;
 ) > "debian/install";
 
