@@ -1,0 +1,174 @@
+#!buildContainer
+# Build deb files from CPAN
+: --name string           # Name of the package
+: --version [string]      # Version of the package
+: --builddep pkg[]        # Build dependency
+: --rundep pkg[]          # Runtime dependency
+: --description [string]  # Description of package
+: --library               # Package is a library that should not be exposed to SoftPack.
+: --alias [string]        # Alias to show to SoftPack
+: --aliasversion [string] # Version Alias to show to SoftPack
+: --patch string[]        # Path to patch file
+: --cflags [string]       # Pass C compliation flags
+: --cxxflags [string]     # Pass C++ complilation flags
+: --ldflags [string]      # Pass Linker flags
+: --cppflags [string]     # Pass C/C++ preprocessor flags
+: --prebuild [string]     # Instructions to run before general make instructions
+: --envvar string[]       # Env var to preserve during build
+: --skiptests             # Skip build tests
+: --debug                 # Enable simple debugging
+
+aptSources > /etc/apt/sources.list.d/apt.list;
+
+if [ "${#patch[@]}" -gt 0 ]; then
+	mapfile -d '' patchPaths < <(printf '%s\0' "${patch[@]}" | xargs -0 realpath -z);
+fi;
+
+declare -A envs=();
+
+while read env; do
+	envs+=( ["$env"]=1 );
+done < <(ls /.singularity.d/env);
+
+export DEBIAN_FRONTEND=noninteractive;
+apt update;
+apt -y -o DPkg::Options::=--force-not-root upgrade;
+apt -y -o DPkg::Options::=--force-not-root install apt-cudf;
+apt -y -o DPkg::Options::=--force-not-root -o DPkg::Options::=--force-overwrite install -o APT::Solver="aspcud" --allow-downgrades --allow-change-held-packages --no-strict-pinning wget git fossil unzip build-essential debhelper dh-make-perl devscripts dh-exec dpkg-dev apt-utils zstd cmake dctrl-tools apt-file libconfig-model-dpkg-perl pristine-tar cpanminus liblwp-protocol-https-perl libconfig-model-dpkg-perl "${builddep[@]}" "${rundep[@]}";
+
+patch -d /usr/share/perl5/Debian/Control -p1 <<'HEREDOC'
+diff --git a/FromCPAN.pm b/FromCPAN.pm
+index cc1304c..b5c18b8 100644
+--- a/FromCPAN.pm
++++ b/FromCPAN.pm
+@@ -424,6 +424,11 @@ sub find_debs_for_modules {
+                 @pkgs = grep { !is_core_perl_package($_) } @pkgs;
+
+                 if (@pkgs) {
++                    if ( defined $version and $version =~ /^\d+\.\d{6,}$/ ) {
++                        $version = version->parse($version)->normal;
++                        $version =~ s/^v//;
++                    }
++
+                     $direct_dep = Debian::Dependency->new(
+                           ( @pkgs > 1 )
+                         ? [ map { { pkg => $_, ver => $version } } @pkgs ]
+HEREDOC
+
+while read env; do
+	if [ ! -v envs["$env"] ]; then
+		source /.singularity.d/env/"$env";
+	fi;
+done < <(ls /.singularity.d/env);
+
+cd "/build";
+
+declare -a args=( "--arch" "all" );
+
+if [ -v description ]; then
+	args+=( "--desc" "$description" );
+fi;
+
+if [ "${#rundep[@]}" -gt 0 ]; then
+	args+=( "--depends" "$(tr ' ' ',' <<<"${rundep[*]}")" );
+fi;
+
+export HOME="$(mktemp -d)";
+export PERL_CPANM_HOME="/build/";
+
+if [ -v version ]; then
+	http_proxy="" cpanm --look "$name@$version" <<< "dh-make-perl ${args[@]@Q} < /dev/null";
+	mv /build/work/*/*/ /build/"$(grep "^Package: " < /build/work/*/*/debian/control | head -n1 | cut -d' ' -f2-)";
+	rm -rf /build/work
+else
+	dh-make-perl --cpan "$name" "${args[@]}" < /dev/null;
+fi;
+
+cd /build/*/;
+
+cat <<HEREDOC > "debian/rules";
+#!/usr/bin/make -f
+
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
+${cflags+export DEB_CFLAGS_MAINT_APPEND = }${cflags:-}
+${cxxflags+export DEB_CXXFLAGS_MAINT_APPEND = }${cxxflags:-}
+${cppflags+export DEB_CPPFLAGS_MAINT_APPEND = }${cppflags:-}
+${ldflags+export DEB_LDFLAGS_MAINT_APPEND = }${ldflags:-}
+$(
+	for ev in "${envvar[@]}"; do
+		echo "export $ev = ${!ev}";
+	done;
+)
+
+%:
+	dh \$@;
+override_dh_auto_clean:
+override_dh_auto_configure:
+	$(	
+		if [ "${#patch[@]}" -gt 0 ]; then
+			for patch in "${patchPaths[@]}"; do
+				if [ "${patch: -3}" = ".sh" ]; then
+					echo "bash ${patch@Q};";
+				else
+					echo "patch -p1 < ${patch@Q}";
+				fi;
+			done;
+		fi;
+	)
+	dh_auto_configure;
+override_dh_installchangelogs:
+override_dh_auto_test:
+HEREDOC
+
+if ! $skiptests; then
+	cat <<HEREDOC >> "debian/rules";
+	dh_auto_test || ( \
+		echo "=== TEST FAILING: DUMPING LOGS ==="; \
+		if [ -d "test" ]; then find test/ -name "*.err" -o -name "*.log" | xargs -I {} sh -c 'echo "--- {} ---"; cat {}'; fi; \
+		exit 2 \
+	)
+HEREDOC
+fi;
+
+declare -a evs=();
+
+DEB_BUILD_OPTIONS=parallel=1 debuild -us -uc;
+
+cd /build;
+
+if $debug; then
+	find -ls;
+fi;
+
+declare debs="/build/debs";
+
+mkdir "$debs";
+mv /build/*.deb "$debs";
+
+declare -a metadata=();
+
+if ! $library; then
+	metadata+=( "XB-Softpack" "true" );
+fi;
+
+if [ -v alias ]; then
+	metadata+=( "XB-Alias" "$alias" );
+fi;
+
+if [ -v aliasversion ]; then
+	metadata+=( "XB-Version-Alias" "$aliasversion" );
+fi;
+
+setMetadata "$debs"/*.deb "Description" "$(dpkg-deb -f "$debs"/*.deb Description | sed '$!N;/\n.*This description was automagically extracted from the module by dh-make-perl/d;P;D')" "${metadata[@]}";
+
+cd "$debs";
+
+if $debug; then
+	dpkg -I *.deb;
+	dpkg -c *.deb;
+fi;
+
+downloadDeps "$debs";
+installDebs "$debs";
+
+# vim: set filetype=bash :
