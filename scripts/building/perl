@@ -1,4 +1,4 @@
-#!buildContainer
+#!buildContainer perl
 # Build deb files from CPAN
 : --name string           # Name of the package
 : --version [string]      # Version of the package
@@ -31,28 +31,45 @@ while read env; do
 done < <(ls /.singularity.d/env);
 
 export DEBIAN_FRONTEND=noninteractive;
+
 apt update;
-apt -y -o DPkg::Options::=--force-not-root upgrade;
-apt -y -o DPkg::Options::=--force-not-root install apt-cudf;
-apt -y -o DPkg::Options::=--force-not-root -o DPkg::Options::=--force-overwrite install -o APT::Solver="aspcud" --allow-downgrades --allow-change-held-packages --no-strict-pinning wget git fossil unzip build-essential debhelper dh-make-perl devscripts dh-exec dpkg-dev apt-utils zstd cmake dctrl-tools apt-file libconfig-model-dpkg-perl pristine-tar cpanminus liblwp-protocol-https-perl libconfig-model-dpkg-perl "${builddep[@]}" "${rundep[@]}";
+apt -y -o DPkg::Options::=--force-not-root -o Dpkg::Options::="--force-overwrite" upgrade;
 
-patch -d /usr/share/perl5/Debian/Control -p1 <<'HEREDOC'
-diff --git a/FromCPAN.pm b/FromCPAN.pm
-index cc1304c..b5c18b8 100644
---- a/FromCPAN.pm
-+++ b/FromCPAN.pm
-@@ -424,6 +424,11 @@ sub find_debs_for_modules {
-                 @pkgs = grep { !is_core_perl_package($_) } @pkgs;
+if [ "${#builddep[@]}" -gt 0 -o "${#rundep[@]}" -gt 0 ]; then
+	apt -y -o DPkg::Options::=--force-not-root -o DPkg::Options::=--force-overwrite install -o APT::Solver="aspcud" --allow-downgrades --allow-change-held-packages --no-strict-pinning "${builddep[@]}" "${rundep[@]}";
+fi;
 
-                 if (@pkgs) {
-+                    if ( defined $version and $version =~ /^\d+\.\d{6,}$/ ) {
-+                        $version = version->parse($version)->normal;
-+                        $version =~ s/^v//;
-+                    }
-+
-                     $direct_dep = Debian::Dependency->new(
-                           ( @pkgs > 1 )
-                         ? [ map { { pkg => $_, ver => $version } } @pkgs ]
+mkdir -p /usr/local/lib/site_perl/;
+
+cat <<'HEREDOC' > /usr/local/lib/site_perl/FixCPANVersion.pm
+package FixCPANVersion;
+use strict;
+use warnings;
+use version;
+use Debian::Dependency;
+
+my $orig_new = \&Debian::Dependency::new;
+no warnings 'redefine';
+*Debian::Dependency::new = sub {
+    my ( $class, @args ) = @_;
+    my $fix = sub {
+        my ($v) = @_;
+        if ( defined $v && $v =~ /^\d+\.\d{6,}$/ ) {
+            $v = version->parse($v)->normal;
+            $v =~ s/^v//;
+        }
+        return $v;
+    };
+
+    if ( @args == 1 && ref $args[0] eq 'ARRAY' ) {
+        $_->{ver} = $fix->( $_->{ver} ) for @{ $args[0] };
+    }
+    elsif ( @args == 2 && !ref $args[0] ) {
+        $args[1] = $fix->( $args[1] );
+    }
+    return $class->$orig_new(@args);
+};
+1;
 HEREDOC
 
 while read env; do
@@ -75,6 +92,7 @@ fi;
 
 export HOME="$(mktemp -d)";
 export PERL_CPANM_HOME="/build/";
+export PERL5OPT="-MFixCPANVersion";
 
 if [ -v version ]; then
 	http_proxy="" cpanm --look "$name@$version" <<< "dh-make-perl ${args[@]@Q} < /dev/null";
