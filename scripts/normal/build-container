@@ -436,6 +436,8 @@ for root in "${ROOTS[@]}"; do
 	ln -s "/etc/passwd.orig" "$root/etc/passwd";
 	ln -s "/etc/group.orig" "$root/etc/group";
 	mkdir -p "$root/"{build,test-repo};
+	echo "APT::Solver::Timeout \"0\";" > "$root/etc/apt/apt.conf.d/50config";
+	chmod 755 "$root/etc/apt/apt.conf.d/50config";
 done;
 
 for i in /containers/*; do
