@@ -92,9 +92,9 @@ startContainer() {
 	if [ "${aptRepo:0:5}" = "s3://" ]; then
 		checkS3Credentials;
 
-		singularity -s "$cmd" --fusemount "$(aptMount)" "$@"
+		${exec:-} singularity -s "$cmd" --fusemount "$(aptMount)" "$@"
 	else
-		singularity -s "$cmd" --bind "$aptRepo:/repo" "$@";
+		${exec:-} singularity -s "$cmd" --bind "$aptRepo:/repo" "$@";
 	fi;
 }
 
@@ -112,19 +112,21 @@ buildContainer() {
 
 	declare root="$(TMPDIR="$TMP" mktemp -d)";
 
-	singularity -s exec --bind "$root/:/export" "$base/softpack.sif" bash -c "tar -cf - -C /containers/${container@Q} . | pv -s \$(cat /containers/$container.size) | tar -xf - -C  /export/";
+	singularity -s exec --pid --bind "$root/:/export" "$base/softpack.sif" bash -c "tar -cf - -C /containers/${container@Q} . | pv -s \$(cat /containers/$container.size) | tar -xf - -C  /export/";
 	mkdir -p "$root/$PWD" &> /dev/null;
 
-	coproc SERVER { startContainer exec --no-pid "$base/softpack.sif" repo-http; };
-	. <(head -n2 <&"${SERVER[0]}");
+	coproc SERVER {
+		declare exec="exec";
 
-	if [ ! -v HR_PID ]; then
+		startContainer exec "$base/softpack.sif" repo-http;
+	};
+	. <(head -n 1 <&"${SERVER[0]}");
+
+	if [ ! -v HR_PORT ]; then
 		echo "Failed to start Repo HTTP server" >&2;
 
 		exit 1;
 	fi;
-
-	trap "trap '' INT; kill -INT $HR_PID; rm -rf ${TMP@Q}" EXIT;
 
 	echo "http://127.0.0.1:$HR_PORT" > $root/repo;
 

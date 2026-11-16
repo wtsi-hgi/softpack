@@ -15,7 +15,7 @@ done < <(ls /.singularity.d/env);
 export DEBIAN_FRONTEND=noninteractive;
 apt update;
 apt -y -o DPkg::Options::=--force-not-root -o Dpkg::Options::="--force-overwrite" upgrade;
-apt -y -o DPkg::Options::=--force-not-root install -o APT::Solver="aspcud" -o Dpkg::Options::="--force-overwrite" --no-install-recommends --allow-downgrades --allow-change-held-packages --allow-remove-essential --no-strict-pinning "${package[@]}";
+apt -y -o DPkg::Options::=--force-not-root install -o Dpkg::Options::="--force-overwrite" --no-install-recommends --allow-downgrades --allow-change-held-packages --allow-remove-essential --no-strict-pinning "${package[@]}";
 
 while read env; do
 	if [ ! -v envs["$env"] ]; then

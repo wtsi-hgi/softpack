@@ -1,7 +1,11 @@
 #!buildContainer perl
 # Build deb files from CPAN
-: --name string           # Name of the package
+: --name [string]         # Name of the package on CPAN
 : --version [string]      # Version of the package
+: --download [URL]        # Download
+: --git [URL]             # Git repo
+: --fossil [URL]          # Fossil repo
+: --tag [id]              # Git repo branch, tag, or commit to checkout
 : --builddep pkg[]        # Build dependency
 : --rundep pkg[]          # Runtime dependency
 : --description [string]  # Description of package
@@ -33,7 +37,7 @@ done < <(ls /.singularity.d/env);
 export DEBIAN_FRONTEND=noninteractive;
 
 apt update;
-apt -y -o DPkg::Options::=--force-not-root -o Dpkg::Options::="--force-overwrite" upgrade;
+#apt -y -o DPkg::Options::=--force-not-root -o Dpkg::Options::="--force-overwrite" upgrade;
 
 if [ "${#builddep[@]}" -gt 0 -o "${#rundep[@]}" -gt 0 ]; then
 	apt -y -o DPkg::Options::=--force-not-root -o DPkg::Options::=--force-overwrite install -o APT::Solver="aspcud" --allow-downgrades --allow-change-held-packages --no-strict-pinning "${builddep[@]}" "${rundep[@]}";
@@ -94,7 +98,41 @@ export HOME="$(mktemp -d)";
 export PERL_CPANM_HOME="/build/";
 export PERL5OPT="-MFixCPANVersion";
 
-if [ -v version ]; then
+if [ -v git ]; then
+	mkdir src;
+	cd src;
+
+	git clone "$git" .;
+
+	if [ -v tag ]; then
+		git checkout "$tag";
+	fi;
+
+	git submodule update --init --recursive;
+	dh-make-perl "${args[@]}" < /dev/null;
+elif [ -v download ]; then
+	mkdir src;
+	cd src;
+
+	if [ "${download:0:6}" = "ftp://" ]; then
+		wget "$download" --no-passive-ftp -O "/build/source";
+	else
+		wget "$download" --no-check-certificate -O "/build/source";
+	fi;
+
+	case "$download" in
+	*".zip")
+		unzip -q "/build/source" -d .;;
+	*)
+		tar -xvf "/build/source" -C . --strip-components=1;;
+	esac;
+
+	dh-make-perl "${args[@]}" < /dev/null;
+elif [ ! -v name ]; then
+	echo "One of --name, --git, or --download required" >&2;
+
+	exit 1;
+elif [ -v version ]; then
 	http_proxy="" cpanm --look "$name@$version" <<< "dh-make-perl ${args[@]@Q} < /dev/null";
 	mv /build/work/*/*/ /build/"$(grep "^Package: " < /build/work/*/*/debian/control | head -n1 | cut -d' ' -f2-)";
 	rm -rf /build/work
@@ -122,17 +160,17 @@ $(
 	dh \$@;
 override_dh_auto_clean:
 override_dh_auto_configure:
-	$(	
-		if [ "${#patch[@]}" -gt 0 ]; then
-			for patch in "${patchPaths[@]}"; do
-				if [ "${patch: -3}" = ".sh" ]; then
-					echo "bash ${patch@Q};";
-				else
-					echo "patch -p1 < ${patch@Q}";
-				fi;
-			done;
-		fi;
-	)
+$(
+	if [ "${#patch[@]}" -gt 0 ]; then
+		for patch in "${patchPaths[@]}"; do
+			if [ "${patch: -3}" = ".sh" ]; then
+				echo "	bash ${patch@Q};";
+			else
+				echo "	patch -p1 < ${patch@Q};";
+			fi;
+		done;
+	fi;
+)
 	dh_auto_configure;
 override_dh_installchangelogs:
 override_dh_auto_test:
@@ -150,7 +188,7 @@ fi;
 
 declare -a evs=();
 
-DEB_BUILD_OPTIONS=parallel=1 debuild -us -uc;
+DEB_BUILD_OPTIONS=parallel=1 debuild -b -us -uc;
 
 cd /build;
 

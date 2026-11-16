@@ -51,7 +51,7 @@ apt update;
 apt -y -o DPkg::Options::=--force-not-root -o Dpkg::Options::="--force-overwrite" upgrade;
 
 if [ "${#builddep[@]}" -gt 0 -o "${#rundep[@]}" -gt 0 ]; then
-	apt -y -o DPkg::Options::=--force-not-root -o DPkg::Options::=--force-overwrite install -o APT::Solver="aspcud" --allow-downgrades --allow-change-held-packages --no-strict-pinning "${builddep[@]}" "${rundep[@]}";
+	apt -y -o DPkg::Options::=--force-not-root -o DPkg::Options::=--force-overwrite install --solver 3.0 --allow-downgrades --allow-change-held-packages --no-strict-pinning "${builddep[@]}" "${rundep[@]}";
 fi;
 
 while read env; do
@@ -177,6 +177,19 @@ override_dh_autoreconf:
 	done < "debian/autoreconf";
 
 	if [ -f "configure.ac" -o -f "configure.in" ]; then dh_autoreconf; fi;
+override_dh_auto_configure:
+$(
+	if [ "${#patch[@]}" -gt 0 ]; then
+		for patch in "${patchPaths[@]}"; do
+			if [ "${patch: -3}" = ".sh" ]; then
+				echo "	bash ${patch@Q};";
+			else
+				echo "	patch -p1 < ${patch@Q};";
+			fi;
+		done;
+	fi;
+)
+	dh_auto_configure;
 override_dh_auto_build:
 	${prebuild:-}
 	$(
@@ -248,17 +261,7 @@ done > "debian/links";
 
 chmod +x "debian/install"
 
-if [ "${#patch[@]}" -gt 0 ]; then
-	for patch in "${patchPaths[@]}"; do
-		if [ "${patch: -3}" = ".sh" ]; then
-			bash "$patch";
-		else
-			patch -p1 < "$patch";
-		fi;
-	done;
-fi;
-
-DEB_BUILD_OPTIONS=parallel=1 debuild -us -uc;
+DEB_BUILD_OPTIONS=parallel=1 debuild -b -us -uc;
 
 if $debug; then
 	find -ls;
