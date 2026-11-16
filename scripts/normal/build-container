@@ -324,7 +324,7 @@ func run() error {
 		return err
 	}
 
-	fmt.Println("Listening on:", port)
+	fmt.Printf("export HR_PID=%d\nexport HR_PORT=%q\n", os.Getpid(), port)
 
 	return http.Serve(l, http.FileServer(http.Dir("/repo")))
 }
