@@ -8,7 +8,7 @@ export DEBFULLNAME="hgi";
 export DEBEMAIL="hgi@sanger.ac.uk";
 declare maintainer="$DEBFULLNAME <$DEBEMAIL>";
 
-if [ -d /test-repo ]; then
+if [ -f /repo ]; then
 	BASE=/test-repo/pool/main/binary-amd64/;
 fi;
 
@@ -107,7 +107,7 @@ aptSources() {
 	deb [trusted=yes] http://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/ resolute main
 HEREDOC
 
-	if [ -d /test-repo ]; then
+	if [ -f /repo ]; then
 		echo "deb [trusted=yes] file:///test-repo resolute main";
 	fi;
 
@@ -136,7 +136,7 @@ aptOpts() {
 	Pin-Priority: 500
 HEREDOC
 
-	if [ -d /test-repo ]; then
+	if [ -f /repo ]; then
 		cat <<-HEREDOC >> "$tmpDir/etc/apt/preferences.d/99-local-priority"
 		Package: *
 		Pin: release l=SoftPackTest
