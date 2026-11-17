@@ -24,7 +24,7 @@ elif [ -v name ]; then
 	apt update "${OPTS[@]}";
 
 	if [ -v version ]; then
-		apt download "${OPTS[@]}" "$name==$version";
+		apt download "${OPTS[@]}" "$name=$version";
 	else
 		apt download "${OPTS[@]}" "$name";
 	fi;
