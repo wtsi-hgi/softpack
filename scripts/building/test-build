@@ -5,6 +5,7 @@
 rm -rf /etc/apt/sources.list.d/*;
 
 aptSources | grep "\(file:///\|127.0.0.1\)" > /etc/apt/sources.list.d/apt.list;
+aptPins > /etc/apt/preferences.d/99-local-priority;
 
 declare -A envs=();
 

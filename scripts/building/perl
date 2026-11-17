@@ -22,8 +22,6 @@
 : --skiptests             # Skip build tests
 : --debug                 # Enable simple debugging
 
-aptSources > /etc/apt/sources.list.d/apt.list;
-
 if [ "${#patch[@]}" -gt 0 ]; then
 	mapfile -d '' patchPaths < <(printf '%s\0' "${patch[@]}" | xargs -0 realpath -z);
 fi;
@@ -35,6 +33,9 @@ while read env; do
 done < <(ls /.singularity.d/env);
 
 export DEBIAN_FRONTEND=noninteractive;
+
+aptSources > /etc/apt/sources.list.d/apt.list;
+aptPins > /etc/apt/preferences.d/99-local-priority;
 
 apt update;
 #apt -y -o DPkg::Options::=--force-not-root -o Dpkg::Options::="--force-overwrite" upgrade;

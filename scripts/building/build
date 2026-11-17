@@ -38,6 +38,7 @@ if [ "${#patch[@]}" -gt 0 ]; then
 fi;
 
 aptSources > /etc/apt/sources.list.d/apt.list;
+aptPins > /etc/apt/preferences.d/99-local-priority;
 
 declare -A envs=();
 

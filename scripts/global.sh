@@ -100,21 +100,50 @@ setExecutables() {
 }
 
 aptSources() {
-	if [ -f /repo ]; then sed -e 's@file:///repo@'$(cat /repo)'@'; else cat; fi <<-HEREDOC
-	deb [trusted=yes] file:///repo resolute main
-	deb [trusted=yes] http://r2u.stat.illinois.edu/ubuntu resolute main
-	deb [trusted=yes] http://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu/ resolute main
-	deb [trusted=yes] http://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/ resolute main
-HEREDOC
+	if [ -v aptDir ]; then
+		echo "deb [trusted=yes] file://$aptDir resolute main";
+	fi;
 
 	if [ -f /repo ]; then
 		echo "deb [trusted=yes] file:///test-repo resolute main";
 	fi;
 
+	if [ -f /repo ]; then
+		echo "deb [trusted=yes] $(cat /repo) resolute main";
+	else
+		echo "deb [trusted=yes] file:///repo resolute main";
+	fi;
+
+	cat <<-HEREDOC
+	deb [trusted=yes] http://r2u.stat.illinois.edu/ubuntu resolute main
+	deb [trusted=yes] http://ppa.launchpadcontent.net/marutter/rrutter4.0/ubuntu/ resolute main
+	deb [trusted=yes] http://ppa.launchpadcontent.net/deadsnakes/ppa/ubuntu/ resolute main
+HEREDOC
+
 	if [ -v repo ]; then
 		for r in "${repo[@]}"; do
 			sed -e 's/^\(deb\(-src\)\?\) \([^[]\)/\1 [trusted=yes] \3/' <<< "$r";
 		done;
+	fi;
+}
+
+aptPins() {
+	cat <<-HEREDOC
+	Package: *
+	Pin: release l=SoftPack
+	Pin-Priority: 990
+
+	Package: *
+	Pin: release n=resolute
+	Pin-Priority: 500
+HEREDOC
+
+	if [ -f /repo ]; then
+		cat <<-HEREDOC
+		Package: *
+		Pin: release l=SoftPackTest
+		Pin-Priority: 1001
+HEREDOC
 	fi;
 }
 
@@ -126,32 +155,8 @@ aptOpts() {
 
 	cp "/etc/apt/sources.list.d/ubuntu.sources" "$tmpDir/etc/apt/sources.list.d/";
 
-	cat <<-HEREDOC > "$tmpDir/etc/apt/preferences.d/99-local-priority"
-	Package: *
-	Pin: release l=SoftPack
-	Pin-Priority: 990
-
-	Package: *
-	Pin: release n=resolute
-	Pin-Priority: 500
-HEREDOC
-
-	if [ -f /repo ]; then
-		cat <<-HEREDOC >> "$tmpDir/etc/apt/preferences.d/99-local-priority"
-		Package: *
-		Pin: release l=SoftPackTest
-		Pin-Priority: 1001
-HEREDOC
-	fi;
-
-	{
-		aptSources;
-
-		if [ -v aptDir ]; then
-			echo "deb [trusted=yes] file://$aptDir resolute main";
-		fi;
-        } > "$tmpDir/etc/apt/sources.list.d/apt.list";
-
+	aptPins > "$tmpDir/etc/apt/preferences.d/99-local-priority";
+	aptSources > "$tmpDir/etc/apt/sources.list.d/apt.list";
 
 	OPTS=(
 		-o Dir::Etc="$tmpDir/etc/apt/"
