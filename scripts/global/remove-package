@@ -5,7 +5,7 @@
 : --remove         # Remove file from Repo
 : --noupdate       # Do not automatically update repo index
 
-[ -d /test-repo ] && cd /test-repo || cd /repo;
+[ -d /repo ] && cd /repo || cd /test-repo;
 
 mapfile -t filename < <(grep-dctrl -X -F Package "$name" --and -r -F Version "^${version//./\.}" -s Filename -n dists/resolute/main/binary-amd64/Packages);
 
