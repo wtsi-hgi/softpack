@@ -1,10 +1,10 @@
 # Rebuild the APT repo index.
 : --from-scratch # Ignore the cache when building the repo.
 
-if [ -d /test-repo ]; then
-	buildIndex /test-repo "$fromscratch";
-else
+if [ -e /repo ]; then
 	buildIndex /repo "$fromscratch";
+else
+	buildIndex /test-repo "$fromscratch";
 fi;
 
 # vim: set filetype=bash :
