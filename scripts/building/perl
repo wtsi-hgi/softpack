@@ -1,0 +1,231 @@
+#!buildContainer perl
+# Build deb files from CPAN
+: --name [string]         # Name of the package on CPAN
+: --version [string]      # Version of the package
+: --download [URL]        # Download
+: --git [URL]             # Git repo
+: --fossil [URL]          # Fossil repo
+: --tag [id]              # Git repo branch, tag, or commit to checkout
+: --builddep pkg[]        # Build dependency
+: --rundep pkg[]          # Runtime dependency
+: --description [string]  # Description of package
+: --library               # Package is a library that should not be exposed to SoftPack.
+: --alias [string]        # Alias to show to SoftPack
+: --aliasversion [string] # Version Alias to show to SoftPack
+: --patch string[]        # Path to patch file
+: --cflags [string]       # Pass C compliation flags
+: --cxxflags [string]     # Pass C++ complilation flags
+: --ldflags [string]      # Pass Linker flags
+: --cppflags [string]     # Pass C/C++ preprocessor flags
+: --prebuild [string]     # Instructions to run before general make instructions
+: --envvar string[]       # Env var to preserve during build
+: --skiptests             # Skip build tests
+: --debug                 # Enable simple debugging
+
+if [ "${#patch[@]}" -gt 0 ]; then
+	mapfile -d '' patchPaths < <(printf '%s\0' "${patch[@]}" | xargs -0 realpath -z);
+fi;
+
+declare -A envs=();
+
+while read env; do
+	envs+=( ["$env"]=1 );
+done < <(ls /.singularity.d/env);
+
+export DEBIAN_FRONTEND=noninteractive;
+
+aptSources > /etc/apt/sources.list.d/apt.list;
+aptPins > /etc/apt/preferences.d/99-local-priority;
+
+apt update;
+#apt -y -o DPkg::Options::=--force-not-root -o Dpkg::Options::="--force-overwrite" upgrade;
+
+if [ "${#builddep[@]}" -gt 0 -o "${#rundep[@]}" -gt 0 ]; then
+	apt -y -o DPkg::Options::=--force-not-root -o DPkg::Options::=--force-overwrite install -o APT::Solver="aspcud" --allow-downgrades --allow-change-held-packages --no-strict-pinning "${builddep[@]}" "${rundep[@]}";
+fi;
+
+mkdir -p /usr/local/lib/site_perl/;
+
+cat <<'HEREDOC' > /usr/local/lib/site_perl/FixCPANVersion.pm
+package FixCPANVersion;
+use strict;
+use warnings;
+use version;
+use Debian::Dependency;
+
+my $orig_new = \&Debian::Dependency::new;
+no warnings 'redefine';
+*Debian::Dependency::new = sub {
+    my ( $class, @args ) = @_;
+    my $fix = sub {
+        my ($v) = @_;
+        if ( defined $v && $v =~ /^\d+\.\d{6,}$/ ) {
+            $v = version->parse($v)->normal;
+            $v =~ s/^v//;
+        }
+        return $v;
+    };
+
+    if ( @args == 1 && ref $args[0] eq 'ARRAY' ) {
+        $_->{ver} = $fix->( $_->{ver} ) for @{ $args[0] };
+    }
+    elsif ( @args == 2 && !ref $args[0] ) {
+        $args[1] = $fix->( $args[1] );
+    }
+    return $class->$orig_new(@args);
+};
+1;
+HEREDOC
+
+while read env; do
+	if [ ! -v envs["$env"] ]; then
+		source /.singularity.d/env/"$env";
+	fi;
+done < <(ls /.singularity.d/env);
+
+cd "/build";
+
+declare -a args=( "--arch" "all" );
+
+if [ -v description ]; then
+	args+=( "--desc" "$description" );
+fi;
+
+if [ "${#rundep[@]}" -gt 0 ]; then
+	args+=( "--depends" "$(tr ' ' ',' <<<"${rundep[*]}")" );
+fi;
+
+export HOME="$(mktemp -d)";
+export PERL_CPANM_HOME="/build/";
+export PERL5OPT="-MFixCPANVersion";
+
+if [ -v git ]; then
+	mkdir src;
+	cd src;
+
+	git clone "$git" .;
+
+	if [ -v tag ]; then
+		git checkout "$tag";
+	fi;
+
+	git submodule update --init --recursive;
+	dh-make-perl "${args[@]}" < /dev/null;
+elif [ -v download ]; then
+	mkdir src;
+	cd src;
+
+	if [ "${download:0:6}" = "ftp://" ]; then
+		wget "$download" --no-passive-ftp -O "/build/source";
+	else
+		wget "$download" --no-check-certificate -O "/build/source";
+	fi;
+
+	case "$download" in
+	*".zip")
+		unzip -q "/build/source" -d .;;
+	*)
+		tar -xvf "/build/source" -C . --strip-components=1;;
+	esac;
+
+	dh-make-perl "${args[@]}" < /dev/null;
+elif [ ! -v name ]; then
+	echo "One of --name, --git, or --download required" >&2;
+
+	exit 1;
+elif [ -v version ]; then
+	http_proxy="" cpanm --look "$name@$version" <<< "dh-make-perl ${args[@]@Q} < /dev/null";
+	mv /build/work/*/*/ /build/"$(grep "^Package: " < /build/work/*/*/debian/control | head -n1 | cut -d' ' -f2-)";
+	rm -rf /build/work
+else
+	dh-make-perl --cpan "$name" "${args[@]}" < /dev/null;
+fi;
+
+cd /build/*/;
+
+cat <<HEREDOC > "debian/rules";
+#!/usr/bin/make -f
+
+export CMAKE_POLICY_VERSION_MINIMUM=3.5
+${cflags+export DEB_CFLAGS_MAINT_APPEND = }${cflags:-}
+${cxxflags+export DEB_CXXFLAGS_MAINT_APPEND = }${cxxflags:-}
+${cppflags+export DEB_CPPFLAGS_MAINT_APPEND = }${cppflags:-}
+${ldflags+export DEB_LDFLAGS_MAINT_APPEND = }${ldflags:-}
+$(
+	for ev in "${envvar[@]}"; do
+		echo "export $ev = ${!ev}";
+	done;
+)
+
+%:
+	dh \$@;
+override_dh_auto_clean:
+override_dh_auto_configure:
+$(
+	if [ "${#patch[@]}" -gt 0 ]; then
+		for patch in "${patchPaths[@]}"; do
+			if [ "${patch: -3}" = ".sh" ]; then
+				echo "	bash ${patch@Q};";
+			else
+				echo "	patch -p1 < ${patch@Q};";
+			fi;
+		done;
+	fi;
+)
+	dh_auto_configure;
+override_dh_installchangelogs:
+override_dh_auto_test:
+HEREDOC
+
+if ! $skiptests; then
+	cat <<HEREDOC >> "debian/rules";
+	dh_auto_test || ( \
+		echo "=== TEST FAILING: DUMPING LOGS ==="; \
+		if [ -d "test" ]; then find test/ -name "*.err" -o -name "*.log" | xargs -I {} sh -c 'echo "--- {} ---"; cat {}'; fi; \
+		exit 2 \
+	)
+HEREDOC
+fi;
+
+declare -a evs=();
+
+DEB_BUILD_OPTIONS=parallel=1 debuild -b -us -uc;
+
+cd /build;
+
+if $debug; then
+	find -ls;
+fi;
+
+declare debs="/build/debs";
+
+mkdir "$debs";
+mv /build/*.deb "$debs";
+
+declare -a metadata=();
+
+if ! $library; then
+	metadata+=( "XB-Softpack" "true" );
+fi;
+
+if [ -v alias ]; then
+	metadata+=( "XB-Alias" "$alias" );
+fi;
+
+if [ -v aliasversion ]; then
+	metadata+=( "XB-Version-Alias" "$aliasversion" );
+fi;
+
+setMetadata "$debs"/*.deb "Description" "$(dpkg-deb -f "$debs"/*.deb Description | sed '$!N;/\n.*This description was automagically extracted from the module by dh-make-perl/d;P;D')" "${metadata[@]}";
+
+cd "$debs";
+
+if $debug; then
+	dpkg -I *.deb;
+	dpkg -c *.deb;
+fi;
+
+downloadDeps "$debs";
+installDebs "$debs";
+
+# vim: set filetype=bash :
